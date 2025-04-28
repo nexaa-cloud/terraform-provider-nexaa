@@ -1,34 +1,54 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
-	"testing"
+    "fmt"
+    "os"
+    "testing"
 
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-testing/echoprovider"
+    "github.com/hashicorp/terraform-plugin-framework/providerserver"
+    "github.com/hashicorp/terraform-plugin-go/tfprotov6"
+    "github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-// testAccProtoV6ProviderFactories is used to instantiate a provider during acceptance testing.
-// The factory function is called for each Terraform CLI command to create a provider
-// server that the CLI can connect to and interact with.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
-}
-
-// testAccProtoV6ProviderFactoriesWithEcho includes the echo provider alongside the scaffolding provider.
-// It allows for testing assertions on data returned by an ephemeral resource during Open.
-// The echoprovider is used to arrange tests by echoing ephemeral data into the Terraform state.
-// This lets the data be referenced in test assertions with state checks.
-var testAccProtoV6ProviderFactoriesWithEcho = map[string]func() (tfprotov6.ProviderServer, error){
-	"scaffolding": providerserver.NewProtocol6WithError(New("test")()),
-	"echo":        echoprovider.NewProviderServer(),
+    "nexaa": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
-	// You can add code here to run prior to any test case execution, for example assertions
-	// about the appropriate environment variables being set are common to see in a pre-check
-	// function.
+    if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+        t.Fatal("Environment variables NEXAA_USERNAME and NEXAA_PASSWORD must be set")
+    }
+}
+
+func TestAcc_Namespace_basic(t *testing.T) {
+    user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
+    resource.Test(t, resource.TestCase{
+        PreCheck:                 func() { testAccPreCheck(t) },
+        ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+        Steps: []resource.TestStep{
+            {
+                Config: fmt.Sprintf(`
+					terraform{
+						required_providers {
+							nexaa = {
+								source = "registry.terraform.io/tilaa/nexaa"
+								version = "0.1.0"
+							}
+						}
+					}
+					provider "nexaa" {
+						username = "%s"
+						password = "%s"
+					}
+					resource "nexaa_namespace" "foo" {
+						name = "tf-test-%d"
+					}`, user, pass, os.Getpid()),
+
+                Check: resource.ComposeAggregateTestCheckFunc(
+                    resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", fmt.Sprintf("tf-test-%d", os.Getpid())),
+                    resource.TestCheckResourceAttrSet("nexaa_namespace.foo", "id"),
+                ),
+            },
+        },
+    })
 }
