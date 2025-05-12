@@ -208,51 +208,73 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state volumeResource
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+    var state volumeResource
+    diags := req.State.Get(ctx, &state)
+    resp.Diagnostics.Append(diags...)
+    if resp.Diagnostics.HasError() {
+        return
+    }
 
-	retries := 3
-	delay := 5
+    const (
+        maxRetries = 4
+        initialDelay = 5 * time.Second
+    )
+    delay := initialDelay
 
-	for i := 0; i<=retries; i++ {
-		volume, err := api.ListVolumeByName(state.NamespaceName.String(), state.Name.ValueString())
-
-		if err != nil {
+    // 1) Poll until unlocked or we exhaust retries
+    var volume *api.Volume
+    var err error
+    for i := 0; i <= maxRetries; i++ {
+        volume, err = api.ListVolumeByName(
+            state.NamespaceName.ValueString(),
+            state.Name.ValueString(),
+        )
+        if err != nil {
             if strings.Contains(err.Error(), "Not found") {
-                // Volume is already gone — nothing to do.
+                // Already gone: warn & exit
                 resp.Diagnostics.AddWarning(
-                    "Volume Not found",
-                    "Volume is already deleted. Or the name or the namespace is incorrect.",
-                )
+					"Volume not found",
+					"Volume is already deleted. Or the name and/or the namespace name is incorrect.",
+				)
                 return
             }
             resp.Diagnostics.AddError(
-                "Error Reading Volume",
+                "Error reading volume",
                 "Could not read volume "+state.Name.ValueString()+": "+err.Error(),
             )
             return
         }
-		if !volume.Locked {
-			break
-		} else {
-			time.Sleep(time.Duration(delay) * time.Second)
-			delay = delay * 2
-		}
-	}
+        if !volume.Locked {
+            // Unlocked! Break out and delete
+            break
+        }
+        // Still locked → wait & backoff
+        time.Sleep(delay)
+        delay *= 2
+    }
 
-	err := api.DeleteVolume(state.Name.ValueString(), state.NamespaceName.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Deleting Volume",
-			"Could not delete volume, error: "+err.Error(),
-		)
-		return
-	}
+    // 2) Now try the actual delete
+    err = api.DeleteVolume(
+        state.Name.ValueString(),
+        state.NamespaceName.ValueString(),
+    )
+    if err != nil {
+        if strings.Contains(err.Error(), "Not found") {
+            // Already gone as of when we called DeleteVolume
+            resp.Diagnostics.AddWarning(
+                "Volume not found",
+				"Volume is already deleted. Or the name and/or the namespace name is incorrect.",
+            )
+            return
+        }
+        resp.Diagnostics.AddError(
+            "Error deleting volume",
+            "Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
+        )
+        return
+    }
 }
+
 
 // ImportState implements resource.ResourceWithImportState.
 func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

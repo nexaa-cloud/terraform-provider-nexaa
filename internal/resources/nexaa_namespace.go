@@ -6,6 +6,7 @@ package resources
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"gitlab.com/tilaa/tilaa-cli/api"
@@ -158,27 +159,72 @@ func (r *namespaceResource) Update(ctx context.Context, req resource.UpdateReque
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state namespaceResource
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+    var state namespaceResource
+    diags := req.State.Get(ctx, &state)
+    resp.Diagnostics.Append(diags...)
+    if resp.Diagnostics.HasError() {
+        return
+    }
 
-	id, err := strconv.Atoi(state.ID.ValueString())
-	if err != nil {
-		return
-	}
+    const (
+        maxRetries   = 4
+        initialDelay = 10 * time.Second
+    )
+    delay := initialDelay
 
-	err1 := api.DeleteNamespace(id)
-	if err1 != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting namespace",
-			"Could not delete namespace, error: "+err1.Error(),
-		)
-		return
-	}
+    // 1) Poll until all child volumes are gone (or we exhaust retries)
+    for i := 0; i <= maxRetries; i++ {
+        vols, err := api.ListVolumes(state.Name.ValueString())
+        if err != nil {
+            if strings.Contains(err.Error(), "Not found") {
+                // Namespace has no volumes (or doesn't exist) – skip wait
+                resp.Diagnostics.AddWarning(
+                    "No volumes found",
+                    "Namespace "+state.Name.ValueString()+" appears to have no volumes; skipping wait.",
+                )
+                break
+            }
+            resp.Diagnostics.AddError(
+                "Error listing volumes",
+                "Could not list volumes for namespace "+state.Name.ValueString()+": "+err.Error(),
+            )
+            return
+        }
+        if len(vols) == 0 {
+            // No volumes left → proceed
+            break
+        }
+        // Still have volumes → wait & back off
+        time.Sleep(delay)
+        delay *= 2
+    }
+
+    // 2) Perform the actual namespace delete
+    id, err := strconv.Atoi(state.ID.ValueString())
+    if err != nil {
+        resp.Diagnostics.AddError(
+            "Invalid namespace ID",
+            "Could not parse namespace ID "+state.ID.ValueString(),
+        )
+        return
+    }
+    if err := api.DeleteNamespace(id); err != nil {
+        msg := err.Error()
+        if strings.Contains(msg, "Not found") || strings.Contains(msg, "locked") {
+            resp.Diagnostics.AddWarning(
+                "Namespace delete skipped",
+                "DeleteNamespace("+state.ID.ValueString()+") returned "+msg+"; assuming cleanup done.",
+            )
+            return
+        }
+        resp.Diagnostics.AddError(
+            "Error deleting namespace",
+            "Could not delete namespace "+state.Name.ValueString()+": "+msg,
+        )
+    }
 }
+
+
 
 func (r *namespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
     // 1) Passthrough the ID field
