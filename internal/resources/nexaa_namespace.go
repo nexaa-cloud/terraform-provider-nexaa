@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package resources
 
 import (
@@ -42,16 +45,20 @@ func (r *namespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
+                Description: "Numeric identifier of the namespace",
 				Computed: true,
 			},
 			"name": schema.StringAttribute{
+                Description: "Name of the namespace",
 				Required: true,
 			},
 			"description": schema.StringAttribute{
+                Description: "Description of the namespace",
 				Optional: true,
                 Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
+                Description: "Timestamp of the last Terraform update of the namespace",
 				Computed: true,
 			},
 		},
@@ -92,13 +99,6 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
     plan.Name = types.StringValue(namespace.Name)
     plan.Description = types.StringValue(namespace.Description)
     plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-	// for _, item := range namespaces {
-	// 	if item.Name == plan.Name.ValueString() {
-	// 		plan.ID = types.StringValue(item.Id)
-	// 		plan.Name = types.StringValue(item.Name)
-	// 		plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-	// 	}
-	// }
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -149,6 +149,10 @@ func (r *namespaceResource) Update(ctx context.Context, req resource.UpdateReque
 		"Update method for namespaces doesn't exist",
 		"You can't change the name of your namespace",
 	)
+
+	if resp.Diagnostics.HasError(){
+		return
+	}
 
 }
 

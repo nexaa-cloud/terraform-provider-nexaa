@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package resources
 
 import (
@@ -14,7 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"gitlab.com/Tilaa/tilaa-cli/api"
+	"gitlab.com/tilaa/tilaa-cli/api"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -49,27 +52,35 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
     resp.Schema = schema.Schema{
         Attributes: map[string]schema.Attribute{
             "id" : schema.StringAttribute{
+                Description: "Numeric identifier of the private registry",
                 Computed: true,
             },
 			"namespace": schema.StringAttribute{
+                Description: "Name of the namespace the private registry belongs to",
 				Required: true,
 			},
             "name": schema.StringAttribute{
+                Description: "The name given to the private registry",
                 Required: true,
             },
             "source": schema.StringAttribute{
+                Description: "The URL of the site where the credentials are used",
 				Required: true,
 			},
 			"username": schema.StringAttribute{
+                Description: "The username used at the source",
 				Required: true,
 			},
 			"password": schema.StringAttribute{
+                Description: "The password used at the source",
 				Required: true,
 			},
 			"verify": schema.BoolAttribute{
+                Description: "If true(default) the connection will be tested immediately to check if the credentials are true",
 				Optional: true,
 			},
             "last_updated": schema.StringAttribute{
+                Description: "Timestamp of the last Terraform update of the private registry",
                 Computed: true,
             },
         },

@@ -48,12 +48,12 @@ func (p *NexaaProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 			"username": schema.StringAttribute{
 				Required: true,
 				Sensitive: true,
-				MarkdownDescription: "The username used to login on the API account",
+				Description: "The username used to log in the API account",
 			},
 			"password": schema.StringAttribute{
 				Required: true,
 				Sensitive: true,
-				MarkdownDescription: "The password used to login on the API account",
+				Description: "The password used to log in the API account",
 			},
 		},
 	}
@@ -134,6 +134,7 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		resources.NewNamespaceResource,
+		resources.NewVolumeResource,
 	}
 }
 
