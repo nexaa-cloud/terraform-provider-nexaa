@@ -164,15 +164,15 @@ func (r *registryResource) Update(ctx context.Context, req resource.UpdateReques
     var plan registryResource
     diags := req.Plan.Get(ctx, &plan)
     resp.Diagnostics.Append(diags...)
-    if resp.Diagnostics.HasError() {
-        return
-    }
-
+    
     resp.Diagnostics.AddError(
         "You can't update a registry",
         "",
     )
-    return
+
+    if resp.Diagnostics.HasError() {
+        return
+    }    
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -188,5 +188,5 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
         "Delete registry not implemented yet",
         "",
     )
-    return
+
 }

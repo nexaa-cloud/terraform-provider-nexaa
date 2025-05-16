@@ -33,4 +33,5 @@ resource "nexaa_volume" "volume-test" {
 
 - `id` (String) Numeric identifier of the volume.
 - `last_updated` (String) Timestamp of the last Terraform update of the volume
+- `locked` (Boolean) If the volume is locked it can't be edited
 - `usage` (Number) Amount of GB that is being used
