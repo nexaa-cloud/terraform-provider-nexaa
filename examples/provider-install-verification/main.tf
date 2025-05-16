@@ -13,11 +13,11 @@ provider "nexaa" {
 }
 
 resource "nexaa_namespace" "test" {
-  name = "terraform2"
+  name = "terraform3"
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace_name = "terraform2"
+  namespace_name = "terraform3"
   name           = "terraform"
   size           = 3
 }

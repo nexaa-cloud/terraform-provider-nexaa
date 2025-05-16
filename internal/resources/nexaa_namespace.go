@@ -172,57 +172,49 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
     )
     delay := initialDelay
 
-    // 1) Poll until all child volumes are gone (or we exhaust retries)
-    for i := 0; i <= maxRetries; i++ {
-        vols, err := api.ListVolumes(state.Name.ValueString())
-        if err != nil {
-            if strings.Contains(err.Error(), "Not found") {
-                // Namespace has no volumes (or doesn't exist) – skip wait
-                resp.Diagnostics.AddWarning(
-                    "No volumes found",
-                    "Namespace "+state.Name.ValueString()+" appears to have no volumes; skipping wait.",
-                )
-                break
-            }
-            resp.Diagnostics.AddError(
-                "Error listing volumes",
-                "Could not list volumes for namespace "+state.Name.ValueString()+": "+err.Error(),
-            )
-            return
-        }
-        if len(vols) == 0 {
-            // No volumes left → proceed
-            break
-        }
-        // Still have volumes → wait & back off
-        time.Sleep(delay)
-        delay *= 2
-    }
-
-    // 2) Perform the actual namespace delete
     id, err := strconv.Atoi(state.ID.ValueString())
     if err != nil {
-        resp.Diagnostics.AddError(
-            "Invalid namespace ID",
-            "Could not parse namespace ID "+state.ID.ValueString(),
-        )
+        resp.Diagnostics.AddError("Invalid namespace ID", err.Error())
         return
     }
-    if err := api.DeleteNamespace(id); err != nil {
+
+    // Retry DeleteNamespace until it no longer complains about "locked"
+    for i := 0; i <= maxRetries; i++ {
+        err = api.DeleteNamespace(id)
+        if err == nil {
+            // Success
+            return
+        }
         msg := err.Error()
-        if strings.Contains(msg, "Not found") || strings.Contains(msg, "locked") {
+        if strings.Contains(msg, "locked") {
+            // Still locked—wait & back off
+            time.Sleep(delay)
+            delay *= 2
+            continue
+        }
+        if strings.Contains(msg, "Not found") {
+            // Gone already—treat as success
             resp.Diagnostics.AddWarning(
-                "Namespace delete skipped",
-                "DeleteNamespace("+state.ID.ValueString()+") returned "+msg+"; assuming cleanup done.",
+                "Namespace already deleted",
+                "DeleteNamespace returned Not Found; assuming success.",
             )
             return
         }
+        // Any other error is fatal
         resp.Diagnostics.AddError(
             "Error deleting namespace",
             "Could not delete namespace "+state.Name.ValueString()+": "+msg,
         )
+        return
     }
+
+    // If we exit the loop still with locked error, report it
+    resp.Diagnostics.AddError(
+        "Timeout waiting for namespace to unlock",
+        "Namespace is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
+    )
 }
+
 
 
 

@@ -93,16 +93,29 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		Size:      int(plan.Size.ValueInt64()),
 	}
 
-	time.Sleep(6 * time.Second)
-	_, err := api.CreateVolume(input)
+	const (
+		maxRetries = 4
+		initialDelay = 3 * time.Second
+	)
+	delay :=initialDelay
+	var err error
+
+	for i:=0; i<=maxRetries; i++ {
+		_, err = api.CreateVolume(input)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(delay)
+		delay *= 2
+	}
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating volume",
-			"Could not create volume, error: "+err.Error(),
+			"Encountered error while creating a volume: "+err.Error(),
 		)
-		return
 	}
-
+	
 	volume, err := api.ListVolumeByName(plan.NamespaceName.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -216,64 +229,58 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
     }
 
     const (
-        maxRetries = 4
+        maxRetries   = 4
         initialDelay = 5 * time.Second
     )
     delay := initialDelay
 
-    // 1) Poll until unlocked or we exhaust retries
-    var volume *api.Volume
-    var err error
+    // Retry DeleteVolume while “locked” errors persist
     for i := 0; i <= maxRetries; i++ {
-        volume, err = api.ListVolumeByName(
-            state.NamespaceName.ValueString(),
+        err := api.DeleteVolume(
             state.Name.ValueString(),
+            state.NamespaceName.ValueString(),
         )
-        if err != nil {
-            if strings.Contains(err.Error(), "Not found") {
-                // Already gone: warn & exit
-                resp.Diagnostics.AddWarning(
-					"Volume not found",
-					"Volume is already deleted. Or the name and/or the namespace name is incorrect.",
-				)
-                return
-            }
+        if err == nil {
+            // Successfully deleted
+            return
+        }
+        msg := err.Error()
+        switch {
+        case strings.Contains(msg, "locked"):
+            // Service still cleaning up—wait & back off
+            time.Sleep(delay)
+            delay *= 2
+            continue
+        case strings.Contains(msg, "Not found"):
+            // Already gone—treat as success
+            resp.Diagnostics.AddWarning(
+                "Volume already deleted",
+                "DeleteVolume returned Not Found; assuming it’s gone.",
+            )
+            return
+		case strings.Contains(msg, "Namespace"):
+			//Namespace doesn't exist
+			resp.Diagnostics.AddWarning(
+				"Namespace not found",
+				"The namespace the volume is already deleted or the given name is incorrect.",
+			)
+        default:
+            // Any other error is fatal
             resp.Diagnostics.AddError(
-                "Error reading volume",
-                "Could not read volume "+state.Name.ValueString()+": "+err.Error(),
+                "Error deleting volume",
+                "Could not delete volume "+state.Name.ValueString()+": "+msg,
             )
             return
         }
-        if !volume.Locked {
-            // Unlocked! Break out and delete
-            break
-        }
-        // Still locked → wait & backoff
-        time.Sleep(delay)
-        delay *= 2
     }
 
-    // 2) Now try the actual delete
-    err = api.DeleteVolume(
-        state.Name.ValueString(),
-        state.NamespaceName.ValueString(),
+    // If we reach here, we exhausted retries with only “locked” errors
+    resp.Diagnostics.AddError(
+        "Timeout waiting for volume to become deletable",
+        "Could not delete volume after a couple of retries, try again later.",
     )
-    if err != nil {
-        if strings.Contains(err.Error(), "Not found") {
-            // Already gone as of when we called DeleteVolume
-            resp.Diagnostics.AddWarning(
-                "Volume not found",
-				"Volume is already deleted. Or the name and/or the namespace name is incorrect.",
-            )
-            return
-        }
-        resp.Diagnostics.AddError(
-            "Error deleting volume",
-            "Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
-        )
-        return
-    }
 }
+
 
 
 // ImportState implements resource.ResourceWithImportState.
