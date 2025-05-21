@@ -47,7 +47,6 @@ func (p *NexaaProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
 				Required: true,
-				Sensitive: true,
 				Description: "The username used to log in the API account",
 			},
 			"password": schema.StringAttribute{
@@ -120,7 +119,6 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	err := api.Login(username, password)
-	//resp.Diagnostics.AddWarning("login was called", "")
 
 	if err != nil {
 		resp.Diagnostics.AddError(

@@ -8,16 +8,18 @@ terraform {
 }
 
 provider "nexaa" {
-  username = "experimental-qa@tilaa.com"
-  password = "EAG7pnp!jcq@ech6nbn"
+  username = "mail@tilaa.com"
+  password = "pass"
 }
 
 resource "nexaa_namespace" "test" {
-  name = "terraform3"
+  name = "terraform5"
 }
 
-resource "nexaa_volume" "volume1" {
-  namespace_name = "terraform3"
-  name           = "terraform"
-  size           = 3
+resource "nexaa_registry" "registry" {
+  namespace_name = "terraform5"
+  name           = "gitlab"
+  source         = "registry.gitlab.com"
+  username       = "mvangastel"
+  password       = "pass"
 }

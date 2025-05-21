@@ -114,6 +114,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 			"Error creating volume",
 			"Encountered error while creating a volume: "+err.Error(),
 		)
+		return
 	}
 	
 	volume, err := api.ListVolumeByName(plan.NamespaceName.ValueString(), plan.Name.ValueString())
@@ -122,6 +123,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 			"Error reading volume",
 			"Could not read volume, error: "+err.Error(),
 		)
+		return
 	}
 
 	plan.ID = types.StringValue(volume.Id)
@@ -252,17 +254,17 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
             delay *= 2
             continue
         case strings.Contains(msg, "Not found"):
-            // Already gone—treat as success
+            // Not found error
             resp.Diagnostics.AddWarning(
-                "Volume already deleted",
-                "DeleteVolume returned Not Found; assuming it’s gone.",
+                "Volume not found",
+                "The given volume name is incorrect. Or the volume is already deleted.",
             )
             return
 		case strings.Contains(msg, "Namespace"):
 			//Namespace doesn't exist
 			resp.Diagnostics.AddWarning(
 				"Namespace not found",
-				"The namespace the volume is already deleted or the given name is incorrect.",
+				"The namespace of the volume is already deleted or the given name is incorrect.",
 			)
         default:
             // Any other error is fatal
