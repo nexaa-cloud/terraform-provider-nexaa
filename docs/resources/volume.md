@@ -26,12 +26,12 @@ resource "nexaa_volume" "volume-test" {
 ### Required
 
 - `name` (String) Name of the volume
-- `namespace_name` (String) Name of the namespace where the volume is located
+- `namespace` (String) Name of the namespace where the volume is located
 - `size` (Number) Size of the volume in GB, min 1GB/ max 100GB.
 
 ### Read-Only
 
-- `id` (String) Numeric identifier of the volume.
+- `id` (String) Identifier of the volume, equal to the name of the volume
 - `last_updated` (String) Timestamp of the last Terraform update of the volume
 - `locked` (Boolean) If the volume is locked it can't be edited
 - `usage` (Number) Amount of GB that is being used

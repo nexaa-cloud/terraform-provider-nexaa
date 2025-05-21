@@ -29,7 +29,7 @@ func NewVolumeResource() resource.Resource {
 // volumeResource is the resource implementation.
 type volumeResource struct {
 	ID            types.String `tfsdk:"id"`
-	NamespaceName types.String `tfsdk:"namespace_name"`
+	Namespace	  types.String `tfsdk:"namespace"`
 	Name          types.String `tfsdk:"name"`
 	Size          types.Int64  `tfsdk:"size"`
 	Usage         types.Int64  `tfsdk:"usage"`
@@ -47,10 +47,10 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Numeric identifier of the volume.",
+				Description: "Identifier of the volume, equal to the name of the volume",
 				Computed: true,
 			},
-			"namespace_name": schema.StringAttribute{
+			"namespace": schema.StringAttribute{
 				Description: "Name of the namespace where the volume is located",
 				Required: true,
 			},
@@ -88,7 +88,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	input := api.VolumeInput{
-		Namespace: plan.NamespaceName.ValueString(),
+		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Size:      int(plan.Size.ValueInt64()),
 	}
@@ -117,7 +117,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 	
-	volume, err := api.ListVolumeByName(plan.NamespaceName.ValueString(), plan.Name.ValueString())
+	volume, err := api.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading volume",
@@ -126,8 +126,8 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	plan.ID = types.StringValue(volume.Id)
-	plan.NamespaceName = types.StringValue(volume.Namespace)
+	plan.ID = types.StringValue(volume.Name)
+	plan.Namespace = types.StringValue(volume.Namespace)
 	plan.Name = types.StringValue(volume.Name)
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
@@ -150,7 +150,7 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	volume, err := api.ListVolumeByName(state.NamespaceName.ValueString(), state.Name.ValueString())
+	volume, err := api.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
@@ -159,7 +159,8 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	state.NamespaceName = types.StringValue(volume.Namespace)
+	state.ID = types.StringValue(volume.Name)
+	state.Namespace = types.StringValue(volume.Namespace)
 	state.Name = types.StringValue(volume.Name)
 	state.Size = types.Int64Value(int64(volume.Size))
 	state.Usage = types.Int64Value(int64(volume.Usage))
@@ -183,7 +184,7 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 
 	input := api.VolumeInput{
-		Namespace: plan.NamespaceName.ValueString(),
+		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Size:      int(plan.Size.ValueInt64()),
 	}
@@ -197,7 +198,7 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	volume, err := api.ListVolumeByName(plan.NamespaceName.ValueString(), plan.Name.ValueString())
+	volume, err := api.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
@@ -206,8 +207,8 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	plan.ID = types.StringValue(volume.Id)
-	plan.NamespaceName = types.StringValue(volume.Namespace)
+	plan.ID = types.StringValue(volume.Name)
+	plan.Namespace = types.StringValue(volume.Namespace)
 	plan.Name = types.StringValue(volume.Name)
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
@@ -240,7 +241,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
     for i := 0; i <= maxRetries; i++ {
         err := api.DeleteVolume(
             state.Name.ValueString(),
-            state.NamespaceName.ValueString(),
+            state.Namespace.ValueString(),
         )
         if err == nil {
             // Successfully deleted
@@ -310,8 +311,8 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
     }
 
     // Set the volume attributes in the state
-    resp.State.SetAttribute(ctx, path.Root("id"), volume.Id)
-    resp.State.SetAttribute(ctx, path.Root("namespace_name"), volume.Namespace)
+    resp.State.SetAttribute(ctx, path.Root("id"), volume.Name)
+    resp.State.SetAttribute(ctx, path.Root("namespace"), volume.Namespace)
     resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
     resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
     resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))

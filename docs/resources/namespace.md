@@ -31,5 +31,5 @@ resource "nexaa_namespace" "test" {
 
 ### Read-Only
 
-- `id` (String) Numeric identifier of the namespace
+- `id` (String) Identifier of the namespace, equal to the name
 - `last_updated` (String) Timestamp of the last Terraform update of the namespace

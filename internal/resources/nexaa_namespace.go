@@ -5,7 +5,6 @@ package resources
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +45,7 @@ func (r *namespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-                Description: "Numeric identifier of the namespace",
+                Description: "Identifier of the namespace, equal to the name",
 				Computed: true,
 			},
 			"name": schema.StringAttribute{
@@ -56,7 +55,7 @@ func (r *namespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"description": schema.StringAttribute{
                 Description: "Description of the namespace",
 				Optional: true,
-                Computed: true,
+				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
                 Description: "Timestamp of the last Terraform update of the namespace",
@@ -75,7 +74,12 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	err := api.CreateNamespace(plan.Name.ValueString(), plan.Description.ValueString())
+	input := api.NamespaceInput {
+		Name: plan.Name.ValueString(),
+		Description: plan.Description.ValueString(),
+	}
+
+	_, err := api.CreateNamespace(input)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -96,7 +100,7 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
         return
 	}
 
-    plan.ID = types.StringValue(namespace.Id)
+    plan.ID = types.StringValue(namespace.Name)
     plan.Name = types.StringValue(namespace.Name)
     plan.Description = types.StringValue(namespace.Description)
     plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
@@ -126,7 +130,7 @@ func (r *namespaceResource) Read(ctx context.Context, req resource.ReadRequest, 
         return
 	}
 
-    state.ID = types.StringValue(namespace.Id)
+    state.ID = types.StringValue(namespace.Name)
     state.Name = types.StringValue(namespace.Name)
     state.Description = types.StringValue(namespace.Description)
 
@@ -142,13 +146,9 @@ func (r *namespaceResource) Update(ctx context.Context, req resource.UpdateReque
 	var plan namespaceResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	resp.Diagnostics.AddError(
-		"Update method for namespaces doesn't exist",
-		"You can't change the name of your namespace",
+		"Error updating namespace",
+		"You can't change the name of your namespace, you can only create and delete a namespace.",
 	)
 
 	if resp.Diagnostics.HasError(){
@@ -172,15 +172,11 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
     )
     delay := initialDelay
 
-    id, err := strconv.Atoi(state.ID.ValueString())
-    if err != nil {
-        resp.Diagnostics.AddError("Invalid namespace ID", err.Error())
-        return
-    }
+	var err error
 
     // Retry DeleteNamespace until it no longer complains about "locked"
     for i := 0; i <= maxRetries; i++ {
-        err = api.DeleteNamespace(id)
+        err = api.DeleteNamespace(state.ID.ValueString())
         if err == nil {
             // Success
             return
@@ -219,10 +215,8 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 
 
 func (r *namespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-    // 1) Passthrough the ID field
     resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 
-    // 2) Use that ID to fetch name & description
     id := req.ID
     list, err := api.ListNamespaces()
     if err != nil {
@@ -230,17 +224,15 @@ func (r *namespaceResource) ImportState(ctx context.Context, req resource.Import
         return
     }
     for _, item := range list {
-        if item.Id == id {
-            // Populate name & description in the state
+        if item.Name == id {
             resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
             resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
-            // Optionally set last_updated
             resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
             return
         }
     }
     resp.Diagnostics.AddError(
         "Error importing namespace",
-        "Could not find namespace with ID: "+id,
+        "Could not find namespace with name: "+id,
     )
 }

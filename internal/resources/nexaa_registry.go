@@ -27,7 +27,7 @@ func NewRegistryResource() resource.Resource {
 // registryResource is the resource implementation.
 type registryResource struct{
 	ID			    types.String 	`tfsdk:"id"`
-	NamespaceName   types.String 	`tfsdk:"namespace_name"`
+	Namespace       types.String 	`tfsdk:"namespace"`
 	Name 		    types.String	`tfsdk:"name"`
 	Source		    types.String	`tfsdk:"source"`
 	Username	    types.String	`tfsdk:"username"`
@@ -47,10 +47,10 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
     resp.Schema = schema.Schema{
         Attributes: map[string]schema.Attribute{
             "id" : schema.StringAttribute{
-                Description: "Numeric identifier of the private registry",
+                Description: "Identifier of the private registry, equal to the name of the registry",
                 Computed: true,
             },
-			"namespace_name": schema.StringAttribute{
+			"namespace": schema.StringAttribute{
                 Description: "Name of the namespace the private registry belongs to",
 				Required: true,
 			},
@@ -74,6 +74,7 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"verify": schema.BoolAttribute{
                 Description: "If true(default) the connection will be tested immediately to check if the credentials are true",
 				Optional: true,
+                Computed: true,
 			},
             "locked": schema.BoolAttribute{
                 Description: "If the registry is locked it can't be deleted",
@@ -95,13 +96,9 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
     if resp.Diagnostics.HasError(){
         return
     }
-
-    if plan.Verify.IsNull() == true {
-        plan.Verify = types.BoolValue(true)
-    }
-
+    
 	input := api.RegistryInput {
-        Namespace: plan.NamespaceName.ValueString(),
+        Namespace: plan.Namespace.ValueString(),
 		Name: plan.Name.ValueString(),
 		Source: plan.Source.ValueString(),
 		Username: plan.Username.ValueString(),
@@ -134,7 +131,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
         return
     }
 
-    registry, err := api.ListRegistryByName(plan.NamespaceName.ValueString(), plan.Name.ValueString())
+    registry, err := api.ListRegistryByName(plan.Namespace.ValueString(), plan.Name.ValueString())
     if err != nil {
         resp.Diagnostics.AddError(
             "Error reading registry",
@@ -143,8 +140,8 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
         return
     }
 
-    plan.ID = types.StringValue(registry.Id)
-    plan.NamespaceName = types.StringValue(registry.Namespace)
+    plan.ID = types.StringValue(registry.Name)
+    plan.Namespace = types.StringValue(registry.Namespace)
     plan.Name = types.StringValue(registry.Name)
     plan.Source = types.StringValue(registry.Source)
     plan.Username = types.StringValue(registry.Username)
@@ -169,7 +166,7 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
         return
     }
 
-    registry, err := api.ListRegistryByName(state.NamespaceName.ValueString(), state.Name.ValueString())
+    registry, err := api.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
     if err != nil {
         resp.Diagnostics.AddError(
             "Error Reading Registry",
@@ -178,8 +175,8 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
         return
     }
 
-    state.ID = types.StringValue(registry.Id)
-    state.NamespaceName = types.StringValue(registry.Namespace)
+    state.ID = types.StringValue(registry.Name)
+    state.Namespace = types.StringValue(registry.Namespace)
     state.Name = types.StringValue(registry.Name)
     state.Source = types.StringValue(registry.Source)
     state.Username = types.StringValue(registry.Username)
@@ -225,7 +222,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
     // Retry DeleteVolume while “locked” errors persist
     for i := 0; i <= maxRetries; i++ {
         err := api.DeleteRegistry(
-            state.NamespaceName.ValueString(),
+            state.Namespace.ValueString(),
             state.Name.ValueString(),
         )
         if err == nil {

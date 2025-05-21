@@ -65,7 +65,7 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
                     statecheck.ExpectKnownValue(
                         "nexaa_namespace.test",
                         tfjsonpath.New("id"),
-                        knownvalue.StringRegexp(regexp.MustCompile(`^[A-Za-z0-9\-]+$`)),
+                        knownvalue.StringExact("tf-test-ns-123"),
                     ),
                     statecheck.ExpectKnownValue(
                         "nexaa_namespace.test",

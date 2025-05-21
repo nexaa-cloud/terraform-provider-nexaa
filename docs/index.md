@@ -25,4 +25,4 @@ provider "nexaa" {
 ### Required
 
 - `password` (String, Sensitive) The password used to log in the API account
-- `username` (String, Sensitive) The username used to log in the API account
+- `username` (String) The username used to log in the API account

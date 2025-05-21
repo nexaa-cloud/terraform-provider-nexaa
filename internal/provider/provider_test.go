@@ -44,11 +44,11 @@ func TestAcc_Namespace_basic(t *testing.T) {
 						password = "%s"
 					}
 					resource "nexaa_namespace" "foo" {
-						name = "tf-test-%d"
-					}`, user, pass, os.Getpid()),
+						name = "tf-test-provider"
+					}`, user, pass),
 
                 Check: resource.ComposeAggregateTestCheckFunc(
-                    resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", fmt.Sprintf("tf-test-%d", os.Getpid())),
+                    resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", "tf-test-provider"),
                     resource.TestCheckResourceAttrSet("nexaa_namespace.foo", "id"),
                 ),
             },
