@@ -232,14 +232,15 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
     }
 
     const (
-        maxRetries   = 4
+        maxRetries   = 5
         initialDelay = 5 * time.Second
     )
     delay := initialDelay
+	var err error
 
     // Retry DeleteVolume while “locked” errors persist
     for i := 0; i <= maxRetries; i++ {
-        err := api.DeleteVolume(
+        err = api.DeleteVolume(
             state.Name.ValueString(),
             state.Namespace.ValueString(),
         )
@@ -247,31 +248,31 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
             // Successfully deleted
             return
         }
-        msg := err.Error()
         switch {
-        case strings.Contains(msg, "locked"):
+        case strings.Contains(err.Error(), "locked"):
             // Service still cleaning up—wait & back off
             time.Sleep(delay)
             delay *= 2
             continue
-        case strings.Contains(msg, "Not found"):
+        case strings.Contains(err.Error(), "Not found"):
             // Not found error
             resp.Diagnostics.AddWarning(
                 "Volume not found",
                 "The given volume name is incorrect. Or the volume is already deleted.",
             )
             return
-		case strings.Contains(msg, "Namespace"):
+		case strings.Contains(err.Error(), "Namespace"):
 			//Namespace doesn't exist
 			resp.Diagnostics.AddWarning(
 				"Namespace not found",
 				"The namespace of the volume is already deleted or the given name is incorrect.",
 			)
+			return
         default:
             // Any other error is fatal
             resp.Diagnostics.AddError(
                 "Error deleting volume",
-                "Could not delete volume "+state.Name.ValueString()+": "+msg,
+                "Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
             )
             return
         }
@@ -279,8 +280,8 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
     // If we reach here, we exhausted retries with only “locked” errors
     resp.Diagnostics.AddError(
-        "Timeout waiting for volume to become deletable",
-        "Could not delete volume after a couple of retries, try again later.",
+        "An error occured while deleting the Volume",
+        "Could not delete volume after a couple of retries, error: "+err.Error(),
     )
 }
 

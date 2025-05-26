@@ -12,15 +12,21 @@ provider "nexaa" {
   password = "pass"
 }
 
-resource "nexaa_namespace" "test" {
-  name = "terraform5"
-}
+# resource "nexaa_namespace" "namespace" {
+#   name = "terraform6"
+# }
 
-resource "nexaa_registry" "registry" {
-  namespace     = "terraform5"
-  name          = "gitlab"
-  source        = "registry.gitlab.com"
-  username      = "mvangastel"
-  password      = "pass"
-  verify        = false
-}
+# resource "nexaa_volume" "volume" {
+#   name = "storage"
+#   namespace = "terraform6"
+#   size = 3
+# }
+
+# resource "nexaa_registry" "registry" {
+#   namespace     = "terraform5"
+#   name          = "gitlab"
+#   source        = "registry.gitlab.com"
+#   username      = "mvangastel"
+#   password      = "pass"
+#   verify        = false
+# }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -16,7 +17,8 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-    _ resource.Resource = &registryResource{}
+    _ resource.Resource                 = &registryResource{}
+    _ resource.ResourceWithImportState  = &registryResource{}
 )
 
 // NewRegistryResource is a helper function to simplify the provider implementation.
@@ -67,9 +69,9 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required: true,
 			},
 			"password": schema.StringAttribute{
-                Description: "The password used to connect to the source",
+                Description: "The password used to connect to the source. Is required.",
                 Sensitive: true,
-				Required: true,
+				Optional: true,
 			},
 			"verify": schema.BoolAttribute{
                 Description: "If true(default) the connection will be tested immediately to check if the credentials are true",
@@ -96,7 +98,15 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
     if resp.Diagnostics.HasError(){
         return
     }
-    
+
+    if plan.Password.IsNull() || plan.Password.IsUnknown() {
+        resp.Diagnostics.AddError(
+            "Missing password",
+            "Password is required to connect to a private registry.",
+        )
+        return
+    }
+
 	input := api.RegistryInput {
         Namespace: plan.Namespace.ValueString(),
 		Name: plan.Name.ValueString(),
@@ -264,4 +274,38 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
         "Timeout waiting for registry to become deletable",
         "Could not delete registry after a couple of retries, try again later.",
     )
+}
+
+// ImportState implements resource.ResourceWithImportState.
+func (r *registryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+    // Expect import ID as "namespace/registryName"
+    parts := strings.SplitN(req.ID, "/", 2)
+    if len(parts) != 2 {
+        resp.Diagnostics.AddError(
+            "Invalid import ID",
+            "Expected import ID in the format \"<namespace>/<registry_name>\", got: "+req.ID,
+        )
+        return
+    }
+    ns := parts[0]
+    registryName := parts[1]
+
+    // Fetch the registry using the namespace and registry name
+    registry, err := api.ListRegistryByName(ns, registryName)
+    if err != nil {
+        resp.Diagnostics.AddError(
+            "Error Reading Registry",
+            "Could not read registry "+registryName+": "+err.Error(),
+        )
+        return
+    }
+
+    // Set the registry attributes in the state
+    resp.State.SetAttribute(ctx, path.Root("id"), registry.Name)
+    resp.State.SetAttribute(ctx, path.Root("namespace"), registry.Namespace)
+    resp.State.SetAttribute(ctx, path.Root("name"), registry.Name)
+    resp.State.SetAttribute(ctx, path.Root("source"), registry.Source)
+    resp.State.SetAttribute(ctx, path.Root("username"), registry.Username)
+    resp.State.SetAttribute(ctx, path.Root("locked"), registry.Locked)
+    resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 }
