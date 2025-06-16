@@ -134,6 +134,7 @@ func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resourc
 		resources.NewNamespaceResource,
 		resources.NewVolumeResource,
 		resources.NewRegistryResource,
+		resources.NewContainerResource,
 	}
 }
 
