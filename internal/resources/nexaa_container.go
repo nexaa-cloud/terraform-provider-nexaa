@@ -1920,7 +1920,6 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		)
 	}
 
-
 	state := containerResource{
 		ID:                   types.StringValue(container.Name),
 		Name:                 types.StringValue(container.Name),
@@ -1942,7 +1941,6 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		resp.Diagnostics.AddError("Error importing container", "Could not import container: "+err.Error())
 		return
 	}
-
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
