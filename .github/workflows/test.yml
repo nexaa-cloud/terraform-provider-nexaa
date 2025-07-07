@@ -27,6 +27,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Configure Git to use GitLab PAT
+        run: |
+          git config --global url."https://${{ secrets.GITLAB_PAT }}:@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
       - run: go build -v .
       - name: Run linters
@@ -42,6 +45,10 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+
+      - name: Configure Git to use token for GitLab
+        run: git config --global url."https://${{ secrets.GITLAB_TOKEN }}:x-oauth-basic@gitlab.com".insteadOf "https://gitlab.com"
+
       # We need the latest version of Terraform for our documentation generation to use
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
