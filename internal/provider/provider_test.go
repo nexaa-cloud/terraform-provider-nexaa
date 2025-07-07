@@ -4,33 +4,33 @@
 package provider
 
 import (
-    "fmt"
-    "os"
-    "testing"
+	"fmt"
+	"os"
+	"testing"
 
-    "github.com/hashicorp/terraform-plugin-framework/providerserver"
-    "github.com/hashicorp/terraform-plugin-go/tfprotov6"
-    "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-    "nexaa": providerserver.NewProtocol6WithError(New("test")()),
+	"nexaa": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
-    if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-        t.Fatal("Environment variables NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-    }
+	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+		t.Fatal("Environment variables NEXAA_USERNAME and NEXAA_PASSWORD must be set")
+	}
 }
 
 func TestAcc_Namespace_basic(t *testing.T) {
-    user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
-    resource.Test(t, resource.TestCase{
-        PreCheck:                 func() { testAccPreCheck(t) },
-        ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-        Steps: []resource.TestStep{
-            {
-                Config: fmt.Sprintf(`
+	user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(`
 					terraform{
 						required_providers {
 							nexaa = {
@@ -47,11 +47,11 @@ func TestAcc_Namespace_basic(t *testing.T) {
 						name = "tf-test-provider"
 					}`, user, pass),
 
-                Check: resource.ComposeAggregateTestCheckFunc(
-                    resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", "tf-test-provider"),
-                    resource.TestCheckResourceAttrSet("nexaa_namespace.foo", "id"),
-                ),
-            },
-        },
-    })
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", "tf-test-provider"),
+					resource.TestCheckResourceAttrSet("nexaa_namespace.foo", "id"),
+				),
+			},
+		},
+	})
 }

@@ -5,11 +5,10 @@ package provider
 
 import (
 	"context"
-	"os"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
+	"os"
 
-	"gitlab.com/tilaa/tilaa-cli/api"	
-
+	"gitlab.com/tilaa/tilaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
@@ -33,8 +32,8 @@ type NexaaProvider struct {
 
 // NexaaProviderModel describes the provider data model.
 type NexaaProviderModel struct {
-	Username 	types.String `tfsdk:"username"`
-	Password	types.String `tfsdk:"password"`
+	Username types.String `tfsdk:"username"`
+	Password types.String `tfsdk:"password"`
 }
 
 func (p *NexaaProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -46,12 +45,12 @@ func (p *NexaaProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
-				Required: true,
+				Required:    true,
 				Description: "The username used to log in the API account",
 			},
 			"password": schema.StringAttribute{
-				Required: true,
-				Sensitive: true,
+				Required:    true,
+				Sensitive:   true,
 				Description: "The password used to log in the API account",
 			},
 		},
@@ -82,18 +81,18 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		)
 	}
 
-	if resp.Diagnostics.HasError(){
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	username := os.Getenv("USERNAME")
 	password := os.Getenv("PASSWORD")
 
-	if !config.Username.IsNull(){
+	if !config.Username.IsNull() {
 		username = config.Username.ValueString()
 	}
 
-	if !config.Password.IsNull(){
+	if !config.Password.IsNull() {
 		password = config.Password.ValueString()
 	}
 
@@ -112,7 +111,6 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 			"Missing password for authentication",
 		)
 	}
-
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -139,15 +137,15 @@ func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resourc
 }
 
 func (p *NexaaProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{	}
+	return []func() ephemeral.EphemeralResource{}
 }
 
 func (p *NexaaProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{	}
+	return []func() datasource.DataSource{}
 }
 
 func (p *NexaaProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{	}
+	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {

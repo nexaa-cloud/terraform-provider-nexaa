@@ -167,7 +167,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// 1) Create
-  			{
+			{
 				Config: containerConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
@@ -190,22 +190,21 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				),
 			},
 
-      // 2) ImportState
-      {
-        ResourceName:            "nexaa_container.container",
-        ImportState:             true,
-        ImportStateId:           "tf-test-con53/tf-container",
-        ImportStateVerify:       true,
-        ImportStateVerifyIgnore: []string{
-          "registry",
-          "mounts",
-          "environment_variables.0.value",
-          "environment_variables.1.value",
-          "ingresses.0.domain_name",
-          "last_updated",                     
-        },
-      },
-
+			// 2) ImportState
+			{
+				ResourceName:      "nexaa_container.container",
+				ImportState:       true,
+				ImportStateId:     "tf-test-con53/tf-container",
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"registry",
+					"mounts",
+					"environment_variables.0.value",
+					"environment_variables.1.value",
+					"ingresses.0.domain_name",
+					"last_updated",
+				},
+			},
 
 			// 3) Update
 			{
@@ -219,7 +218,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.name", "Variable"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.value", "terraform"),
-          resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.name", "ENV"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.name", "ENV"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.value", "staging"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),

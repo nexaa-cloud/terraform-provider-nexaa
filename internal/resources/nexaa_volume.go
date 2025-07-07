@@ -28,13 +28,13 @@ func NewVolumeResource() resource.Resource {
 
 // volumeResource is the resource implementation.
 type volumeResource struct {
-	ID            types.String `tfsdk:"id"`
-	Namespace	  types.String `tfsdk:"namespace"`
-	Name          types.String `tfsdk:"name"`
-	Size          types.Int64  `tfsdk:"size"`
-	Usage         types.Int64  `tfsdk:"usage"`
-	Locked		  types.Bool   `tfsdk:"locked"`
-	LastUpdated   types.String `tfsdk:"last_updated"`
+	ID          types.String `tfsdk:"id"`
+	Namespace   types.String `tfsdk:"namespace"`
+	Name        types.String `tfsdk:"name"`
+	Size        types.Int64  `tfsdk:"size"`
+	Usage       types.Int64  `tfsdk:"usage"`
+	Locked      types.Bool   `tfsdk:"locked"`
+	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
 // Metadata returns the resource type name.
@@ -48,31 +48,31 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Identifier of the volume, equal to the name of the volume",
-				Computed: true,
+				Computed:    true,
 			},
 			"namespace": schema.StringAttribute{
 				Description: "Name of the namespace where the volume is located",
-				Required: true,
+				Required:    true,
 			},
 			"name": schema.StringAttribute{
 				Description: "Name of the volume",
-				Required: true,
+				Required:    true,
 			},
 			"size": schema.Int64Attribute{
 				Description: "Size of the volume in GB, min 1GB/ max 100GB.",
-				Required: true,
+				Required:    true,
 			},
 			"usage": schema.Int64Attribute{
 				Description: "Amount of GB that is being used",
-				Computed: true,
+				Computed:    true,
 			},
 			"locked": schema.BoolAttribute{
 				Description: "If the volume is locked it can't be edited",
-				Computed: true,
+				Computed:    true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the volume",
-				Computed: true,
+				Computed:    true,
 			},
 		},
 	}
@@ -94,13 +94,13 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	const (
-		maxRetries = 4
+		maxRetries   = 4
 		initialDelay = 3 * time.Second
 	)
-	delay :=initialDelay
+	delay := initialDelay
 	var err error
 
-	for i:=0; i<=maxRetries; i++ {
+	for i := 0; i <= maxRetries; i++ {
 		_, err = api.CreateVolume(input)
 		if err == nil {
 			break
@@ -116,7 +116,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		)
 		return
 	}
-	
+
 	volume, err := api.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -182,7 +182,6 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-
 	input := api.VolumeInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
@@ -224,43 +223,43 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-    var state volumeResource
-    diags := req.State.Get(ctx, &state)
-    resp.Diagnostics.Append(diags...)
-    if resp.Diagnostics.HasError() {
-        return
-    }
+	var state volumeResource
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-    const (
-        maxRetries   = 5
-        initialDelay = 5 * time.Second
-    )
-    delay := initialDelay
+	const (
+		maxRetries   = 5
+		initialDelay = 5 * time.Second
+	)
+	delay := initialDelay
 	var err error
 
-    // Retry DeleteVolume while “locked” errors persist
-    for i := 0; i <= maxRetries; i++ {
-        err = api.DeleteVolume(
-            state.Name.ValueString(),
-            state.Namespace.ValueString(),
-        )
-        if err == nil {
-            // Successfully deleted
-            return
-        }
-        switch {
-        case strings.Contains(err.Error(), "locked"):
-            // Service still cleaning up—wait & back off
-            time.Sleep(delay)
-            delay *= 2
-            continue
-        case strings.Contains(err.Error(), "Not found"):
-            // Not found error
-            resp.Diagnostics.AddWarning(
-                "Volume not found",
-                "The given volume name is incorrect. Or the volume is already deleted.",
-            )
-            return
+	// Retry DeleteVolume while “locked” errors persist
+	for i := 0; i <= maxRetries; i++ {
+		err = api.DeleteVolume(
+			state.Name.ValueString(),
+			state.Namespace.ValueString(),
+		)
+		if err == nil {
+			// Successfully deleted
+			return
+		}
+		switch {
+		case strings.Contains(err.Error(), "locked"):
+			// Service still cleaning up—wait & back off
+			time.Sleep(delay)
+			delay *= 2
+			continue
+		case strings.Contains(err.Error(), "Not found"):
+			// Not found error
+			resp.Diagnostics.AddWarning(
+				"Volume not found",
+				"The given volume name is incorrect. Or the volume is already deleted.",
+			)
+			return
 		case strings.Contains(err.Error(), "Namespace"):
 			//Namespace doesn't exist
 			resp.Diagnostics.AddWarning(
@@ -268,54 +267,52 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 				"The namespace of the volume is already deleted or the given name is incorrect.",
 			)
 			return
-        default:
-            // Any other error is fatal
-            resp.Diagnostics.AddError(
-                "Error deleting volume",
-                "Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
-            )
-            return
-        }
-    }
+		default:
+			// Any other error is fatal
+			resp.Diagnostics.AddError(
+				"Error deleting volume",
+				"Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
+			)
+			return
+		}
+	}
 
-    // If we reach here, we exhausted retries with only “locked” errors
-    resp.Diagnostics.AddError(
-        "An error occured while deleting the Volume",
-        "Could not delete volume after a couple of retries, error: "+err.Error(),
-    )
+	// If we reach here, we exhausted retries with only “locked” errors
+	resp.Diagnostics.AddError(
+		"An error occurred while deleting the Volume",
+		"Could not delete volume after a couple of retries, error: "+err.Error(),
+	)
 }
-
-
 
 // ImportState implements resource.ResourceWithImportState.
 func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-    // Expect import ID as "namespace/volumeName"
-    parts := strings.SplitN(req.ID, "/", 2)
-    if len(parts) != 2 {
-        resp.Diagnostics.AddError(
-            "Invalid import ID",
-            "Expected import ID in the format \"<namespace>/<volume_name>\", got: "+req.ID,
-        )
-        return
-    }
-    ns := parts[0]
-    volName := parts[1]
+	// Expect import ID as "namespace/volumeName"
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			"Expected import ID in the format \"<namespace>/<volume_name>\", got: "+req.ID,
+		)
+		return
+	}
+	ns := parts[0]
+	volName := parts[1]
 
-    // Fetch the volume using the namespace and volume name
-    volume, err := api.ListVolumeByName(ns, volName)
-    if err != nil {
-        resp.Diagnostics.AddError(
-            "Error Reading Volume",
-            "Could not read volume "+volName+": "+err.Error(),
-        )
-        return
-    }
+	// Fetch the volume using the namespace and volume name
+	volume, err := api.ListVolumeByName(ns, volName)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Volume",
+			"Could not read volume "+volName+": "+err.Error(),
+		)
+		return
+	}
 
-    // Set the volume attributes in the state
-    resp.State.SetAttribute(ctx, path.Root("id"), volume.Name)
-    resp.State.SetAttribute(ctx, path.Root("namespace"), volume.Namespace)
-    resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
-    resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
-    resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))
-    resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
+	// Set the volume attributes in the state
+	resp.State.SetAttribute(ctx, path.Root("id"), volume.Name)
+	resp.State.SetAttribute(ctx, path.Root("namespace"), volume.Namespace)
+	resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
+	resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
+	resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))
+	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 }
