@@ -8,17 +8,32 @@ terraform {
 }
 
 provider "nexaa" {
-  username = "experimental-qa@tilaa.com"
-  password = "EAG7pnp!jcq@ech6nbn"
+  username = "expample@tilaa.com"
+  password = "pass"
 }
 
 resource "nexaa_namespace" "namespace" {
-  name = "terraform7"
+  name = "terraform8"
+}
+
+resource "nexaa_volume" "volume" {
+  name      = "storage"
+  namespace = "terraform8"
+  size      = 3
+}
+
+resource "nexaa_registry" "registry" {
+  namespace = "terraform8"
+  name      = "gitlab"
+  source    = "registry.gitlab.com"
+  username  = "user"
+  password  = "pass"
+  verify    = false
 }
 
 resource "nexaa_container" "container" {
   name      = "tf-container"
-  namespace = "terraform7"
+  namespace = "terraform8"
   image     = "nginx:latest"
   registry  = null
 
@@ -36,10 +51,15 @@ resource "nexaa_container" "container" {
       secret = false
     },
     {
+      name   = "Variable"
+      value  = "finish"
+      secret = false
+    },
+    {
       name   = "API_KEY"
       value  = "supersecret"
       secret = true
-    }
+    },
   ]
 
   ingresses = [
@@ -64,39 +84,24 @@ resource "nexaa_container" "container" {
   }
 
   scaling = {
-    type         = "auto"
-    #manual_input = 1
+    type         = "manual"
+    manual_input = 1
 
-    auto_input = {
-      minimal_replicas = 1
-      maximal_replicas = 3
+    # auto_input = {
+    #   minimal_replicas = 1
+    #   maximal_replicas = 3
 
-      triggers = [
-        {
-          type     = "CPU"
-          threshold = 70
-        },
-        {
-          type     = "MEMORY"
-          threshold = 80
-        }
-      ]
-    }
+    #   triggers = [
+    #     {
+    #       type      = "CPU"
+    #       threshold = 70
+    #     },
+    #     {
+    #       type      = "MEMORY"
+    #       threshold = 80
+    #     }
+    #   ]
+    # }
   }
-}
-
-resource "nexaa_volume" "volume" {
-  name = "storage"
-  namespace = "terraform7"
-  size = 3
-}
-
-resource "nexaa_registry" "registry" {
-  namespace     = "terraform7"
-  name          = "gitlab"
-  source        = "registry.gitlab.com"
-  username      = "mvangastel"
-  password      = "pass"
-  verify        = false
 }
 

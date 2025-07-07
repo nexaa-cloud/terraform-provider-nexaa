@@ -32,10 +32,10 @@ resource "nexaa_registry" "registry" {
 - `namespace` (String) Name of the namespace the private registry belongs to
 - `source` (String) The URL of the site where the credentials are used
 - `username` (String) The username used to connect to the source
-- `password` (String, Sensitive) The password used to connect to the source. Is required even.
 
 ### Optional
 
+- `password` (String, Sensitive) The password used to connect to the source. Is required.
 - `verify` (Boolean) If true(default) the connection will be tested immediately to check if the credentials are true
 
 ### Read-Only

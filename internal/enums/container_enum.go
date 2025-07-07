@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package enums
 
 var CPU = []float64{0.25, 0.5, 0.75, 1, 2, 3, 4}

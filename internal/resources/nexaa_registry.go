@@ -224,7 +224,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
     }
 
         const (
-        maxRetries   = 4
+        maxRetries   = 5
         initialDelay = 5 * time.Second
     )
     delay := initialDelay

@@ -14,7 +14,8 @@ description: |-
 
 ```terraform
 resource "nexaa_namespace" "test" {
-  name = "terraform-test"
+  name        = "terraform-test"
+  description = "This is a description"
 }
 ```
 

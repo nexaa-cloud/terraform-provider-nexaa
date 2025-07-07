@@ -26,7 +26,7 @@ import (
 // Ensure the implementation satisfies the expected interfaces.
 var (
 	_ resource.Resource = &containerResource{}
-	//_ resource.ResourceWithImportState = &containerResource{}
+	_ resource.ResourceWithImportState = &containerResource{}
 )
 
 // NewContainerResource is a helper function to simplify the provider implementation.
@@ -41,13 +41,14 @@ type containerResource struct {
 	Namespace            types.String      `tfsdk:"namespace"`
 	Image                types.String      `tfsdk:"image"`
 	Registry             types.String      `tfsdk:"registry"`
-	Resources            resourcesResource `tfsdk:"resources"`
+	Resources            types.Object	   `tfsdk:"resources"`
 	EnvironmentVariables types.List        `tfsdk:"environment_variables"`
 	Ports                types.List        `tfsdk:"ports"`
 	Ingresses            types.List        `tfsdk:"ingresses"`
 	Mounts               types.List        `tfsdk:"mounts"`
 	HealthCheck          types.Object      `tfsdk:"health_check"`
 	Scaling              types.Object      `tfsdk:"scaling"`
+	LastUpdated 		 types.String	   `tfsdk:"last_updated"`
 }
 
 type resourcesResource struct {
@@ -102,62 +103,75 @@ func (r *containerResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Container resource representing a deployable service.",
+		Description: "Container resource representing a container that will be deployed on nexaa.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
+				Description: "Unique identifier of the container, equal to the name",
 			},
 			"name": schema.StringAttribute{
 				Required: true,
+				Description: "Name of the container",
 			},
 			"namespace": schema.StringAttribute{
 				Required: true,
+				Description: "Name of the namespace that the container will belong to",
 			},
 			"image": schema.StringAttribute{
 				Required: true,
+				Description: "The image use to run the container",
 			},
 			"registry": schema.StringAttribute{
 				Optional: true,
+				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
 			},
 			"resources": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"cpu": schema.Float64Attribute{
 						Required: true,
+						Description: "The amount of cpu used for the container, can be the following values: 0.25, 0.5, 0.75, 1, 2, 3, 4",
 						Validators: []validator.Float64{
 							float64validator.OneOf(enums.CPU...),
 						},
 					},
 					"ram": schema.Float64Attribute{
 						Required: true,
+						Description: "The amount of ram used for the container (in GB), can be the following values: 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16",
 						Validators: []validator.Float64{
 							float64validator.OneOf(enums.RAM...),
 						},
 					},
 				},
 				Required: true,
+				Description: "The resources used for running the container",
 			},
 			"ports": schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Computed:    true,
+				Description: "The ports used to expose for traffic, format as from:to",
 			},
 			"environment_variables": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
 							Required: true,
+							Description: "The name used for the environment variable",
 						},
 						"value": schema.StringAttribute{
 							Optional: true,
 							Computed: true,
+							Description: "The value used for the environment variable, is required",
 						},
 						"secret": schema.BoolAttribute{
 							Optional: true,
+							Description: "A boolean to represent if the environment variable is a secret or not",
 						},
 					},
 				},
 				Optional: true,
 				Computed: true,
+				Description: "Environment variables used in the container, write the non-secrets first the the secrets",
 			},
 			"ingresses": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -165,35 +179,43 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						"domain_name": schema.StringAttribute{
 							Optional: true,
 							Computed: true,
+							Description: "The domain used for the ingress, defaults to https://101010-{namespaceName}-{containerName}.container.tilaa.cloud",
 						},
 						"port": schema.Int64Attribute{
 							Required: true,
+							Description: "The port used for the ingress, must be one of the exposed ports",
 						},
 						"tls": schema.BoolAttribute{
 							Required: true,
+							Description: "Boolean representing if you want TLS enabled or not",
 						},
 						"allow_list": schema.ListAttribute{
 							ElementType: types.StringType,
 							Optional:    true,
+							Description: "A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone",
 						},
 					},
 				},
 				Optional: true,
 				Computed: true,
+				Description: "Used to access the container from the internet",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"path": schema.StringAttribute{
 							Required: true,
+							Description: "The path to the location where the data will be saved",
 						},
 						"volume": schema.StringAttribute{
 							Required: true,
+							Description: "The name of the volume that is used for the mount",
 						},
 					},
 				},
-				Optional: true,
 				Computed: true,
+				Optional: true,
+				Description: "Used to add persistant storage to your container",
 			},
 			"health_check": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -208,34 +230,46 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"scaling": schema.SingleNestedAttribute{
 				Required: true,
+				Description: "Used to specify or automaticaly scale the amount of replicas running",
 				Attributes: map[string]schema.Attribute{
 					"type": schema.StringAttribute{
 						Required: true,
+						Description: "The type of scaling you want, auto or manual",
+						Validators: []validator.String{
+							stringvalidator.OneOf("auto", "manual"),
+						},
 					},
 					"manual_input": schema.Int64Attribute{
 						Optional: true,
+						Description: "The input for manual scaling, equal to the amount of running replicas you want",
 					},
 					"auto_input": schema.SingleNestedAttribute{
 						Optional: true,
+						Description: "The input for the autoscaling",
 						Attributes: map[string]schema.Attribute{
 							"minimal_replicas": schema.Int64Attribute{
 								Required: true,
+								Description: "The minimal amount of replicas you want",
 							},
 							"maximal_replicas": schema.Int64Attribute{
 								Required: true,
+								Description: "The maximum amount of replicas you want to scale to",
 							},
 							"triggers": schema.ListNestedAttribute{
 								Optional: true,
+								Description: "Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for eacht type",
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"type": schema.StringAttribute{
 											Required: true,
+											Description: "The type of metric used for specifying what the triggers monitors, is eihter MEMORY or CPU",
 											Validators: []validator.String{
 												stringvalidator.OneOf("MEMORY", "CPU"),
 											},
 										},
 										"threshold": schema.Int64Attribute{
 											Required: true,
+											Description: "The amount precentage wise needed to add another replica",
 										},
 									},
 								},
@@ -244,6 +278,10 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					},
 				},
 			},
+			"last_updated": schema.StringAttribute{
+                Description: "Timestamp of the last Terraform update of the private registry",
+                Computed: true,
+            },
 		},
 	}
 }
@@ -258,12 +296,18 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Construct CPU/RAM string
-	cpu := int(plan.Resources.CPU.ValueFloat64() * 1000)
-	ram := int(plan.Resources.RAM.ValueFloat64() * 1000)
+	var resources resourcesResource
+	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
+	if diags.HasError() {
+		return
+	}
+
+	cpu := int(resources.CPU.ValueFloat64() * 1000)
+	ram := int(resources.RAM.ValueFloat64() * 1000)
 	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
 
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
-		plan.Registry = types.StringPointerValue(nil)
+		plan.Registry = types.StringNull()
 	}
 
 	// Build input struct
@@ -443,7 +487,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		}
 	}
 
-
 	// Create container
 	client := api.NewClient()
 	container, err := client.ContainerCreate(input)
@@ -457,16 +500,21 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(container.Name)
 	plan.Image = types.StringValue(container.Image)
-	plan.Registry = types.StringValue(container.PrivateRegistry.Name)
 
-	// Parse CPU and RAM back from the resources string
+	if container.PrivateRegistry == nil || container.PrivateRegistry.Name == "public"{
+		plan.Registry = types.StringNull()
+	} else {
+		plan.Registry = types.StringValue(*input.Registry)
+	}
+
+	// Parse CPU and RAM from the string
 	resParts := strings.Split(string(container.Resources), "_")
 	if len(resParts) == 4 {
 		cpu, err := strconv.ParseFloat(resParts[1], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse CPU value: "+err.Error(),
 			)
 			return
 		}
@@ -474,25 +522,42 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		ram, err := strconv.ParseFloat(resParts[3], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse RAM value: "+err.Error(),
 			)
 			return
 		}
 
-		plan.Resources.CPU = types.Float64Value(cpu / 1000)
-		plan.Resources.RAM = types.Float64Value(ram / 1000)
+		// Create a new types.Object with CPU and RAM fields set
+		resourcesObj := types.ObjectValueMust(
+			map[string]attr.Type{
+				"cpu": types.Float64Type,
+				"ram": types.Float64Type,
+			},
+			map[string]attr.Value{
+				"cpu": types.Float64Value(cpu / 1000),
+				"ram": types.Float64Value(ram / 1000),
+			},
+		)
+
+		// Assign it to plan.Resources
+		plan.Resources = resourcesObj
 	}
+
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
 		envVars := make([]attr.Value, len(container.EnvironmentVariables))
 		for i, ev := range container.EnvironmentVariables {
 			var val types.String
-			if ev.Secret == false {
-				val = types.StringValue(*ev.Value)
+			if ev.Secret {
+				for _, env := range input.EnvironmentVariables {
+					if ev.Name == env.Name {
+						val = types.StringValue(env.Value)
+					}
+				}
 			} else {
-				val = types.StringValue("******")
+				val = types.StringValue(*ev.Value)
 			}
 			obj := types.ObjectValueMust(
 				map[string]attr.Type{
@@ -626,6 +691,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Scaling
+	// Declare autoInputType once
 	autoInputType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"minimal_replicas": types.Int64Type,
@@ -641,6 +707,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		},
 	}
 
+	// Declare outer scaling type
 	scalingType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"type":         types.StringType,
@@ -649,6 +716,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		},
 	}
 
+	// Initialize scalingObj to null (failsafe default)
 	var scalingObj attr.Value = types.ObjectNull(scalingType.AttrTypes)
 
 	if container.AutoScaling != nil {
@@ -691,7 +759,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 			scalingType.AttrTypes,
 			map[string]attr.Value{
 				"type":         types.StringValue("auto"),
-				"manual_input": types.Int64Null(),
+				"manual_input": types.Int64Null(), // explicitly null
 				"auto_input":   autoInput,
 			},
 		)
@@ -707,6 +775,9 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	plan.Scaling = scalingObj.(types.Object)
+
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -729,22 +800,26 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-
 	// Set all fields in state from returned container
 	state.ID = types.StringValue(container.Name)
 	state.Namespace = types.StringValue(state.Namespace.ValueString())
 	state.Name = types.StringValue(container.Name)
 	state.Image = types.StringValue(container.Image)
-	state.Registry = types.StringValue(container.PrivateRegistry.Name)
 
-	// Parse CPU and RAM back from the resources string
+	if container.PrivateRegistry == nil || container.PrivateRegistry.Name == "public" {
+		state.Registry = types.StringNull()
+	} else {
+		state.Registry = types.StringValue(container.PrivateRegistry.Name)
+	}
+
+	// Parse CPU and RAM from the string
 	resParts := strings.Split(string(container.Resources), "_")
 	if len(resParts) == 4 {
 		cpu, err := strconv.ParseFloat(resParts[1], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse CPU value: "+err.Error(),
 			)
 			return
 		}
@@ -752,25 +827,38 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		ram, err := strconv.ParseFloat(resParts[3], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse RAM value: "+err.Error(),
 			)
 			return
 		}
 
-		state.Resources.CPU = types.Float64Value(cpu / 1000)
-		state.Resources.RAM = types.Float64Value(ram / 1000)
+		// Create a new types.Object with CPU and RAM fields set
+		resourcesObj := types.ObjectValueMust(
+			map[string]attr.Type{
+				"cpu": types.Float64Type,
+				"ram": types.Float64Type,
+			},
+			map[string]attr.Value{
+				"cpu": types.Float64Value(cpu / 1000),
+				"ram": types.Float64Value(ram / 1000),
+			},
+		)
+
+		// Assign it to plan.Resources
+		state.Resources = resourcesObj
 	}
+
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
 		envVars := make([]attr.Value, len(container.EnvironmentVariables))
 		for i, ev := range container.EnvironmentVariables {
 			var val types.String
-			if ev.Secret == false {
-				val = types.StringValue(*ev.Value)
+			if ev.Secret {
+				val = types.StringNull()
 			} else {
-				val = types.StringValue("******")
+				val = types.StringValue(*ev.Value)
 			}
 			obj := types.ObjectValueMust(
 				map[string]attr.Type{
@@ -856,6 +944,15 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 			return
 		}
 
+		var domain = "101010-"+state.Namespace.ValueString()+"-"+container.Name+".container.staging.tilaa.cloud"
+		var ingDomain types.String
+
+		if container.Ingresses == nil || ing.DomainName == domain {
+			ingDomain = types.StringNull()
+		} else {
+			ingDomain = types.StringValue(ing.DomainName)
+		}
+
 		ingressObj := types.ObjectValueMust(
 			map[string]attr.Type{
 				"domain_name": types.StringType,
@@ -864,7 +961,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 				"allow_list":  types.ListType{ElemType: types.StringType},
 			},
 			map[string]attr.Value{
-				"domain_name": types.StringValue(ing.DomainName),
+				"domain_name": ingDomain,
 				"port":        types.Int64Value(int64(ing.Port)),
 				"tls":         types.BoolValue(ing.EnableTLS),
 				"allow_list":  allowList,
@@ -1003,13 +1100,19 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Construct CPU/RAM string
-	cpu := int(plan.Resources.CPU.ValueFloat64() * 1000)
-	ram := int(plan.Resources.RAM.ValueFloat64() * 1000)
+	var resources resourcesResource
+	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
+	if diags.HasError() {
+		return
+	}
+
+	cpu := int(resources.CPU.ValueFloat64() * 1000)
+	ram := int(resources.RAM.ValueFloat64() * 1000)
 	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
 
 
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
-		plan.Registry = types.StringPointerValue(nil)
+		plan.Registry = types.StringNull()
 	}
 
 	// Build input struct
@@ -1035,6 +1138,18 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Mounts
+	var previousMounts []mountResource
+	if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
+		var prev containerResource
+		diags := req.State.Get(ctx, &prev)
+		resp.Diagnostics.Append(diags...)
+		if !prev.Mounts.IsNull() && !prev.Mounts.IsUnknown() {
+			_ = prev.Mounts.ElementsAs(ctx, &previousMounts, false)
+		}
+	}
+
+	input.Mounts = []api.MountInput{}
+	plannedMounts := map[string]struct{}{}
 	if !plan.Mounts.IsNull() && !plan.Mounts.IsUnknown() {
 		var mounts []mountResource
 		diags = plan.Mounts.ElementsAs(ctx, &mounts, false)
@@ -1043,6 +1158,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 			return
 		}
 		for _, m := range mounts {
+			key := fmt.Sprintf("%s|%s", m.Path.ValueString(), m.Volume.ValueString())
+			plannedMounts[key] = struct{}{}
 			input.Mounts = append(input.Mounts, api.MountInput{
 				Path: m.Path.ValueString(),
 				Volume: api.MountVolumeInput{
@@ -1054,9 +1171,23 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				State: api.StatePresent,
 			})
 		}
-	} else {
-		input.Mounts = []api.MountInput{}
 	}
+	for _, m := range previousMounts {
+		key := fmt.Sprintf("%s|%s", m.Path.ValueString(), m.Volume.ValueString())
+		if _, exists := plannedMounts[key]; !exists {
+			input.Mounts = append(input.Mounts, api.MountInput{
+				Path: m.Path.ValueString(),
+				Volume: api.MountVolumeInput{
+					Name:       m.Volume.ValueString(),
+					AutoCreate: false,
+					Increase:   false,
+					Size:       nil,
+				},
+				State: api.StateAbsent,
+			})
+		}
+	}
+
 
 	// Ingress
 	if !plan.Ingresses.IsNull() && !plan.Ingresses.IsUnknown() {
@@ -1077,19 +1208,24 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 						allowList = append(allowList, ip.ValueString())
 					}
 				}
-				var domain string
-				if !ing.DomainName.IsNull() || !ing.DomainName.IsUnknown() {
-					domain = ing.DomainName.ValueString()
-				} else {
-					domain = "	"
-				}
-				input.Ingresses = append(input.Ingresses, api.IngressInput{
-					DomainName: &domain,
+				if !ing.DomainName.IsNull() && !ing.DomainName.IsUnknown() {
+					input.Ingresses = append(input.Ingresses, api.IngressInput{
+					DomainName: ing.DomainName.ValueStringPointer(),
 					Port:       int(ing.Port.ValueInt64()),
 					EnableTLS:  ing.TLS.ValueBool(),
 					Whitelist:  allowList,
 					State:      api.StatePresent,
 				})
+				} else {
+					input.Ingresses = append(input.Ingresses, api.IngressInput{
+					DomainName: nil,
+					Port:       int(ing.Port.ValueInt64()),
+					EnableTLS:  ing.TLS.ValueBool(),
+					Whitelist:  allowList,
+					State:      api.StatePresent,
+				})
+				}
+				
 			}
 		}
 	} else {
@@ -1182,12 +1318,6 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-
-	resp.Diagnostics.AddWarning(
-		"Value for input",
-		"Value: "+ fmt.Sprintf("%#v\n", input),
-	)
-
 	// Create container
 	client := api.NewClient()
 	container, err := client.ContainerModify(input)
@@ -1201,16 +1331,21 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(container.Name)
 	plan.Image = types.StringValue(container.Image)
-	plan.Registry = types.StringValue(container.PrivateRegistry.Name)
+	
+	if container.PrivateRegistry == nil {
+		plan.Registry = types.StringNull()
+	} else {
+		plan.Registry = types.StringValue(container.PrivateRegistry.Name)
+	}
 
-	// Parse CPU and RAM back from the resources string
+	// Parse CPU and RAM from the string
 	resParts := strings.Split(string(container.Resources), "_")
 	if len(resParts) == 4 {
 		cpu, err := strconv.ParseFloat(resParts[1], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse CPU value: "+err.Error(),
 			)
 			return
 		}
@@ -1218,25 +1353,42 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		ram, err := strconv.ParseFloat(resParts[3], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating container",
-				"Something went wrong while creating a container",
+				"Error parsing container resources",
+				"Failed to parse RAM value: "+err.Error(),
 			)
 			return
 		}
 
-		plan.Resources.CPU = types.Float64Value(cpu / 1000)
-		plan.Resources.RAM = types.Float64Value(ram / 1000)
+		// Create a new types.Object with CPU and RAM fields set
+		resourcesObj := types.ObjectValueMust(
+			map[string]attr.Type{
+				"cpu": types.Float64Type,
+				"ram": types.Float64Type,
+			},
+			map[string]attr.Value{
+				"cpu": types.Float64Value(cpu / 1000),
+				"ram": types.Float64Value(ram / 1000),
+			},
+		)
+
+		// Assign it to plan.Resources
+		plan.Resources = resourcesObj
 	}
+
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
 		envVars := make([]attr.Value, len(container.EnvironmentVariables))
 		for i, ev := range container.EnvironmentVariables {
 			var val types.String
-			if ev.Secret == false {
+			if !ev.Secret {
 				val = types.StringValue(*ev.Value)
 			} else {
-				val = types.StringValue("******")
+				for _, env := range input.EnvironmentVariables {
+					if env.Name == ev.Name {
+						val = types.StringValue(env.Value)
+					}
+				}
 			}
 			obj := types.ObjectValueMust(
 				map[string]attr.Type{
@@ -1452,6 +1604,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	plan.Scaling = scalingObj.(types.Object)
 
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -1511,25 +1665,271 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	)
 }
 
-// func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-//     resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			"Expected import ID in the format \"<namespace>/<container_name>\", got: "+req.ID,
+		)
+		return
+	}
+	namespace := parts[0]
+	name := parts[1]
 
-//     id := req.ID
-//     list, err := api.ListContainers()
-//     if err != nil {
-//         resp.Diagnostics.AddError("Error listing containers", err.Error())
-//         return
-//     }
-//     for _, item := range list {
-//         if item.Name == id {
-//             resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
-//             resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
-//             resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
-//             return
-//         }
-//     }
-//     resp.Diagnostics.AddError(
-//         "Error importing container",
-//         "Could not find container with name: "+id,
-//     )
-// }
+	// Fetch the container from your API
+	client := api.NewClient()
+	container, err := client.ListContainerByName(namespace, name)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error importing container",
+			fmt.Sprintf("Unable to fetch container %q in namespace %q: %s", name, namespace, err.Error()),
+		)
+		return
+	}
+
+	// resources
+	resParts := strings.Split(string(container.Resources), "_")
+	if len(resParts) != 4 {
+		resp.Diagnostics.AddError(
+			"Error importing container",
+			"Error while importing a container, err: "+err.Error(),
+		)
+		return
+	}
+	cpu, err := strconv.ParseFloat(resParts[1], 64)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error parsing container resources",
+			"Failed to parse CPU value: "+err.Error(),
+		)
+		return
+	}
+
+	ram, err := strconv.ParseFloat(resParts[3], 64)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error parsing container resources",
+			"Failed to parse RAM value: "+err.Error(),
+		)
+		return
+	}
+
+	// Create a new types.Object with CPU and RAM fields set
+	resourcesObj := types.ObjectValueMust(
+		map[string]attr.Type{
+			"cpu": types.Float64Type,
+			"ram": types.Float64Type,
+		},
+		map[string]attr.Value{
+			"cpu": types.Float64Value(cpu / 1000),
+			"ram": types.Float64Value(ram / 1000),
+		},
+	)
+	
+
+	// Environment Variables
+	var envList []attr.Value
+	for _, env := range container.EnvironmentVariables {
+		envList = append(envList, types.ObjectValueMust(
+			map[string]attr.Type{
+				"name":   types.StringType,
+				"value":  types.StringType,
+				"secret": types.BoolType,
+			},
+			map[string]attr.Value{
+				"name":   types.StringValue(env.Name),
+				"value":  types.StringPointerValue(env.Value),
+				"secret": types.BoolValue(env.Secret),
+			},
+		))
+	}
+	envTF := types.ListValueMust(
+		types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"name":   types.StringType,
+				"value":  types.StringType,
+				"secret": types.BoolType,
+			},
+		}, envList)
+
+	// Ports
+		ports := make([]attr.Value, len(container.Ports))
+		for i, p := range container.Ports {
+			ports[i] = types.StringValue(p)
+		}
+
+		portList, diags := types.ListValue(types.StringType, ports)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+	// Mounts
+	var mountList []attr.Value
+	for _, m := range container.Mounts {
+		mountList = append(mountList, types.ObjectValueMust(
+			map[string]attr.Type{
+				"path":   types.StringType,
+				"volume": types.StringType,
+			},
+			map[string]attr.Value{
+				"path":   types.StringValue(m.Path),
+				"volume": types.StringValue(m.Volume.Name),
+			},
+		))
+	}
+	mountTF := types.ListValueMust(
+		types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"path":   types.StringType,
+				"volume": types.StringType,
+			},
+		}, mountList)
+
+	// Ingresses
+	var ingressList []attr.Value
+	for _, ing := range container.Ingresses {
+		var allowList []attr.Value
+		for _, ip := range ing.Allowlist {
+			allowList = append(allowList, types.StringValue(ip))
+		}
+		ingressList = append(ingressList, types.ObjectValueMust(
+			map[string]attr.Type{
+				"domain_name": types.StringType,
+				"port":        types.Int64Type,
+				"tls":         types.BoolType,
+				"allow_list":  types.ListType{ElemType: types.StringType},
+			},
+			map[string]attr.Value{
+				"domain_name": types.StringValue(ing.DomainName),
+				"port":        types.Int64Value(int64(ing.Port)),
+				"tls":         types.BoolValue(ing.EnableTLS),
+				"allow_list":  types.ListValueMust(types.StringType, allowList),
+			},
+		))
+	}
+	ingressesTF := types.ListValueMust(
+		types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"domain_name": types.StringType,
+				"port":        types.Int64Type,
+				"tls":         types.BoolType,
+				"allow_list":  types.ListType{ElemType: types.StringType},
+			},
+		}, ingressList)
+
+	// Health Check
+	healthTF := types.ObjectValueMust(
+		map[string]attr.Type{
+			"port": types.Int64Type,
+			"path": types.StringType,
+		},
+		map[string]attr.Value{
+			"port": types.Int64Value(int64(container.HealthCheck.Port)),
+			"path": types.StringValue(container.HealthCheck.Path),
+		},
+	)
+
+	autoInputType := types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"minimal_replicas": types.Int64Type,
+			"maximal_replicas": types.Int64Type,
+			"triggers": types.ListType{
+				ElemType: types.ObjectType{
+					AttrTypes: map[string]attr.Type{
+						"type":      types.StringType,
+						"threshold": types.Int64Type,
+					},
+				},
+			},
+		},
+	}
+
+	scalingType := types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"type":         types.StringType,
+			"manual_input": types.Int64Type,
+			"auto_input":   autoInputType,
+		},
+	}
+
+	var scalingObj attr.Value = types.ObjectNull(scalingType.AttrTypes)
+
+	if container.AutoScaling != nil {
+		var triggerVals []attr.Value
+		for _, t := range container.AutoScaling.Triggers {
+			triggerObj := types.ObjectValueMust(
+				map[string]attr.Type{
+					"type":      types.StringType,
+					"threshold": types.Int64Type,
+				},
+				map[string]attr.Value{
+					"type":      types.StringValue(strings.ToUpper(t.Type)),
+					"threshold": types.Int64Value(int64(t.Threshold)),
+				},
+			)
+			triggerVals = append(triggerVals, triggerObj)
+		}
+
+		triggersList, diags := types.ListValue(
+			types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"type":      types.StringType,
+					"threshold": types.Int64Type,
+				},
+			}, triggerVals)
+		if diags.HasError() {
+			resp.Diagnostics.AddError("Scaling triggers error", "Failed to build scaling triggers list")
+			return
+		}
+
+		autoInput := types.ObjectValueMust(
+			autoInputType.AttrTypes,
+			map[string]attr.Value{
+				"minimal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Minimum)),
+				"maximal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Maximum)),
+				"triggers":         triggersList,
+			},
+		)
+
+		scalingObj = types.ObjectValueMust(
+			scalingType.AttrTypes,
+			map[string]attr.Value{
+				"type":         types.StringValue("auto"),
+				"manual_input": types.Int64Null(),
+				"auto_input":   autoInput,
+			},
+		)
+	} else if container.NumberOfReplicas > 0 {
+		scalingObj = types.ObjectValueMust(
+			scalingType.AttrTypes,
+			map[string]attr.Value{
+				"type":         types.StringValue("manual"),
+				"manual_input": types.Int64Value(int64(container.NumberOfReplicas)),
+				"auto_input":   types.ObjectNull(autoInputType.AttrTypes),
+			},
+		)
+	}
+
+	// ---- Build full state ----
+	state := containerResource{
+		ID:                   types.StringValue(container.Name),
+		Name:                 types.StringValue(container.Name),
+		Namespace:            types.StringValue(namespace),
+		Image:                types.StringValue(container.Image),
+		Registry:             types.StringValue(container.PrivateRegistry.Name),
+		Resources: 			  resourcesObj,
+		EnvironmentVariables: envTF,
+		Ports:                portList,
+		Ingresses:            ingressesTF,
+		Mounts:               mountTF,
+		HealthCheck:          healthTF,
+		Scaling:              scalingObj.(types.Object),
+		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+
