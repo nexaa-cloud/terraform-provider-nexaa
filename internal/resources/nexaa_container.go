@@ -1920,13 +1920,6 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		)
 	}
 
-	var scalingobj types.Object
-	if obj, ok := scalingObj.(types.Object); ok {
-		scalingObj = obj
-	} else {
-		resp.Diagnostics.AddError("Error importing container", "Could not import container: "+err.Error())
-		return
-	}
 
 	state := containerResource{
 		ID:                   types.StringValue(container.Name),
@@ -1940,9 +1933,16 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Ingresses:            ingressesTF,
 		Mounts:               mountTF,
 		HealthCheck:          healthTF,
-		Scaling:              scalingobj,
 		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
 	}
+
+	if obj, ok := scalingObj.(types.Object); ok {
+		state.Scaling = obj
+	} else {
+		resp.Diagnostics.AddError("Error importing container", "Could not import container: "+err.Error())
+		return
+	}
+
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

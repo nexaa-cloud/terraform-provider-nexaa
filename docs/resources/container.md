@@ -104,7 +104,7 @@ resource "nexaa_container" "container" {
 - `environment_variables` (Attributes List) Environment variables used in the container, write the non-secrets first the the secrets (see [below for nested schema](#nestedatt--environment_variables))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
-- `mounts` (Attributes List) Used to add persistant storage to your container (see [below for nested schema](#nestedatt--mounts))
+- `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
 - `ports` (List of String) The ports used to expose for traffic, format as from:to
 - `registry` (String) The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry
 
@@ -151,7 +151,7 @@ Optional:
 
 Required:
 
-- `threshold` (Number) The amount precentage wise needed to add another replica
+- `threshold` (Number) The amount percentage wise needed to add another replica
 - `type` (String) The type of metric used for specifying what the triggers monitors, is eihter MEMORY or CPU
 
 
