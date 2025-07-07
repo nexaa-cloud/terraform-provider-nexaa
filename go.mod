@@ -10,8 +10,6 @@ require (
 	gitlab.com/tilaa/tilaa-cli v0.1.0
 )
 
-replace gitlab.com/tilaa/tilaa-cli => /home/mvangastel/Development/Tilaa/tilaa-cli
-
 require (
 	github.com/Khan/genqlient v0.8.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.3 // indirect
