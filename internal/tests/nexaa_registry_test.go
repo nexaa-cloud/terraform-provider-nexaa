@@ -13,6 +13,10 @@ import (
 )
 
 func TestAcc_RegistryResource_basic(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping acceptance tests in CI environment")
+	}
+
 	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
 	}
