@@ -1,4 +1,4 @@
 provider "nexaa" {
-  username = "nexaa@tilaa.com"
+  username = "user@example.com"
   password = "password"
 }

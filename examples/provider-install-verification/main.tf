@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "nexaa" {
-  username = "expample@tilaa.com"
+  username = "user@example.com"
   password = "pass"
 }
 
