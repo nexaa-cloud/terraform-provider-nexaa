@@ -101,7 +101,7 @@ jobs:
 
       - name: Write minimal main.tf
         run: |
-          mkdir -p test-tmp && cd test-tmp
+          mkdir -p test-tmp
           cat <<EOF > test-tmp/main.tf
           terraform {
             required_providers {
