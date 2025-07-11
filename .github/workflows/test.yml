@@ -85,6 +85,8 @@ jobs:
         with:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
+      - name: Configure Git to use token for GitLab
+        run: git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
       - env:
           TF_ACC: "1"
