@@ -31,7 +31,15 @@ jobs:
         run: |
           git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
-      - run: go build -v .
+      - name: Build provider binary
+        run: |
+          mkdir -p ./dist
+          go build -o ./dist/terraform-provider-nexaa
+      - name: Upload provider binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-nexaa
+          path: ./dist/terraform-provider-nexaa
       - name: Run linters
         uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
         with:
@@ -45,10 +53,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
-
       - name: Configure Git to use token for GitLab
         run: git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
-
       # We need the latest version of Terraform for our documentation generation to use
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
@@ -92,7 +98,29 @@ jobs:
       - name: Configure Git to use token for GitLab
         run: git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
-      - env:
+      - name: Download provider binary
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-provider-nexaa
+          path: ./provider-bin
+      - name: Install local providerplugin
+        run: |
+          mkdir -p ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64
+          cp ./provider-bin/terraform-provider-nexaa ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
+          chmod +x ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
+      - name: Write Terraform CLI config file
+        run: |
+          cat <<EOF > .terraformrc
+          provider_installation {
+            dev_overrides {
+              "tilaa/nexaa" = "${HOME}/.terraform.d/plugins"
+            }
+            direct {}
+          }
+          EOF
+      - name: Run tests
+        env:
           TF_ACC: "1"
+          TF_CLI_CONFIG_FILE: ${{ github.workspace }}/.terraformrc
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
