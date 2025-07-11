@@ -23,7 +23,7 @@ var (
 	providerConfig = fmt.Sprintf(
 		`terraform {
 			required_providers {
-				nexaa = { source = "nexaa", version = "0.1.0" }
+				nexaa = { source = "tilaa/nexaa", version = "0.1.0" }
 				}
 			}
 

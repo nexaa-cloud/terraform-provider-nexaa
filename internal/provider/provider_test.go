@@ -34,7 +34,7 @@ func TestAcc_Namespace_basic(t *testing.T) {
 					terraform{
 						required_providers {
 							nexaa = {
-								source = "registry.terraform.io/tilaa/nexaa"
+								source = "tilaa/nexaa"
 								version = "0.1.0"
 							}
 						}
