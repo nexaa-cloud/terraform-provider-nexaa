@@ -55,8 +55,7 @@ jobs:
   test:
     name: Terraform Provider Acceptance Tests
     needs: build
-    runs-on:
-      group: Default
+    runs-on: ubuntu-latest
     env:
       NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
       NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
@@ -118,6 +117,9 @@ jobs:
         run: terraform init
 
       - name: Run Acceptance Tests
+        working-directory: test-tmp
         env:
           TF_ACC: "1"
-        run: go test -v -cover ./internal/provider/
+          NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+          NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
+        run: go test -v -cover ../internal/provider/
