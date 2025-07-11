@@ -101,7 +101,7 @@ jobs:
 
       - name: Write minimal main.tf
         run: |
-          mkdir -p test-tmp
+          mkdir -p test-tmp && cd test-tmp
           cat <<EOF > test-tmp/main.tf
           terraform {
             required_providers {
@@ -114,8 +114,8 @@ jobs:
           EOF
 
       - name: Terraform init
-        run: terraform init
         working-directory: test-tmp
+        run: terraform init
 
       - name: Run Acceptance Tests
         env:
