@@ -84,18 +84,20 @@ jobs:
 
       - name: Build provider binary
         run: |
-          mkdir -p ~/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64
-          go build -o ~/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
+          mkdir -p "${HOME}/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64"
+          go build -o "${HOME}/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa"
 
       - name: Write .terraformrc
         run: |
-          echo 'provider_installation {
+          cat <<EOF > ~/.terraformrc
+          provider_installation {
             filesystem_mirror {
-              path    = "~/.terraform.d/plugins"
+              path    = "${HOME}/.terraform.d/plugins"
               include = ["tilaa/nexaa"]
             }
             direct {}
-          }' > ~/.terraformrc
+          }
+          EOF
 
       - name: Write minimal main.tf
         run: |
