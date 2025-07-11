@@ -17,7 +17,7 @@ import (
 
 var (
 	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-		"tilaa/nexaa": providerserver.NewProtocol6WithError(provider.New("test")()),
+		"nexaa": providerserver.NewProtocol6WithError(provider.New("test")()),
 	}
 
 	providerConfig = fmt.Sprintf(
