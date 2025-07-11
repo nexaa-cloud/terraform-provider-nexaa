@@ -98,29 +98,14 @@ jobs:
       - name: Configure Git to use token for GitLab
         run: git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
-      - name: Download provider binary
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-provider-nexaa
-          path: ./provider-bin
-      - name: Install local providerplugin
+      - name: Build Terraform provider
+        run: go build -o terraform-provider-nexaa .
+      - name: Move provider binary to plugin path
         run: |
           mkdir -p ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64
-          cp ./provider-bin/terraform-provider-nexaa ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
-          chmod +x ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
-      - name: Write Terraform CLI config file
-        run: |
-          cat <<EOF > .terraformrc
-          provider_installation {
-            dev_overrides {
-              "tilaa/nexaa" = "${HOME}/.terraform.d/plugins"
-            }
-            direct {}
-          }
-          EOF
+          mv terraform-provider-nexaa ~/.terraform.d/plugins/tilaa/nexaa/0.1.0/linux_amd64
       - name: Run tests
         env:
           TF_ACC: "1"
-          TF_CLI_CONFIG_FILE: ${{ github.workspace }}/.terraformrc
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10
