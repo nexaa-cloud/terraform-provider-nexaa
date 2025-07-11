@@ -14,7 +14,7 @@ import (
 )
 
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"nexaa": providerserver.NewProtocol6WithError(New("test")()),
+	"tilaa/nexaa": providerserver.NewProtocol6WithError(New("test")()),
 }
 
 func testAccPreCheck(t *testing.T) {
