@@ -31,14 +31,6 @@ func TestAcc_Namespace_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: fmt.Sprintf(`
-					terraform{
-						required_providers {
-							nexaa = {
-								source = "registry.terraform.io/tilaa/nexaa"
-								version = "0.1.0"
-							}
-						}
-					}
 					provider "nexaa" {
 						username = "%s"
 						password = "%s"

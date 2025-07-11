@@ -21,13 +21,7 @@ var (
 	}
 
 	providerConfig = fmt.Sprintf(
-		`terraform {
-			required_providers {
-				nexaa = { source = "registry.terraform.io/tilaa/nexaa", version = "0.1.0" }
-				}
-			}
-
-			provider "nexaa" {
+		`provider "nexaa" {
 				username = %q
 				password = %q
 			}
