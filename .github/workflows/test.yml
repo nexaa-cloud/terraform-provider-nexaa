@@ -81,10 +81,21 @@ jobs:
         with:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
-      - name: Configure Git for GitLab
+
+      - name: Build provider binary
         run: |
-          git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
-      - run: go mod download
+          mkdir -p ~/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64
+          go build -o ~/.terraform.d/plugins/registry.terraform.io/tilaa/nexaa/0.1.0/linux_amd64/terraform-provider-nexaa
+
+      - name: Write .terraformrc
+        run: |
+          echo 'provider_installation {
+            filesystem_mirror {
+              path    = "~/.terraform.d/plugins"
+              include = ["tilaa/nexaa"]
+            }
+            direct {}
+          }' > ~/.terraformrc
 
       - name: Write minimal main.tf
         run: |
@@ -100,7 +111,7 @@ jobs:
           }
           EOF
 
-      - name: Run terraform init to generate lockfile
+      - name: Terraform init
         run: terraform init
         working-directory: test-tmp
 
