@@ -65,6 +65,9 @@ jobs:
     needs: build
     runs-on: 
       group: Default
+    env:
+      NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+      NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
