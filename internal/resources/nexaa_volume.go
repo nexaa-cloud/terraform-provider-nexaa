@@ -87,7 +87,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	input := api.VolumeInput{
+	input := api.VolumeCreateInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Size:      int(plan.Size.ValueInt64()),
@@ -99,9 +99,12 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	)
 	delay := initialDelay
 	var err error
+	var volume api.VolumeResult
+
+	client := api.NewClient()
 
 	for i := 0; i <= maxRetries; i++ {
-		_, err = api.CreateVolume(input)
+		volume, err = client.VolumeCreate(input)
 		if err == nil {
 			break
 		}
@@ -117,17 +120,8 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	volume, err := api.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading volume",
-			"Could not read volume, error: "+err.Error(),
-		)
-		return
-	}
-
 	plan.ID = types.StringValue(volume.Name)
-	plan.Namespace = types.StringValue(volume.Namespace)
+	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(volume.Name)
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
@@ -150,7 +144,9 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	volume, err := api.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
+	client := api.NewClient()
+
+	volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
@@ -160,7 +156,7 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	state.ID = types.StringValue(volume.Name)
-	state.Namespace = types.StringValue(volume.Namespace)
+	state.Namespace = types.StringValue(state.Namespace.ValueString())
 	state.Name = types.StringValue(volume.Name)
 	state.Size = types.Int64Value(int64(volume.Size))
 	state.Usage = types.Int64Value(int64(volume.Usage))
@@ -182,13 +178,15 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	input := api.VolumeInput{
+	input := api.VolumeModifyInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Size:      int(plan.Size.ValueInt64()),
 	}
 
-	_, err := api.IncreaseVolume(input)
+	client := api.NewClient()
+
+	volume, err := client.VolumeIncrease(input)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Updating Volume",
@@ -197,17 +195,8 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	volume, err := api.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading Volume",
-			"Could not read volume "+plan.Name.ValueString()+": "+err.Error(),
-		)
-		return
-	}
-
 	plan.ID = types.StringValue(volume.Name)
-	plan.Namespace = types.StringValue(volume.Namespace)
+	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(volume.Name)
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
@@ -230,6 +219,8 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	client := api.NewClient()
+
 	const (
 		maxRetries   = 5
 		initialDelay = 5 * time.Second
@@ -239,7 +230,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	// Retry DeleteVolume while “locked” errors persist
 	for i := 0; i <= maxRetries; i++ {
-		err = api.DeleteVolume(
+		_, err = client.VolumeDelete(
 			state.Name.ValueString(),
 			state.Namespace.ValueString(),
 		)
@@ -298,8 +289,9 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 	ns := parts[0]
 	volName := parts[1]
 
+	client := api.NewClient()
 	// Fetch the volume using the namespace and volume name
-	volume, err := api.ListVolumeByName(ns, volName)
+	volume, err := client.ListVolumeByName(ns, volName)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
@@ -310,7 +302,7 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 
 	// Set the volume attributes in the state
 	resp.State.SetAttribute(ctx, path.Root("id"), volume.Name)
-	resp.State.SetAttribute(ctx, path.Root("namespace"), volume.Namespace)
+	resp.State.SetAttribute(ctx, path.Root("namespace"), ns)
 	resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
 	resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
 	resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))

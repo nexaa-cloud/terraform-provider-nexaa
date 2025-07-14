@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"gitlab.com/tilaa/tilaa-cli/api"
+	"gitlab.com/tilaa/tilaa-cli/config"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
@@ -58,14 +59,14 @@ func (p *NexaaProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 }
 
 func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var config NexaaProviderModel
-	diags := req.Config.Get(ctx, &config)
+	var conf NexaaProviderModel
+	diags := req.Config.Get(ctx, &conf)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if config.Username.IsUnknown() {
+	if conf.Username.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("username"),
 			"Unknown username",
@@ -73,7 +74,7 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		)
 	}
 
-	if config.Password.IsUnknown() {
+	if conf.Password.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("password"),
 			"Unknown password",
@@ -88,12 +89,12 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	username := os.Getenv("USERNAME")
 	password := os.Getenv("PASSWORD")
 
-	if !config.Username.IsNull() {
-		username = config.Username.ValueString()
+	if !conf.Username.IsNull() {
+		username = conf.Username.ValueString()
 	}
 
-	if !config.Password.IsNull() {
-		password = config.Password.ValueString()
+	if !conf.Password.IsNull() {
+		password = conf.Password.ValueString()
 	}
 
 	if username == "" {
@@ -115,6 +116,14 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	if err := config.Initialize("dev"); err != nil {
+        panic(err)
+    }
+
+    if err := config.LoadConfig(); err != nil {
+        panic(err)
+    }
 
 	err := api.Login(username, password)
 

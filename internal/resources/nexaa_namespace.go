@@ -74,28 +74,18 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	input := api.NamespaceInput{
+	input := api.NamespaceCreateInput{
 		Name:        plan.Name.ValueString(),
-		Description: plan.Description.ValueString(),
+		Description: plan.Description.ValueStringPointer(),
 	}
 
-	_, err := api.CreateNamespace(input)
+	client := api.NewClient()
+	namespace, err := client.NamespaceCreate(input)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating namespace",
 			"Could not create namespace, error: "+err.Error(),
-		)
-		return
-	}
-
-	namespace, err := api.ListNamespaceByName(plan.Name.ValueString())
-
-	// namespaces, err := api.ListNamespaces()
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading Namespace",
-			"Could not find namespace "+plan.Name.ValueString()+": "+err.Error(),
 		)
 		return
 	}
@@ -121,7 +111,8 @@ func (r *namespaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	namespace, err := api.ListNamespaceByName(state.Name.ValueString())
+	client := api.NewClient()
+	namespace, err := client.NamespaceListByName(state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error reading Namespace",
@@ -171,12 +162,13 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 		initialDelay = 10 * time.Second
 	)
 	delay := initialDelay
+	client := api.NewClient()
 
 	var err error
 
 	// Retry DeleteNamespace until it no longer complains about "locked"
 	for i := 0; i <= maxRetries; i++ {
-		err = api.DeleteNamespace(state.ID.ValueString())
+		_, err = client.NamespaceDelete(state.ID.ValueString())
 		if err == nil {
 			// Success
 			return
@@ -213,20 +205,20 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 
 func (r *namespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	client := api.NewClient()
 
 	id := req.ID
-	list, err := api.ListNamespaces()
+	item, err := client.NamespaceListByName(id)
 	if err != nil {
 		resp.Diagnostics.AddError("Error listing namespaces", err.Error())
 		return
 	}
-	for _, item := range list {
-		if item.Name == id {
-			resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
-			resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
-			resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
-			return
-		}
+
+	if item.Name == id {
+		resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
+		resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
+		resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
+		return
 	}
 	resp.Diagnostics.AddError(
 		"Error importing namespace",

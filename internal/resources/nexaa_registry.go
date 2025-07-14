@@ -107,7 +107,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	input := api.RegistryInput{
+	input := api.RegistryCreateInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Source:    plan.Source.ValueString(),
@@ -116,15 +116,18 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 		Verify:    plan.Verify.ValueBool(),
 	}
 
+	client := api.NewClient()
+
 	const (
-		maxRetries   = 4
+		maxRetries = 4
 		initialDelay = 3 * time.Second
 	)
 	delay := initialDelay
 	var err error
+	var registry api.RegistryResult
 
 	for i := 0; i <= maxRetries; i++ {
-		_, err = api.CreateRegistry(input)
+		registry, err = client.RegistryCreate(input)
 		if err == nil {
 			break
 		}
@@ -141,17 +144,8 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	registry, err := api.ListRegistryByName(plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading registry",
-			"Could not read registry, error: "+err.Error(),
-		)
-		return
-	}
-
 	plan.ID = types.StringValue(registry.Name)
-	plan.Namespace = types.StringValue(registry.Namespace)
+	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(registry.Name)
 	plan.Source = types.StringValue(registry.Source)
 	plan.Username = types.StringValue(registry.Username)
@@ -176,7 +170,9 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	registry, err := api.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
+	client := api.NewClient()
+
+	registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Registry",
@@ -186,7 +182,7 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	state.ID = types.StringValue(registry.Name)
-	state.Namespace = types.StringValue(registry.Namespace)
+	state.Namespace = types.StringValue(state.Namespace.ValueString())
 	state.Name = types.StringValue(registry.Name)
 	state.Source = types.StringValue(registry.Source)
 	state.Username = types.StringValue(registry.Username)
@@ -229,9 +225,11 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 	)
 	delay := initialDelay
 
+	client := api.NewClient()
+
 	// Retry DeleteVolume while “locked” errors persist
 	for i := 0; i <= maxRetries; i++ {
-		err := api.DeleteRegistry(
+		_, err := client.RegistryDelete(
 			state.Namespace.ValueString(),
 			state.Name.ValueString(),
 		)
@@ -290,8 +288,10 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 	ns := parts[0]
 	registryName := parts[1]
 
+	client := api.NewClient()
+
 	// Fetch the registry using the namespace and registry name
-	registry, err := api.ListRegistryByName(ns, registryName)
+	registry, err := client.ListRegistryByName(ns, registryName)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Registry",
@@ -302,7 +302,7 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 
 	// Set the registry attributes in the state
 	resp.State.SetAttribute(ctx, path.Root("id"), registry.Name)
-	resp.State.SetAttribute(ctx, path.Root("namespace"), registry.Namespace)
+	resp.State.SetAttribute(ctx, path.Root("namespace"), ns)
 	resp.State.SetAttribute(ctx, path.Root("name"), registry.Name)
 	resp.State.SetAttribute(ctx, path.Root("source"), registry.Source)
 	resp.State.SetAttribute(ctx, path.Root("username"), registry.Username)
