@@ -29,7 +29,9 @@ website/node_modules
 website/vendor
 ./auth.json
 examples/*/auth.json
-internal/*/auth.json
+examples/*/auth-dev.json
+internal/*/auth-dev.json
+
 
 
 # Test exclusions
