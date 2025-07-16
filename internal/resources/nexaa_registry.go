@@ -119,7 +119,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 	client := api.NewClient()
 
 	const (
-		maxRetries = 4
+		maxRetries   = 4
 		initialDelay = 3 * time.Second
 	)
 	delay := initialDelay

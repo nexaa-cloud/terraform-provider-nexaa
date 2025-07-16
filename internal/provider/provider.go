@@ -118,12 +118,12 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	if err := config.Initialize("dev"); err != nil {
-        panic(err)
-    }
+		panic(err)
+	}
 
-    if err := config.LoadConfig(); err != nil {
-        panic(err)
-    }
+	if err := config.LoadConfig(); err != nil {
+		panic(err)
+	}
 
 	err := api.Login(username, password)
 
