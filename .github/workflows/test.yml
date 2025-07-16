@@ -117,6 +117,13 @@ jobs:
         working-directory: test-tmp
         run: terraform init
 
+      - name: Print env (masked)
+        run: |
+          echo "Username prefix: ${NEXAA_USERNAME:0:3}***"
+        env:
+          NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+
+
       - name: Run Acceptance Tests
         env:
           NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
