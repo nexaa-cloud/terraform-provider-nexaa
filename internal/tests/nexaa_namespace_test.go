@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
@@ -40,12 +41,12 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 				resource "nexaa_namespace" "test" {
-				name        = "tf-test-ns"
+				name        = "tf-test-ns-%s"
 				description = "A BDD-style test namespace"
 				}
-				`,
+				`, time.Now()),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_namespace.test", "id"),
 					resource.TestCheckResourceAttr("nexaa_namespace.test", "name", "tf-test-ns"),

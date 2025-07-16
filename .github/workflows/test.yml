@@ -122,4 +122,5 @@ jobs:
           NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
           NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
           TILAA_ENV: ${{ secrets.TILAA_ENV }}
+        working-directory: .
         run: TF_ACC=1 go test -v -cover ./internal/...
