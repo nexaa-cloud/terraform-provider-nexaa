@@ -118,5 +118,9 @@ jobs:
         run: terraform init
 
       - name: Run Acceptance Tests
+        env:
+          NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+          NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
+          TILAA_ENV: ${{ secrets.TILAA_ENV }}
         working-directory: test-tmp
         run: TF_ACC=1 go test -v -cover ../internal/provider/
