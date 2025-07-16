@@ -13,11 +13,11 @@ import (
 func containerConfig() string {
 	return providerConfig + `
 resource "nexaa_namespace" "ns" {
-  name = "tf-test-con1"
+  name = "tf-test-con"
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = "tf-test-con1"
+  namespace = "tf-test-con"
   name      = "example"
   source    = "registry.gitlab.com"
   username  = "user"
@@ -26,7 +26,7 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace      = "tf-test-con1"
+  namespace      = "tf-test-con"
   name           = "tf-vol"
   size           = 2
   }
@@ -92,17 +92,17 @@ resource "nexaa_container" "container" {
 func containerUpdateConfig() string {
 	return providerConfig + `
 resource "nexaa_namespace" "ns" {
-  name = "tf-test-con1"
+  name = "tf-test-con"
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace      = "tf-test-con1"
+  namespace      = "tf-test-con"
   name           = "tf-vol"
   size           = 2
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = "tf-test-con1"
+  namespace = "tf-test-con"
   name      = "example"
   source    = "registry.gitlab.com"
   username  = "user"
@@ -172,7 +172,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "name", "tf-container"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", "tf-test-con1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", "tf-test-con"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
 					//resource.TestCheckResourceAttr("nexaa_container.container", "registry", "public"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.cpu", "0.25"),
@@ -194,7 +194,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 			{
 				ResourceName:      "nexaa_container.container",
 				ImportState:       true,
-				ImportStateId:     "tf-test-con1/tf-container",
+				ImportStateId:     "tf-test-con/tf-container",
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
 					"registry",
