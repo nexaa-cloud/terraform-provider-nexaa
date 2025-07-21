@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"gitlab.com/tilaa/tilaa-cli/api"
-	"gitlab.com/tilaa/tilaa-cli/config"
+	//"gitlab.com/tilaa/tilaa-cli/config"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
@@ -117,13 +117,13 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	if err := config.Initialize("dev"); err != nil {
-		panic(err)
-	}
+	// if err := config.Initialize("dev"); err != nil {
+	// 	panic(err)
+	// }
 
-	if err := config.LoadConfig(); err != nil {
-		panic(err)
-	}
+	// if err := config.LoadConfig(); err != nil {
+	// 	panic(err)
+	// }
 
 	err := api.Login(username, password)
 
