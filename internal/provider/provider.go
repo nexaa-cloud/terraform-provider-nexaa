@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"gitlab.com/tilaa/tilaa-cli/api"
-	//"gitlab.com/tilaa/tilaa-cli/config"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
