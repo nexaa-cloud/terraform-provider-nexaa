@@ -1969,6 +1969,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Ingresses:            ingressesTF,
 		Mounts:               mountTF,
 		HealthCheck:          healthTF,
+		Status: 			  types.StringValue(container.State),
 		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
 	}
 

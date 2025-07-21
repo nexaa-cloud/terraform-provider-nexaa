@@ -317,5 +317,6 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 	resp.State.SetAttribute(ctx, path.Root("source"), registry.Source)
 	resp.State.SetAttribute(ctx, path.Root("username"), registry.Username)
 	resp.State.SetAttribute(ctx, path.Root("locked"), registry.Locked)
+	resp.State.SetAttribute(ctx, path.Root("status"), registry.State)
 	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 }

@@ -315,5 +315,6 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 	resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
 	resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
 	resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))
+	resp.State.SetAttribute(ctx, path.Root("status"), volume.State)
 	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 }
