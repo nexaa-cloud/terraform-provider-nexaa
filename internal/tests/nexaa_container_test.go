@@ -203,7 +203,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					"environment_variables.1.value",
 					"ingresses.0.domain_name",
 					"last_updated",
-          "status",
+					"status",
 				},
 			},
 
