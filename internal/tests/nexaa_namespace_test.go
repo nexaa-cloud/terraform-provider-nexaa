@@ -27,13 +27,13 @@ var (
 				password = %q
 			}
 			`,
-		os.Getenv("NEXAA_USERNAME"),
-		os.Getenv("NEXAA_PASSWORD"),
+		os.Getenv("USERNAME"),
+		os.Getenv("PASSWORD"),
 	)
 )
 
 func TestAcc_NamespaceResource_basic(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+	if os.Getenv("USERNAME") == "" || os.Getenv("PASSWORD") == "" {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
 
