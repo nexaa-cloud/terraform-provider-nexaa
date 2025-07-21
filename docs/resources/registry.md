@@ -43,3 +43,4 @@ resource "nexaa_registry" "registry" {
 - `id` (String) Identifier of the private registry, equal to the name of the registry
 - `last_updated` (String) Timestamp of the last Terraform update of the private registry
 - `locked` (Boolean) If the registry is locked it can't be deleted
+- `status` (String) The status of the registry

@@ -34,7 +34,7 @@ type volumeResource struct {
 	Size        types.Int64  `tfsdk:"size"`
 	Usage       types.Int64  `tfsdk:"usage"`
 	Locked      types.Bool   `tfsdk:"locked"`
-	Status		types.String `tfsdk:"status"`
+	Status      types.String `tfsdk:"status"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -73,7 +73,7 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the volume",
-				Computed: true,
+				Computed:    true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the volume",
@@ -243,7 +243,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error deleting volume",
-				"Could not find volume with name: "+ state.Name.ValueString(),
+				"Could not find volume with name: "+state.Name.ValueString(),
 			)
 		}
 
@@ -280,7 +280,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
 		"Timeout waiting for volume to unlock",
-		"Volume is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
+		"Volume is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
 	)
 }
 

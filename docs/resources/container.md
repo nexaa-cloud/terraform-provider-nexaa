@@ -112,6 +112,7 @@ resource "nexaa_container" "container" {
 
 - `id` (String) Unique identifier of the container, equal to the name
 - `last_updated` (String) Timestamp of the last Terraform update of the private registry
+- `status` (String) The status of the container
 
 <a id="nestedatt--resources"></a>
 ### Nested Schema for `resources`

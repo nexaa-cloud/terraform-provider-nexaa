@@ -49,7 +49,7 @@ type containerResource struct {
 	HealthCheck          types.Object `tfsdk:"health_check"`
 	Scaling              types.Object `tfsdk:"scaling"`
 	LastUpdated          types.String `tfsdk:"last_updated"`
-	Status 				 types.String `tfsdk:"status"`
+	Status               types.String `tfsdk:"status"`
 }
 
 type resourcesResource struct {
@@ -281,7 +281,7 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the container",
-				Computed: true,
+				Computed:    true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
@@ -649,7 +649,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
@@ -963,7 +963,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
@@ -1496,7 +1496,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
@@ -1670,7 +1670,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error deleting container",
-				"Could not find container with name: "+ state.Name.ValueString(),
+				"Could not find container with name: "+state.Name.ValueString(),
 			)
 		}
 
@@ -1707,7 +1707,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
 		"Timeout waiting for container to unlock",
-		"Container is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
+		"Container is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
 	)
 }
 

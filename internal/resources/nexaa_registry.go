@@ -36,7 +36,7 @@ type registryResource struct {
 	Password    types.String `tfsdk:"password"`
 	Verify      types.Bool   `tfsdk:"verify"`
 	Locked      types.Bool   `tfsdk:"locked"`
-	Status		types.String `tfsdk:"status`
+	Status      types.String `tfsdk:"status"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -85,7 +85,7 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the registry",
-				Computed: true,
+				Computed:    true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
@@ -243,7 +243,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error deleting registry",
-				"Could not find registry with name: "+ state.Name.ValueString(),
+				"Could not find registry with name: "+state.Name.ValueString(),
 			)
 		}
 
@@ -280,7 +280,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
 		"Timeout waiting for registry to unlock",
-		"registry is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
+		"registry is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
 	)
 }
 
