@@ -34,6 +34,7 @@ type volumeResource struct {
 	Size        types.Int64  `tfsdk:"size"`
 	Usage       types.Int64  `tfsdk:"usage"`
 	Locked      types.Bool   `tfsdk:"locked"`
+	Status		types.String `tfsdk:"status"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -69,6 +70,10 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"locked": schema.BoolAttribute{
 				Description: "If the volume is locked it can't be edited",
 				Computed:    true,
+			},
+			"status": schema.StringAttribute{
+				Description: "The status of the volume",
+				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the volume",
@@ -126,6 +131,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
 	plan.Locked = types.BoolValue(volume.Locked)
+	plan.Status = types.StringValue(volume.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
@@ -161,6 +167,7 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	state.Size = types.Int64Value(int64(volume.Size))
 	state.Usage = types.Int64Value(int64(volume.Usage))
 	state.Locked = types.BoolValue(volume.Locked)
+	state.Status = types.StringValue(volume.State)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -201,6 +208,7 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.Size = types.Int64Value(int64(volume.Size))
 	plan.Usage = types.Int64Value(int64(volume.Usage))
 	plan.Locked = types.BoolValue(volume.Locked)
+	plan.Status = types.StringValue(volume.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
@@ -219,59 +227,60 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	client := api.NewClient()
-
 	const (
-		maxRetries   = 5
-		initialDelay = 5 * time.Second
+		maxRetries   = 4
+		initialDelay = 10 * time.Second
 	)
 	delay := initialDelay
+
+	client := api.NewClient()
+
 	var err error
 
-	// Retry DeleteVolume while “locked” errors persist
+	// Retry DeleteVolume
 	for i := 0; i <= maxRetries; i++ {
-		_, err = client.VolumeDelete(
-			state.Name.ValueString(),
-			state.Namespace.ValueString(),
-		)
-		if err == nil {
-			// Successfully deleted
-			return
+		volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error deleting volume",
+				"Could not find volume with name: "+ state.Name.ValueString(),
+			)
 		}
-		switch {
-		case strings.Contains(err.Error(), "locked"):
-			// Service still cleaning up—wait & back off
+
+		if volume.State == "created" {
+			_, err = client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
+		} else {
 			time.Sleep(delay)
 			delay *= 2
 			continue
-		case strings.Contains(err.Error(), "Not found"):
-			// Not found error
+		}
+		msg := err.Error()
+		if strings.Contains(msg, "locked") {
+			// Still locked—wait & back off
+			time.Sleep(delay)
+			delay *= 2
+			continue
+		}
+		if strings.Contains(msg, "Not found") {
+			// Gone already—treat as success
 			resp.Diagnostics.AddWarning(
-				"Volume not found",
-				"The given volume name is incorrect. Or the volume is already deleted.",
-			)
-			return
-		case strings.Contains(err.Error(), "Namespace"):
-			//Namespace doesn't exist
-			resp.Diagnostics.AddWarning(
-				"Namespace not found",
-				"The namespace of the volume is already deleted or the given name is incorrect.",
-			)
-			return
-		default:
-			// Any other error is fatal
-			resp.Diagnostics.AddError(
-				"Error deleting volume",
-				"Could not delete volume "+state.Name.ValueString()+": "+err.Error(),
+				"Volume already deleted",
+				"DeleteVolume returned Not Found; assuming success.",
 			)
 			return
 		}
+		// Any other error is fatal
+		resp.Diagnostics.AddError(
+			"Error deleting volume",
+			"Could not delete volume "+state.Name.ValueString()+": "+msg,
+		)
+		return
 	}
 
-	// If we reach here, we exhausted retries with only “locked” errors
+	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
-		"An error occurred while deleting the Volume",
-		"Could not delete volume after a couple of retries, error: "+err.Error(),
+		"Timeout waiting for volume to unlock",
+		"Volume is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
 	)
 }
 

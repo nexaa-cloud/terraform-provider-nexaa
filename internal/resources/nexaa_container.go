@@ -49,6 +49,7 @@ type containerResource struct {
 	HealthCheck          types.Object `tfsdk:"health_check"`
 	Scaling              types.Object `tfsdk:"scaling"`
 	LastUpdated          types.String `tfsdk:"last_updated"`
+	Status 				 types.String `tfsdk:"status"`
 }
 
 type resourcesResource struct {
@@ -277,6 +278,10 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						},
 					},
 				},
+			},
+			"status": schema.StringAttribute{
+				Description: "The status of the container",
+				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
@@ -642,6 +647,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 			return
 		}
 
+		var ingDomain types.String
+
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
+			ingDomain = types.StringNull()
+		} else {
+			ingDomain = types.StringValue(ing.DomainName)
+		}
+
 		ingressObj := types.ObjectValueMust(
 			map[string]attr.Type{
 				"domain_name": types.StringType,
@@ -650,7 +663,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 				"allow_list":  types.ListType{ElemType: types.StringType},
 			},
 			map[string]attr.Value{
-				"domain_name": types.StringValue(ing.DomainName),
+				"domain_name": ingDomain,
 				"port":        types.Int64Value(int64(ing.Port)),
 				"tls":         types.BoolValue(ing.EnableTLS),
 				"allow_list":  allowList,
@@ -781,6 +794,8 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
+	plan.Status = types.StringValue(container.State)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -946,10 +961,9 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 			return
 		}
 
-		var domain = "101010-" + state.Namespace.ValueString() + "-" + container.Name + ".container.staging.tilaa.cloud"
 		var ingDomain types.String
 
-		if container.Ingresses == nil || ing.DomainName == domain {
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
@@ -1089,9 +1103,11 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if obj, ok := scalingObj.(types.Object); ok {
 		state.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())
+		resp.Diagnostics.AddError("Error creating container", "Could not read container: "+err.Error())
 		return
 	}
+
+	state.Status = types.StringValue(container.State)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -1323,7 +1339,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	// Create container
+	// modify container
 	client := api.NewClient()
 	container, err := client.ContainerModify(input)
 	if err != nil {
@@ -1478,6 +1494,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 			return
 		}
 
+		var ingDomain types.String
+
+		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud"){
+			ingDomain = types.StringNull()
+		} else {
+			ingDomain = types.StringValue(ing.DomainName)
+		}
+
 		ingressObj := types.ObjectValueMust(
 			map[string]attr.Type{
 				"domain_name": types.StringType,
@@ -1486,7 +1510,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				"allow_list":  types.ListType{ElemType: types.StringType},
 			},
 			map[string]attr.Value{
-				"domain_name": types.StringValue(ing.DomainName),
+				"domain_name": ingDomain,
 				"port":        types.Int64Value(int64(ing.Port)),
 				"tls":         types.BoolValue(ing.EnableTLS),
 				"allow_list":  allowList,
@@ -1615,6 +1639,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
+	plan.Status = types.StringValue(container.State)
+
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -1634,15 +1660,26 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	)
 	delay := initialDelay
 
+	client := api.NewClient()
+
 	var err error
 
 	// Retry DeleteContainer until it no longer complains about "locked"
 	for i := 0; i <= maxRetries; i++ {
-		client := api.NewClient()
-		_, err = client.ContainerDelete(state.Namespace.ValueString(), state.Name.ValueString())
-		if err == nil {
-			// Success
-			return
+		container, err := client.ListContainerByName(state.Namespace.ValueString(), state.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error deleting container",
+				"Could not find container with name: "+ state.Name.ValueString(),
+			)
+		}
+
+		if container.State == "created" {
+			_, err = client.ContainerDelete(state.Namespace.ValueString(), state.Name.ValueString())
+		} else {
+			time.Sleep(delay)
+			delay *= 2
+			continue
 		}
 		msg := err.Error()
 		if strings.Contains(msg, "locked") {
@@ -1670,7 +1707,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
 		"Timeout waiting for container to unlock",
-		"Container is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
+		"Container is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
 	)
 }
 

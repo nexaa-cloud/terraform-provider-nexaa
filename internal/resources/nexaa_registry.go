@@ -36,6 +36,7 @@ type registryResource struct {
 	Password    types.String `tfsdk:"password"`
 	Verify      types.Bool   `tfsdk:"verify"`
 	Locked      types.Bool   `tfsdk:"locked"`
+	Status		types.String `tfsdk:"status`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -81,6 +82,10 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"locked": schema.BoolAttribute{
 				Description: "If the registry is locked it can't be deleted",
 				Computed:    true,
+			},
+			"status": schema.StringAttribute{
+				Description: "The status of the registry",
+				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
@@ -152,6 +157,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 	plan.Password = types.StringValue(input.Password)
 	plan.Verify = types.BoolValue(input.Verify)
 	plan.Locked = types.BoolValue(registry.Locked)
+	plan.Status = types.StringValue(registry.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
@@ -186,6 +192,8 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 	state.Name = types.StringValue(registry.Name)
 	state.Source = types.StringValue(registry.Source)
 	state.Username = types.StringValue(registry.Username)
+	state.Status = types.StringValue(registry.State)
+	state.Locked = types.BoolValue(registry.Locked)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -227,50 +235,52 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	client := api.NewClient()
 
-	// Retry DeleteVolume while “locked” errors persist
+	var err error
+
+	// Retry DeleteRegistry
 	for i := 0; i <= maxRetries; i++ {
-		_, err := client.RegistryDelete(
-			state.Namespace.ValueString(),
-			state.Name.ValueString(),
-		)
-		if err == nil {
-			// Successfully deleted
-			return
+		registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error deleting registry",
+				"Could not find registry with name: "+ state.Name.ValueString(),
+			)
 		}
-		msg := err.Error()
-		switch {
-		case strings.Contains(msg, "locked"):
-			// Service still cleaning up—wait & back off
+
+		if registry.State == "created" {
+			_, err = client.RegistryDelete(state.Namespace.ValueString(), state.Name.ValueString())
+		} else {
 			time.Sleep(delay)
 			delay *= 2
 			continue
-		case strings.Contains(msg, "Not found"):
-			// Not found error
+		}
+		msg := err.Error()
+		if strings.Contains(msg, "locked") {
+			// Still locked—wait & back off
+			time.Sleep(delay)
+			delay *= 2
+			continue
+		}
+		if strings.Contains(msg, "Not found") {
+			// Gone already—treat as success
 			resp.Diagnostics.AddWarning(
-				"Registry not found",
-				"The given registry name is incorrect. Or the registry is already deleted.",
-			)
-			return
-		case strings.Contains(msg, "Namespace"):
-			//Namespace doesn't exist
-			resp.Diagnostics.AddWarning(
-				"Namespace not found",
-				"The namespace of the registry is already deleted or the given name is incorrect.",
-			)
-		default:
-			// Any other error is fatal
-			resp.Diagnostics.AddError(
-				"Error deleting registry",
-				"Could not delete registry "+state.Name.ValueString()+": "+msg,
+				"registry already deleted",
+				"Deleteregistry returned Not Found; assuming success.",
 			)
 			return
 		}
+		// Any other error is fatal
+		resp.Diagnostics.AddError(
+			"Error deleting registry",
+			"Could not delete registry "+state.Name.ValueString()+": "+msg,
+		)
+		return
 	}
 
-	// If we reach here, we exhausted retries with only “locked” errors
+	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
-		"Timeout waiting for registry to become deletable",
-		"Could not delete registry after a couple of retries, try again later.",
+		"Timeout waiting for registry to unlock",
+		"registry is locked and can't be deleted, try again after a bit. Error: "+ err.Error(),
 	)
 }
 
