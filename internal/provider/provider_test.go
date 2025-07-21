@@ -18,13 +18,13 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 func testAccPreCheck(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+	if os.Getenv("USERNAME") == "" || os.Getenv("PASSWORD") == "" {
 		t.Fatal("Environment variables NEXAA_USERNAME and NEXAA_PASSWORD must be set")
 	}
 }
 
 func TestAcc_Namespace_basic(t *testing.T) {
-	user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
+	user, pass := os.Getenv("USERNAME"), os.Getenv("PASSWORD")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
