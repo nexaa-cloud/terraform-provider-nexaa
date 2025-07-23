@@ -1704,7 +1704,6 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 }
 
-
 func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
