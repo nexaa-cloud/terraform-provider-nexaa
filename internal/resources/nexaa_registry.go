@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -246,35 +247,19 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 				"Could not find registry with name: "+state.Name.ValueString(),
 			)
 		}
-
 		if registry.State == "created" {
-			_, err = client.RegistryDelete(state.Namespace.ValueString(), state.Name.ValueString())
-		} else {
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		msg := err.Error()
-		if strings.Contains(msg, "locked") {
-			// Still locked—wait & back off
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		if strings.Contains(msg, "Not found") {
-			// Gone already—treat as success
-			resp.Diagnostics.AddWarning(
-				"registry already deleted",
-				"Deleteregistry returned Not Found; assuming success.",
-			)
+			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error deleting volume",
+					fmt.Sprintf("Failed to delete volume %q: %s", state.Name.ValueString(), err.Error()),
+				)
+				return
+			}
 			return
 		}
-		// Any other error is fatal
-		resp.Diagnostics.AddError(
-			"Error deleting registry",
-			"Could not delete registry "+state.Name.ValueString()+": "+msg,
-		)
-		return
+		time.Sleep(delay)
+		delay *= 2
 	}
 
 	// If we exit the loop still with locked error, report it

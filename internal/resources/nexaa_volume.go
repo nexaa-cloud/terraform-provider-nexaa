@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -235,52 +236,34 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	client := api.NewClient()
 
-	var err error
-
-	// Retry DeleteVolume
 	for i := 0; i <= maxRetries; i++ {
 		volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error deleting volume",
-				"Could not find volume with name: "+state.Name.ValueString(),
-			)
-		}
-
-		if volume.State == "created" {
-			_, err = client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
-		} else {
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		msg := err.Error()
-		if strings.Contains(msg, "locked") {
-			// Still locked—wait & back off
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		if strings.Contains(msg, "Not found") {
-			// Gone already—treat as success
-			resp.Diagnostics.AddWarning(
-				"Volume already deleted",
-				"DeleteVolume returned Not Found; assuming success.",
+				fmt.Sprintf("Could not find volume with name %q: %s", state.Name.ValueString(), err.Error()),
 			)
 			return
 		}
-		// Any other error is fatal
-		resp.Diagnostics.AddError(
-			"Error deleting volume",
-			"Could not delete volume "+state.Name.ValueString()+": "+msg,
-		)
-		return
+		if volume.State == "created" {
+			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error deleting volume",
+					fmt.Sprintf("Failed to delete volume %q: %s", state.Name.ValueString(), err.Error()),
+				)
+				return
+			}
+			// Delete successful
+			return
+		}
+		time.Sleep(delay)
+		delay *= 2
 	}
 
-	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
-		"Timeout waiting for volume to unlock",
-		"Volume is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
+		"Timeout deleting volume",
+		fmt.Sprintf("Volume %q did not reach a deletable state after %d retries", state.Name.ValueString(), maxRetries),
 	)
 }
 

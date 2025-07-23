@@ -1675,39 +1675,23 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 		}
 
 		if container.State == "created" {
-			_, err = client.ContainerDelete(state.Namespace.ValueString(), state.Name.ValueString())
-		} else {
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		msg := err.Error()
-		if strings.Contains(msg, "locked") {
-			// Still locked—wait & back off
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		if strings.Contains(msg, "Not found") {
-			// Gone already—treat as success
-			resp.Diagnostics.AddWarning(
-				"Container already deleted",
-				"DeleteContainer returned Not Found; assuming success.",
-			)
+			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error deleting container",
+					fmt.Sprintf("Failed to delete container %q: %s", state.Name.ValueString(), err.Error()),
+				)
+				return
+			}
 			return
 		}
-		// Any other error is fatal
-		resp.Diagnostics.AddError(
-			"Error deleting container",
-			"Could not delete container "+state.Name.ValueString()+": "+msg,
-		)
-		return
+		time.Sleep(delay)
+		delay *= 2
 	}
 
-	// If we exit the loop still with locked error, report it
 	resp.Diagnostics.AddError(
-		"Timeout waiting for container to unlock",
-		"Container is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
+		"Fialed to delete container",
+		"Container could not be deleted. Error: "+err.Error(),
 	)
 }
 
