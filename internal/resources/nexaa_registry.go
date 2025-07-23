@@ -250,7 +250,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			return
 		}
 
-		if registry.State == "created" {
+		if registry.State == "created" || registry.State == "failed" {
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
 				lastErr = err
