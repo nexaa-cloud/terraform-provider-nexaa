@@ -229,8 +229,8 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	const (
-		maxRetries   = 4
-		initialDelay = 10 * time.Second
+		maxRetries   = 10
+		initialDelay = 2 * time.Second
 	)
 	delay := initialDelay
 
@@ -263,7 +263,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	resp.Diagnostics.AddError(
 		"Timeout deleting volume",
-		fmt.Sprintf("Volume %q did not reach a deletable state after %d retries", state.Name.ValueString(), maxRetries),
+		fmt.Sprintf("Volume %q did not reach a deletable state after a couple retries", state.Name.ValueString()),
 	)
 }
 
