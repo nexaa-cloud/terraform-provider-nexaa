@@ -250,7 +250,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			return
 		}
 
-		if registry.State == "created" || registry.State == "failed" {
+		if registry.State == "created" {
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
 				lastErr = err
@@ -262,6 +262,15 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			}
 			return
 		}
+
+		if registry.State == "failed" && registry.Locked {
+			resp.Diagnostics.AddError(
+				"Error deleting registry",
+				fmt.Sprintf("Failed to delete registry %q, error: %s", state.Name.ValueString(), err.Error()),
+			)
+			return
+		}
+
 		time.Sleep(delay)
 		delay *= 2
 	}
