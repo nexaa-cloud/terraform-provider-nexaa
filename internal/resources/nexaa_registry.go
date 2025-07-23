@@ -236,23 +236,27 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	client := api.NewClient()
 
-	var err error
+	var lastErr error
 
 	// Retry DeleteRegistry
 	for i := 0; i <= maxRetries; i++ {
 		registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
 		if err != nil {
+			lastErr = err
 			resp.Diagnostics.AddError(
-				"Error deleting registry",
-				"Could not find registry with name: "+state.Name.ValueString(),
+				"Error fetching registry",
+				fmt.Sprintf("Could not find registry with name %q: %s", state.Name.ValueString(), err.Error()),
 			)
+			return
 		}
+
 		if registry.State == "created" {
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
+				lastErr = err
 				resp.Diagnostics.AddError(
-					"Error deleting volume",
-					fmt.Sprintf("Failed to delete volume %q: %s", state.Name.ValueString(), err.Error()),
+					"Error deleting registry",
+					fmt.Sprintf("Failed to delete registry %q: %s", state.Name.ValueString(), err.Error()),
 				)
 				return
 			}
@@ -262,12 +266,19 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 		delay *= 2
 	}
 
-	// If we exit the loop still with locked error, report it
-	resp.Diagnostics.AddError(
-		"Timeout waiting for registry to unlock",
-		"registry is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
-	)
+	if lastErr != nil {
+		resp.Diagnostics.AddError(
+			"Timeout waiting for registry to unlock",
+			fmt.Sprintf("Registry could not be deleted after retries. Last error: %s", lastErr.Error()),
+		)
+	} else {
+		resp.Diagnostics.AddError(
+			"Timeout waiting for registry to unlock",
+			"Registry could not be deleted after retries, and no specific error was returned.",
+		)
+	}
 }
+
 
 // ImportState implements resource.ResourceWithImportState.
 func (r *registryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

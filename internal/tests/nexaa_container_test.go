@@ -33,7 +33,7 @@ resource "nexaa_volume" "volume1" {
   
 
 resource "nexaa_container" "container" {
-  name      = "tf-con3tainer"
+  name      = "tf-container"
   namespace = nexaa_namespace.ns.name
   image     = "nginx:latest"
   registry  = null
