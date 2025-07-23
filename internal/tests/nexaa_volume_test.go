@@ -16,12 +16,12 @@ import (
 func volumeConfig(size int) string {
 	return providerConfig + fmt.Sprintf(`
         resource "nexaa_namespace" "test" {
-        name        = "tf-test-vol2"
+        name        = "tf-test-vol3"
         }
 
         resource "nexaa_volume" "volume1" {
-        namespace      = "tf-test-vol2"
-        name           = "tf-vol2"
+        namespace      = "tf-test-vol3"
+        name           = "tf-vol3"
         size           = %d
         }
         `, size)
@@ -40,8 +40,8 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 				Config: volumeConfig(3),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "id"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "namespace", "tf-test-vol2"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "name", "tf-vol2"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "namespace", "tf-test-vol3"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "name", "tf-vol3"),
 					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", "3"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "usage"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "locked"),
@@ -53,7 +53,7 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_volume.volume1",
 				ImportState:             true,
-				ImportStateId:           "tf-test-vol2/tf-vol2",
+				ImportStateId:           "tf-test-vol3/tf-vol3",
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated"},
 			},

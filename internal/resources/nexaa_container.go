@@ -1662,21 +1662,22 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 
 	client := api.NewClient()
 
-	var err error
+	var lastErr error
 
-	// Retry DeleteContainer until it no longer complains about "locked"
 	for i := 0; i <= maxRetries; i++ {
 		container, err := client.ListContainerByName(state.Namespace.ValueString(), state.Name.ValueString())
 		if err != nil {
+			lastErr = err
 			resp.Diagnostics.AddError(
-				"Error deleting container",
-				"Could not find container with name: "+state.Name.ValueString(),
+				"Error looking up container",
+				fmt.Sprintf("Could not find container with name %q: %s", state.Name.ValueString(), err.Error()),
 			)
+			return
 		}
-
 		if container.State == "created" {
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
+				lastErr = err
 				resp.Diagnostics.AddError(
 					"Error deleting container",
 					fmt.Sprintf("Failed to delete container %q: %s", state.Name.ValueString(), err.Error()),
@@ -1685,15 +1686,24 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 			}
 			return
 		}
+
 		time.Sleep(delay)
 		delay *= 2
 	}
 
-	resp.Diagnostics.AddError(
-		"Fialed to delete container",
-		"Container could not be deleted. Error: "+err.Error(),
-	)
+	if lastErr != nil {
+		resp.Diagnostics.AddError(
+			"Failed to delete container",
+			fmt.Sprintf("Container could not be deleted after retries. Last error: %s", lastErr.Error()),
+		)
+	} else {
+		resp.Diagnostics.AddError(
+			"Failed to delete container",
+			"Container could not be deleted after retries, but no specific error was returned.",
+		)
+	}
 }
+
 
 func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)

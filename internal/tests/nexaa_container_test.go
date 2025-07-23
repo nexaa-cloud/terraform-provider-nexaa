@@ -111,7 +111,7 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_container" "container" {
-  name      = "tf-con3tainer"
+  name      = "tf-container"
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
   registry  = "example"
@@ -171,7 +171,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				Config: containerConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "name", "tf-con3tainer"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", "tf-container"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", "tf-test-con3"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
 					//resource.TestCheckResourceAttr("nexaa_container.container", "registry", "public"),
@@ -194,7 +194,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 			{
 				ResourceName:      "nexaa_container.container",
 				ImportState:       true,
-				ImportStateId:     "tf-test-con3/tf-con3tainer",
+				ImportStateId:     "tf-test-con3/tf-container",
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
 					"registry",
