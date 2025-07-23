@@ -1655,8 +1655,8 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 
 	const (
-		maxRetries   = 4
-		initialDelay = 10 * time.Second
+		maxRetries   = 10
+		initialDelay = 2 * time.Second
 	)
 	delay := initialDelay
 
