@@ -279,7 +279,6 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 }
 
-
 // ImportState implements resource.ResourceWithImportState.
 func (r *registryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Expect import ID as "namespace/registryName"
