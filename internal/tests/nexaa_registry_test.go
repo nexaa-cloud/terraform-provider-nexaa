@@ -25,11 +25,11 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 			{
 				Config: providerConfig + `
 				resource "nexaa_namespace" "test" {
-				name        = "tf-test-reg5"
+				name        = "tf-test-reg6"
 				}
 
 				resource "nexaa_registry" "registry" {
-				namespace		= "tf-test-reg5"
+				namespace		= "tf-test-reg6"
 				name           	= "gitlab"
 				source		 	= "registry.gitlab.com"
 				username		= "mvangastel"
@@ -39,7 +39,7 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 				`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "id"),
-					resource.TestCheckResourceAttr("nexaa_registry.registry", "namespace", "tf-test-reg5"),
+					resource.TestCheckResourceAttr("nexaa_registry.registry", "namespace", "tf-test-reg6"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "name", "gitlab"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "source", "registry.gitlab.com"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "username", "mvangastel"),
@@ -53,7 +53,7 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_registry.registry",
 				ImportState:             true,
-				ImportStateId:           "tf-test-reg5/gitlab",
+				ImportStateId:           "tf-test-reg6/gitlab",
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password"},
 			},
