@@ -254,7 +254,6 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 				)
 				return
 			}
-			// Delete successful
 			return
 		}
 		time.Sleep(delay)

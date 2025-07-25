@@ -269,10 +269,9 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 				fmt.Sprintf("Failed to delete registry %q, the registry is locked and could not be deleted", state.Name.ValueString()),
 			)
 			return
-		} else {
-			time.Sleep(delay)
-			delay *= 2
 		}
+		time.Sleep(delay)
+		delay *= 2
 	}
 
 	if lastErr != nil {
