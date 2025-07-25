@@ -266,7 +266,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 		if registry.State == "failed" && registry.Locked {
 			resp.Diagnostics.AddError(
 				"Error deleting registry",
-				fmt.Sprintf("Failed to delete registry %q, error: %s", state.Name.ValueString(), err.Error()),
+				fmt.Sprintf("Failed to delete registry %q, the registry is locked and could not be deleted", state.Name.ValueString()),
 			)
 			return
 		} else {
