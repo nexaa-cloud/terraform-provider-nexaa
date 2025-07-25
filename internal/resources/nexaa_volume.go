@@ -245,7 +245,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 			)
 			return
 		}
-		if volume.State == "created" || volume.State == "failed"{
+		if volume.State == "created" || volume.State == "failed" {
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
 				resp.Diagnostics.AddError(
