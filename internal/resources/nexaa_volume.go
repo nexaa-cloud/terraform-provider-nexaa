@@ -245,7 +245,7 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 			)
 			return
 		}
-		if volume.State == "created" {
+		if volume.State == "created" || volume.State == "failed"{
 			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
 				resp.Diagnostics.AddError(
@@ -254,6 +254,13 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 				)
 				return
 			}
+			return
+		}
+		if volume.State == "failed" && volume.Locked {
+			resp.Diagnostics.AddError(
+				"Error deleting volume",
+				fmt.Sprintf("Failed to delete volume %q, the volume is locked and could not be deleted", state.Name.ValueString()),
+			)
 			return
 		}
 		time.Sleep(delay)
