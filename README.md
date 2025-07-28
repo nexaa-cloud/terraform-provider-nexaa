@@ -1,20 +1,13 @@
 <!-- markdownlint-disable first-line-h1 no-inline-html -->
-<a href="https://terraform.io">
+<a href="https://nexaa.io?utm_source=github&utm_campaign=terraform">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/terraform_logo_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset=".github/terraform_logo_light.svg">
-    <img src=".github/terraform_logo_light.svg" alt="Terraform logo" title="Terraform" align="right" height="50">
+    <img src="https://nexaa.io/assets/nexaa-logo.svg?utm_source=github&utm_campaign=terraform" alt="Terraform logo" title="Terraform" align="right" height="50">
   </picture>
 </a>
 
-# Terraform Nexaa Provider
+# Nexaa Terraform Provider
 
-<!-- [![Forums][discuss-badge]][discuss]
-
-[discuss-badge]: https://img.shields.io/badge/discuss-terraform--aws-623CE4.svg?style=flat
-[discuss]: https://discuss.hashicorp.com/c/terraform-providers/tf-aws/ -->
-
-The [Nexaa Provider]() enables [Terraform](https://terraform.io) to manage [Nexaa](cloud.tilaa.com) resources.
+The [Nexaa Provider](https://github.com/nexaa-cloud/terraform-provider-nexaa/) enables [Terraform](https://terraform.io) to manage [Nexaa](portal.nexaa.io?utm_source=github&utm_campaign=terraform) resources.
 
 To start using the Nexaa provider for terraform you need to have an API account for Nexaa. See below an example for a base terraform file without any resources.
 
@@ -73,4 +66,4 @@ Important links:
 - [Tilaa support](https://tilaa.com/support)
 
 
-_**Please note:** We take Terraform's security and our users' trust very seriously. If you believe you have found a security issue in the Terraform Nexaa Provider, please responsibly disclose it by contacting us at security@hashicorp.com or support@tilaa.com._
+_**Please note:** We take Terraform's security and our users' trust very seriously. If you believe you have found a security issue in the Terraform Nexaa Provider, please responsibly disclose it by contacting us at support@tilaa.com._
