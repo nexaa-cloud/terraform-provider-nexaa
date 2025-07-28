@@ -7,7 +7,7 @@
 
 # Nexaa Terraform Provider
 
-The [Nexaa Provider](https://github.com/nexaa-cloud/terraform-provider-nexaa/) enables [Terraform](https://terraform.io) to manage [Nexaa](portal.nexaa.io?utm_source=github&utm_campaign=terraform) resources.
+The [Nexaa Provider](https://github.com/nexaa-cloud/terraform-provider-nexaa/) enables [Terraform](https://terraform.io) to manage [Nexaa](https://portal.nexaa.io?utm_source=github&utm_campaign=terraform) resources.
 
 To start using the Nexaa provider for terraform you need to have an API account for Nexaa. See below an example for a base terraform file without any resources.
 
