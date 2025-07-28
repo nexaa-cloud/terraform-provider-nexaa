@@ -11,7 +11,7 @@ The [Nexaa Provider](https://github.com/nexaa-cloud/terraform-provider-nexaa/) e
 
 To start using the Nexaa provider for terraform you need to have an API account for Nexaa. See below an example for a base terraform file without any resources.
 
-```bash
+```tf
 terraform {
   required_providers {
     nexaa = {
@@ -43,7 +43,7 @@ replace gitlab.com/tilaa/tilaa-cli => absolute/path/to/the/go.mod
 ```
 
 The next step is to make terraform use the local binary instead of searching in the online registry. To do this create a **.terraformrc** file in the root directory of your machine and this text to it and change the path to the absolute path of the provider binary. Usually it's located in the **go/bin** folder.
-```bash
+```go
 provider_installation 
 {
 	dev_overrides {
