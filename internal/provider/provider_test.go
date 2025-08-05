@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"testing"
 
@@ -23,8 +24,31 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
+// generateRandomString generates a random lowercase string of given length
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.IntN(len(charset))]
+	}
+	return string(b)
+}
+
+// generateResourceName generates a random resource name with prefix
+func generateResourceName(prefix string) string {
+	return fmt.Sprintf("%s-%s", prefix, generateRandomString(8))
+}
+
+// generateTestNamespace generates a random namespace name for tests
+func generateTestNamespace() string {
+	return generateResourceName("tf-test-ns")
+}
+
+
 func TestAcc_Namespace_basic(t *testing.T) {
 	user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
+	namespaceName := generateTestNamespace()
+	
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -36,11 +60,11 @@ func TestAcc_Namespace_basic(t *testing.T) {
 						password = "%s"
 					}
 					resource "nexaa_namespace" "foo" {
-						name = "tf-test-provider"
-					}`, user, pass),
+						name = "%s"
+					}`, user, pass, namespaceName),
 
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", "tf-test-provider"),
+					resource.TestCheckResourceAttr("nexaa_namespace.foo", "name", namespaceName),
 					resource.TestCheckResourceAttrSet("nexaa_namespace.foo", "id"),
 				),
 			},

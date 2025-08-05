@@ -20,11 +20,11 @@ func volumeConfig(namespaceName, volumeName string, size int) string {
         }
 
         resource "nexaa_volume" "volume1" {
-        namespace      = %q
+        namespace      = nexaa_namespace.test.name
         name           = %q
         size           = %d
         }
-        `, namespaceName, namespaceName, volumeName, size)
+        `, namespaceName, volumeName, size)
 }
 
 func TestAcc_VolumeResource_basic(t *testing.T) {
@@ -37,6 +37,8 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 	volumeName := generateTestVolumeName()
 	initialSize := generateRandomSize()
 	updatedSize := initialSize + generateRandomSize() // Ensure updated size is different
+
+	t.Logf("=== VOLUME TEST USING NAMESPACE: %s ===", namespaceName)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

@@ -138,6 +138,8 @@ github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zx
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
 github.com/nexaa-cloud/nexaa-cli v1.0.9 h1:FXx7AXu/NcWt+ADh1E1mYIYC2LTjz/5JKHtB01O5xQs=
 github.com/nexaa-cloud/nexaa-cli v1.0.9/go.mod h1:+DdyfbEGpSdGSQmfAdh24xTi+Auen0S2ZwsS7wPESzM=
+github.com/nexaa-cloud/nexaa-cli v1.0.10 h1:iSafBcHtQ29wL9SK75GFnGNYjGYfT5m8oncI3rU5qzw=
+github.com/nexaa-cloud/nexaa-cli v1.0.10/go.mod h1:+DdyfbEGpSdGSQmfAdh24xTi+Auen0S2ZwsS7wPESzM=
 github.com/oklog/run v1.0.0 h1:Ru7dDtJNOyC66gQ5dQmaCa0qIsAUFY3sFpK1Xk8igrw=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/pjbgf/sha1cd v0.3.0 h1:4D5XXmUUBUl/xQ6IjCkEAbqXskkq/4O7LmGn0AqMDs4=

@@ -115,6 +115,11 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 			break
 		}
 
+		resp.Diagnostics.AddWarning(
+			"Volume creation retry",
+			fmt.Sprintf("Retry %d/%d for volume creation: %s", i+1, maxRetries+1, err.Error()),
+		)
+
 		time.Sleep(delay)
 		delay *= 2
 	}
@@ -125,6 +130,12 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		)
 		return
 	}
+
+	// Add diagnostic info about the created volume
+	resp.Diagnostics.AddWarning(
+		"Volume created",
+		fmt.Sprintf("Volume created with state: %s, locked: %t", volume.State, volume.Locked),
+	)
 
 	plan.ID = types.StringValue(volume.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())

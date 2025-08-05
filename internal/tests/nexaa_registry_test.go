@@ -22,6 +22,8 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 	username := generateTestUsername()
 	password := generateTestPassword()
 
+	t.Logf("=== REGISTRY TEST USING NAMESPACE: %s ===", namespaceName)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -33,14 +35,14 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 				}
 
 				resource "nexaa_registry" "registry" {
-				namespace		= %q
+				namespace		= nexaa_namespace.test.name
 				name           	= %q
 				source		 	= "registry.gitlab.com"
 				username		= %q
 				password		= %q
 				verify		 	= false
 				}
-				`, namespaceName, namespaceName, registryName, username, password),
+				`, namespaceName, registryName, username, password),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "id"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "namespace", namespaceName),

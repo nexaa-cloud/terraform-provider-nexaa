@@ -5,21 +5,16 @@ package tests
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
-	"time"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // generateRandomString generates a random lowercase string of given length
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[rand.IntN(len(charset))]
 	}
 	return string(b)
 }
@@ -36,7 +31,7 @@ func generateTestNamespace() string {
 
 // generateTestVolumeName generates a random volume name for tests
 func generateTestVolumeName() string {
-	return generateResourceName("tf-vol")
+	return fmt.Sprintf("vol-%s", generateRandomString(6))
 }
 
 // generateTestContainerName generates a random container name for tests
@@ -68,25 +63,25 @@ func generateTestDescription() string {
 		"Development test space",
 		"Integration test environment",
 	}
-	return descriptions[rand.Intn(len(descriptions))]
+	return descriptions[rand.IntN(len(descriptions))]
 }
 
 // generateTestEnvVar generates a random environment variable name
 func generateTestEnvVar() string {
 	vars := []string{"TEST_VAR", "APP_ENV", "CONFIG_VAL", "RUNTIME_MODE", "SERVICE_NAME"}
-	return vars[rand.Intn(len(vars))]
+	return vars[rand.IntN(len(vars))]
 }
 
 // generateTestEnvValue generates a random environment variable value
 func generateTestEnvValue() string {
 	values := []string{"production", "staging", "development", "test", "terraform"}
-	return values[rand.Intn(len(values))]
+	return values[rand.IntN(len(values))]
 }
 
 // generateTestPath generates a random path for health checks
 func generateTestPath() string {
-	paths := []string{"/health", "/status", "/ready", "/alive", "/ping"}
-	return paths[rand.Intn(len(paths))]
+	paths := []string{"/"}
+	return paths[rand.IntN(len(paths))]
 }
 
 // normalizeNameForResource ensures the name is valid for Nexaa resources
@@ -97,10 +92,10 @@ func normalizeNameForResource(name string) string {
 
 // generateRandomSize generates a random size for volumes (between 1-10 GB)
 func generateRandomSize() int {
-	return rand.Intn(10) + 1
+	return rand.IntN(10) + 1
 }
 
 // generateRandomPort generates a random port number (between 8000-9000)
 func generateRandomPort() int {
-	return rand.Intn(1000) + 8000
+	return rand.IntN(1000) + 8000
 }

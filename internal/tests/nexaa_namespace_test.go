@@ -40,6 +40,8 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 	namespaceName := generateTestNamespace()
 	description := generateTestDescription()
 
+	t.Logf("=== NAMESPACE TEST USING NAMESPACE: %s ===", namespaceName)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{

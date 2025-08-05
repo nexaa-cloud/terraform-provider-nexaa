@@ -18,7 +18,8 @@ resource "nexaa_namespace" "ns" {
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = %q
+  depends_on = [nexaa_namespace.ns]
+  namespace = nexaa_namespace.ns.name
   name      = %q
   source    = "registry.gitlab.com"
   username  = %q
@@ -27,13 +28,14 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace      = %q
+  depends_on = [nexaa_registry.registry]
+  namespace      = nexaa_namespace.ns.name
   name           = %q
   size           = 2
   }
-  
 
 resource "nexaa_container" "container" {
+  depends_on = [nexaa_volume.volume1]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:latest"
@@ -87,7 +89,7 @@ resource "nexaa_container" "container" {
     }
   }
 }
-`, namespaceName, namespaceName, registryName, registryUsername, registryPassword, namespaceName, volumeName, containerName, envVar, envValue, healthPath)
+`, namespaceName, registryName, registryUsername, registryPassword, volumeName, containerName, envVar, envValue, healthPath)
 }
 
 func containerUpdateConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
@@ -96,14 +98,9 @@ resource "nexaa_namespace" "ns" {
   name = %q
 }
 
-resource "nexaa_volume" "volume1" {
-  namespace      = %q
-  name           = %q
-  size           = 2
-}
-
 resource "nexaa_registry" "registry" {
-  namespace = %q
+  depends_on = [nexaa_namespace.ns]
+  namespace = nexaa_namespace.ns.name
   name      = %q
   source    = "registry.gitlab.com"
   username  = %q
@@ -111,7 +108,15 @@ resource "nexaa_registry" "registry" {
   verify    = false
 }
 
+resource "nexaa_volume" "volume1" {
+  depends_on = [nexaa_registry.registry]
+  namespace      = nexaa_namespace.ns.name
+  name           = %q
+  size           = 2
+  }
+
 resource "nexaa_container" "container" {
+  depends_on = [nexaa_volume.volume1]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
@@ -156,7 +161,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`, namespaceName, namespaceName, volumeName, namespaceName, registryName, registryUsername, registryPassword, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
+`, namespaceName, registryName, registryUsername, registryPassword, volumeName, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
 }
 
 func TestAcc_ContainerResource_basic(t *testing.T) {
@@ -178,6 +183,8 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 	healthPath1 := generateTestPath()
 	healthPath2 := generateTestPath()
 	randomPort := generateRandomPort()
+
+	t.Logf("=== CONTAINER TEST USING NAMESPACE: %s ===", namespaceName)
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
