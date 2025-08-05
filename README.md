@@ -39,7 +39,7 @@ go install .
 
 This will also install every dependency needed in the go.mod file of the provider. Part of the dependencies is the nexaa-CLI. You can also use a local version of the CLI. To do this you need to pull the cli from [github](https://github.com/nexaa-cloud/nexaa-cli). Then in the go.mod file of the provider add this line and make it point to the go.mod file of the nexaa-CLI. then run the previous command again.
 ```bash
-replace gitlab.com/tilaa/tilaa-cli => absolute/path/to/the/go.mod
+replace github.com/nexaa-cloud/nexaa-cli/tilaa-cli => absolute/path/to/the/go.mod
 ```
 
 The next step is to make terraform use the local binary instead of searching in the online registry. To do this create a **.terraformrc** file in the root directory of your machine and this text to it and change the path to the absolute path of the provider binary. Usually it's located in the **go/bin** folder.

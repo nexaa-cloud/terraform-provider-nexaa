@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"gitlab.com/tilaa/tilaa-cli/api"
+	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
 // Ensure the implementation satisfies the expected interfaces.

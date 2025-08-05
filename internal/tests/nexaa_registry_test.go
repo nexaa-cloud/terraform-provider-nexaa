@@ -14,7 +14,7 @@ import (
 
 func TestAcc_RegistryResource_basic(t *testing.T) {
 
-	if os.Getenv("USERNAME") == "" || os.Getenv("PASSWORD") == "" {
+	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
 	}
 

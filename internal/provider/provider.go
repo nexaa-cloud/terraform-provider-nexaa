@@ -5,11 +5,12 @@ package provider
 
 import (
 	"context"
-	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
 	"os"
 
-	"gitlab.com/tilaa/tilaa-cli/api"
-	"gitlab.com/tilaa/tilaa-cli/config"
+	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
+
+	"github.com/nexaa-cloud/nexaa-cli/api"
+	"github.com/nexaa-cloud/nexaa-cli/config"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
@@ -86,8 +87,8 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	username := os.Getenv("USERNAME")
-	password := os.Getenv("PASSWORD")
+	username := os.Getenv("NEXAA_USERNAME")
+	password := os.Getenv("NEXAA_PASSWORD")
 
 	if !conf.Username.IsNull() {
 		username = conf.Username.ValueString()
