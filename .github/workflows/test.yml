@@ -58,8 +58,8 @@ jobs:
     runs-on:
       group: Default
     env:
-      USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
-      PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
+      NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+      NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
       TILAA_ENV: ${{ secrets.TILAA_ENV }}
     timeout-minutes: 15
     strategy:
