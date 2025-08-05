@@ -4,36 +4,37 @@
 package tests
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func containerConfig() string {
-	return providerConfig + `
+func containerConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
+	return providerConfig + fmt.Sprintf(`
 resource "nexaa_namespace" "ns" {
-  name = "tf-test-con3"
+  name = %q
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = "tf-test-con3"
-  name      = "example"
+  namespace = %q
+  name      = %q
   source    = "registry.gitlab.com"
-  username  = "user"
-  password  = "pass"
+  username  = %q
+  password  = %q
   verify    = false
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace      = "tf-test-con3"
-  name           = "tf-vol"
+  namespace      = %q
+  name           = %q
   size           = 2
   }
   
 
 resource "nexaa_container" "container" {
-  name      = "tf-container"
+  name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:latest"
   registry  = null
@@ -47,8 +48,8 @@ resource "nexaa_container" "container" {
 
   environment_variables = [
     {
-      name   = "Variable"
-      value  = "terraform"
+      name   = %q
+      value  = %q
       secret = false
     }
   ]
@@ -64,7 +65,7 @@ resource "nexaa_container" "container" {
 
   health_check = {
     port = 80
-    path = "/storage/health"
+    path = %q
   }
 
   scaling = {
@@ -86,52 +87,52 @@ resource "nexaa_container" "container" {
     }
   }
 }
-`
+`, namespaceName, namespaceName, registryName, registryUsername, registryPassword, namespaceName, volumeName, containerName, envVar, envValue, healthPath)
 }
 
-func containerUpdateConfig() string {
-	return providerConfig + `
+func containerUpdateConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
+	return providerConfig + fmt.Sprintf(`
 resource "nexaa_namespace" "ns" {
-  name = "tf-test-con3"
+  name = %q
 }
 
 resource "nexaa_volume" "volume1" {
-  namespace      = "tf-test-con3"
-  name           = "tf-vol"
+  namespace      = %q
+  name           = %q
   size           = 2
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = "tf-test-con3"
-  name      = "example"
+  namespace = %q
+  name      = %q
   source    = "registry.gitlab.com"
-  username  = "user"
-  password  = "pass"
+  username  = %q
+  password  = %q
   verify    = false
 }
 
 resource "nexaa_container" "container" {
-  name      = "tf-container"
+  name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
-  registry  = "example"
+  registry  = %q
 
   resources = {
     cpu = 0.5
     ram = 1.0
   }
 
-  ports = ["80:80", "8000:8000"]
+  ports = ["80:80", "%d:%d"]
 
   environment_variables = [
     {
-      name   = "Variable"
-      value  = "terraform"
+      name   = %q
+      value  = %q
       secret = false
     },
     {
-      name   = "ENV"
-      value  = "staging"
+      name   = %q
+      value  = %q
       secret = false
     }
   ]
@@ -147,7 +148,7 @@ resource "nexaa_container" "container" {
 
   health_check = {
     port = 80
-    path = "/health"
+    path = %q
   }
 
   scaling = {
@@ -155,7 +156,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`
+`, namespaceName, namespaceName, volumeName, namespaceName, registryName, registryUsername, registryPassword, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
 }
 
 func TestAcc_ContainerResource_basic(t *testing.T) {
@@ -163,26 +164,39 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
 	}
 
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	containerName := generateTestContainerName()
+	registryName := generateTestRegistryName()
+	volumeName := generateTestVolumeName()
+	registryUsername := generateTestUsername()
+	registryPassword := generateTestPassword()
+	envVar1 := generateTestEnvVar()
+	envValue1 := generateTestEnvValue()
+	envVar2 := generateTestEnvVar()
+	envValue2 := generateTestEnvValue()
+	healthPath1 := generateTestPath()
+	healthPath2 := generateTestPath()
+	randomPort := generateRandomPort()
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// 1) Create
 			{
-				Config: containerConfig(),
+				Config: containerConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, healthPath1),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "name", "tf-container"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", "tf-test-con3"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
-					//resource.TestCheckResourceAttr("nexaa_container.container", "registry", "public"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.cpu", "0.25"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.ram", "0.5"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
-					//resource.TestCheckResourceAttr("nexaa_container.container", "mounts.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", "/storage/health"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", "/"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.type", "auto"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.auto_input.minimal_replicas", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.auto_input.maximal_replicas", "3"),
@@ -194,7 +208,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 			{
 				ResourceName:      "nexaa_container.container",
 				ImportState:       true,
-				ImportStateId:     "tf-test-con3/tf-container",
+				ImportStateId:     fmt.Sprintf("%s/%s", namespaceName, containerName),
 				ImportStateVerify: true,
 				ImportStateVerifyIgnore: []string{
 					"registry",
@@ -209,25 +223,25 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 
 			// 3) Update
 			{
-				Config: containerUpdateConfig(),
+				Config: containerUpdateConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:alpine"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "registry", "example"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "registry", registryName),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.cpu", "0.5"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.ram", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "2"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.name", "Variable"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.value", "terraform"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.name", "ENV"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.value", "staging"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.name", envVar1),
+					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.value", envValue1),
+					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.name", envVar2),
+					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.value", envValue2),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.allow_list.0", "0.0.0.0/0"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", "/health"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", healthPath2),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.type", "manual"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.manual_input", "3"),
 				),

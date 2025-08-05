@@ -1,0 +1,106 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+package tests
+
+import (
+	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+)
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+// generateRandomString generates a random lowercase string of given length
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+// generateResourceName generates a random resource name with prefix
+func generateResourceName(prefix string) string {
+	return fmt.Sprintf("%s-%s", prefix, generateRandomString(8))
+}
+
+// generateTestNamespace generates a random namespace name for tests
+func generateTestNamespace() string {
+	return generateResourceName("tf-test-ns")
+}
+
+// generateTestVolumeName generates a random volume name for tests
+func generateTestVolumeName() string {
+	return generateResourceName("tf-vol")
+}
+
+// generateTestContainerName generates a random container name for tests
+func generateTestContainerName() string {
+	return generateResourceName("tf-container")
+}
+
+// generateTestRegistryName generates a random registry name for tests
+func generateTestRegistryName() string {
+	return generateResourceName("tf-reg")
+}
+
+// generateTestUsername generates a random username for registry tests
+func generateTestUsername() string {
+	return fmt.Sprintf("testuser%s", generateRandomString(6))
+}
+
+// generateTestPassword generates a random password for registry tests
+func generateTestPassword() string {
+	return fmt.Sprintf("testpass%s", generateRandomString(8))
+}
+
+// generateTestDescription generates a random description
+func generateTestDescription() string {
+	descriptions := []string{
+		"Test namespace for Terraform provider",
+		"Automated test environment",
+		"CI/CD test namespace",
+		"Development test space",
+		"Integration test environment",
+	}
+	return descriptions[rand.Intn(len(descriptions))]
+}
+
+// generateTestEnvVar generates a random environment variable name
+func generateTestEnvVar() string {
+	vars := []string{"TEST_VAR", "APP_ENV", "CONFIG_VAL", "RUNTIME_MODE", "SERVICE_NAME"}
+	return vars[rand.Intn(len(vars))]
+}
+
+// generateTestEnvValue generates a random environment variable value
+func generateTestEnvValue() string {
+	values := []string{"production", "staging", "development", "test", "terraform"}
+	return values[rand.Intn(len(values))]
+}
+
+// generateTestPath generates a random path for health checks
+func generateTestPath() string {
+	paths := []string{"/health", "/status", "/ready", "/alive", "/ping"}
+	return paths[rand.Intn(len(paths))]
+}
+
+// normalizeNameForResource ensures the name is valid for Nexaa resources
+func normalizeNameForResource(name string) string {
+	// Replace underscores with hyphens and ensure lowercase
+	return strings.ToLower(strings.ReplaceAll(name, "_", "-"))
+}
+
+// generateRandomSize generates a random size for volumes (between 1-10 GB)
+func generateRandomSize() int {
+	return rand.Intn(10) + 1
+}
+
+// generateRandomPort generates a random port number (between 8000-9000)
+func generateRandomPort() int {
+	return rand.Intn(1000) + 8000
+}

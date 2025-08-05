@@ -13,18 +13,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func volumeConfig(size int) string {
+func volumeConfig(namespaceName, volumeName string, size int) string {
 	return providerConfig + fmt.Sprintf(`
         resource "nexaa_namespace" "test" {
-        name        = "tf-test-vol7"
+        name        = %q
         }
 
         resource "nexaa_volume" "volume1" {
-        namespace      = "tf-test-vol7"
-        name           = "tf-vol7"
+        namespace      = %q
+        name           = %q
         size           = %d
         }
-        `, size)
+        `, namespaceName, namespaceName, volumeName, size)
 }
 
 func TestAcc_VolumeResource_basic(t *testing.T) {
@@ -32,17 +32,23 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
 	}
 
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	volumeName := generateTestVolumeName()
+	initialSize := generateRandomSize()
+	updatedSize := initialSize + generateRandomSize() // Ensure updated size is different
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// 1) Create & Read
 			{
-				Config: volumeConfig(3),
+				Config: volumeConfig(namespaceName, volumeName, initialSize),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "id"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "namespace", "tf-test-vol7"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "name", "tf-vol7"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", "3"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "name", volumeName),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", fmt.Sprintf("%d", initialSize)),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "usage"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "locked"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "last_updated"),
@@ -53,16 +59,16 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_volume.volume1",
 				ImportState:             true,
-				ImportStateId:           "tf-test-vol7/tf-vol7",
+				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, volumeName),
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated"},
 			},
 
 			// 3) Update & Read
 			{
-				Config: volumeConfig(5),
+				Config: volumeConfig(namespaceName, volumeName, updatedSize),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", "5"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", fmt.Sprintf("%d", updatedSize)),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "usage"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "locked"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "last_updated"),

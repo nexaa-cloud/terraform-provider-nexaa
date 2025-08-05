@@ -36,20 +36,24 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
 
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	description := generateTestDescription()
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 				resource "nexaa_namespace" "test" {
-				name        = "tf-test-ns"
-				description = "A BDD-style test namespace"
+				name        = %q
+				description = %q
 				}
-				`,
+				`, namespaceName, description),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_namespace.test", "id"),
-					resource.TestCheckResourceAttr("nexaa_namespace.test", "name", "tf-test-ns"),
-					resource.TestCheckResourceAttr("nexaa_namespace.test", "description", "A BDD-style test namespace"),
+					resource.TestCheckResourceAttr("nexaa_namespace.test", "name", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_namespace.test", "description", description),
 					resource.TestCheckResourceAttrSet("nexaa_namespace.test", "last_updated"),
 				),
 			},
