@@ -6,10 +6,9 @@ package tests
 import (
 	"fmt"
 	"math/rand/v2"
-	"strings"
 )
 
-// generateRandomString generates a random lowercase string of given length
+// generateRandomString generates a random lowercase string of given length.
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, length)
@@ -19,42 +18,42 @@ func generateRandomString(length int) string {
 	return string(b)
 }
 
-// generateResourceName generates a random resource name with prefix
+// generateResourceName generates a random resource name with prefix.
 func generateResourceName(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, generateRandomString(8))
 }
 
-// generateTestNamespace generates a random namespace name for tests
+// generateTestNamespace generates a random namespace name for tests.
 func generateTestNamespace() string {
 	return generateResourceName("tf-test-ns")
 }
 
-// generateTestVolumeName generates a random volume name for tests
+// generateTestVolumeName generates a random volume name for tests.
 func generateTestVolumeName() string {
 	return fmt.Sprintf("vol-%s", generateRandomString(6))
 }
 
-// generateTestContainerName generates a random container name for tests
+// generateTestContainerName generates a random container name for tests.
 func generateTestContainerName() string {
 	return generateResourceName("tf-container")
 }
 
-// generateTestRegistryName generates a random registry name for tests
+// generateTestRegistryName generates a random registry name for tests.
 func generateTestRegistryName() string {
 	return generateResourceName("tf-reg")
 }
 
-// generateTestUsername generates a random username for registry tests
+// generateTestUsername generates a random username for registry tests.
 func generateTestUsername() string {
 	return fmt.Sprintf("testuser%s", generateRandomString(6))
 }
 
-// generateTestPassword generates a random password for registry tests
+// generateTestPassword generates a random password for registry tests.
 func generateTestPassword() string {
 	return fmt.Sprintf("testpass%s", generateRandomString(8))
 }
 
-// generateTestDescription generates a random description
+// generateTestDescription generates a random description.
 func generateTestDescription() string {
 	descriptions := []string{
 		"Test namespace for Terraform provider",
@@ -66,36 +65,30 @@ func generateTestDescription() string {
 	return descriptions[rand.IntN(len(descriptions))]
 }
 
-// generateTestEnvVar generates a random environment variable name
+// generateTestEnvVar generates a random environment variable name.
 func generateTestEnvVar() string {
 	vars := []string{"TEST_VAR", "APP_ENV", "CONFIG_VAL", "RUNTIME_MODE", "SERVICE_NAME"}
 	return vars[rand.IntN(len(vars))]
 }
 
-// generateTestEnvValue generates a random environment variable value
+// generateTestEnvValue generates a random environment variable value.
 func generateTestEnvValue() string {
 	values := []string{"production", "staging", "development", "test", "terraform"}
 	return values[rand.IntN(len(values))]
 }
 
-// generateTestPath generates a random path for health checks
+// generateTestPath generates a random path for health checks.
 func generateTestPath() string {
 	paths := []string{"/"}
 	return paths[rand.IntN(len(paths))]
 }
 
-// normalizeNameForResource ensures the name is valid for Nexaa resources
-func normalizeNameForResource(name string) string {
-	// Replace underscores with hyphens and ensure lowercase
-	return strings.ToLower(strings.ReplaceAll(name, "_", "-"))
-}
-
-// generateRandomSize generates a random size for volumes (between 1-10 GB)
+// generateRandomSize generates a random size for volumes (between 1-10 GB).
 func generateRandomSize() int {
 	return rand.IntN(10) + 1
 }
 
-// generateRandomPort generates a random port number (between 8000-9000)
+// generateRandomPort generates a random port number (between 8000-9000).
 func generateRandomPort() int {
 	return rand.IntN(1000) + 8000
 }

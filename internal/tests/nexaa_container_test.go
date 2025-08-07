@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func containerConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
+func containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "nexaa_namespace" "ns" {
   name = %q
@@ -27,15 +27,7 @@ resource "nexaa_registry" "registry" {
   verify    = false
 }
 
-resource "nexaa_volume" "volume1" {
-  depends_on = [nexaa_registry.registry]
-  namespace      = nexaa_namespace.ns.name
-  name           = %q
-  size           = 2
-  }
-
 resource "nexaa_container" "container" {
-  depends_on = [nexaa_volume.volume1]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:latest"
@@ -89,10 +81,10 @@ resource "nexaa_container" "container" {
     }
   }
 }
-`, namespaceName, registryName, registryUsername, registryPassword, volumeName, containerName, envVar, envValue, healthPath)
+`, namespaceName, registryName, registryUsername, registryPassword, containerName, envVar, envValue, healthPath)
 }
 
-func containerUpdateConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
+func containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
 	return providerConfig + fmt.Sprintf(`
 resource "nexaa_namespace" "ns" {
   name = %q
@@ -108,15 +100,8 @@ resource "nexaa_registry" "registry" {
   verify    = false
 }
 
-resource "nexaa_volume" "volume1" {
-  depends_on = [nexaa_registry.registry]
-  namespace      = nexaa_namespace.ns.name
-  name           = %q
-  size           = 2
-  }
-
 resource "nexaa_container" "container" {
-  depends_on = [nexaa_volume.volume1]
+  depends_on = [nexaa_namespace.registry]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
@@ -161,7 +146,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`, namespaceName, registryName, registryUsername, registryPassword, volumeName, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
+`, namespaceName, registryName, registryUsername, registryPassword, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
 }
 
 func TestAcc_ContainerResource_basic(t *testing.T) {
@@ -173,7 +158,6 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 	namespaceName := generateTestNamespace()
 	containerName := generateTestContainerName()
 	registryName := generateTestRegistryName()
-	volumeName := generateTestVolumeName()
 	registryUsername := generateTestUsername()
 	registryPassword := generateTestPassword()
 	envVar1 := generateTestEnvVar()
@@ -191,7 +175,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// 1) Create
 			{
-				Config: containerConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, healthPath1),
+				Config: containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, healthPath1),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
@@ -230,7 +214,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 
 			// 3) Update
 			{
-				Config: containerUpdateConfig(namespaceName, containerName, registryName, volumeName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
+				Config: containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:alpine"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "registry", registryName),

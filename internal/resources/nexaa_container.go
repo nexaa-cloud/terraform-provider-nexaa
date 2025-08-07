@@ -1674,20 +1674,8 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 			)
 			return
 		}
-		if container.State == "created" {
-			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
-			if err != nil {
-				lastErr = err
-				resp.Diagnostics.AddError(
-					"Error deleting container",
-					fmt.Sprintf("Failed to delete container %q: %s", state.Name.ValueString(), err.Error()),
-				)
-				return
-			}
-			return
-		}
 		if !container.Locked {
-			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
+			_, err := client.ContainerDelete(state.Namespace.ValueString(), state.Name.ValueString())
 			if err != nil {
 				lastErr = err
 				resp.Diagnostics.AddError(
