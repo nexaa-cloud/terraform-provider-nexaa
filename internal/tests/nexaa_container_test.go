@@ -28,6 +28,7 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_container" "container" {
+  depends_on = [nexaa_registry.registry]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:latest"
@@ -101,7 +102,7 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_container" "container" {
-  depends_on = [nexaa_namespace.registry]
+  depends_on = [nexaa_registry.registry]
   name      = %q
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
@@ -162,7 +163,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 	registryPassword := generateTestPassword()
 	envVar1 := generateTestEnvVar()
 	envValue1 := generateTestEnvValue()
-	envVar2 := generateTestEnvVar()
+	envVar2 := generateTestEnvVar() + "2"
 	envValue2 := generateTestEnvValue()
 	healthPath1 := generateTestPath()
 	healthPath2 := generateTestPath()
