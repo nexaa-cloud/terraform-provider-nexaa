@@ -25,12 +25,19 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      # Ensure gpg-agent is started with allow-preset-passphrase
+      - name: Ensure gpg-agent allows preset
+        run: |
+          mkdir -p ~/.gnupg
+          echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
+          gpgconf --launch gpg-agent
+
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
         id: import_gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
           fingerprint: ${{ secrets.GPG_SUBKEY }}
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
