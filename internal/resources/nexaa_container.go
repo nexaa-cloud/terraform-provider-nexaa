@@ -649,7 +649,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
+		if container.Ingresses == nil {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
@@ -1496,7 +1496,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
+		if container.Ingresses == nil {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)

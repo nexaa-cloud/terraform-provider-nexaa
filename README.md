@@ -15,8 +15,8 @@ To start using the Nexaa provider for terraform you need to have an API account 
 terraform {
   required_providers {
     nexaa = {
-      source  = "registry.terraform.io/tilaa/nexaa"
-      version = "0.1.0"
+      source = "nexaa-cloud/nexaa"
+      version = "0.1.4"
     }
   }
 }
@@ -47,7 +47,7 @@ The next step is to make terraform use the local binary instead of searching in 
 provider_installation 
 {
 	dev_overrides {
-		"registry.terraform.io/tilaa/nexaa" = "absolute/path/to/provider/binary"
+		"nexaa-cloud/nexaa" = "absolute/path/to/provider/binary"
 	}
 	direct {}
 }

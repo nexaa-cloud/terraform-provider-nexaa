@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     nexaa = {
-      source  = "registry.terraform.io/tilaa/nexaa"
-      version = "0.1.0"
+      source = "nexaa-cloud/nexaa/nexaa"
+      version = "0.1.4"
     }
   }
 }
@@ -13,17 +13,17 @@ provider "nexaa" {
 }
 
 resource "nexaa_namespace" "namespace" {
-  name = "terraform8"
+  name = "terraform"
 }
 
 resource "nexaa_volume" "volume" {
   name      = "storage"
-  namespace = "terraform8"
-  size      = 3
+  namespace = nexaa_namespace.namespace.name
+  size      = 4
 }
 
 resource "nexaa_registry" "registry" {
-  namespace = "terraform8"
+  namespace = nexaa_namespace.namespace.name
   name      = "gitlab"
   source    = "registry.gitlab.com"
   username  = "user"
@@ -32,8 +32,8 @@ resource "nexaa_registry" "registry" {
 }
 
 resource "nexaa_container" "container" {
-  name      = "tf-container"
-  namespace = "terraform8"
+  name      = "tf-container2"
+  namespace = nexaa_namespace.namespace.name
   image     = "nginx:latest"
   registry  = null
 
@@ -65,7 +65,7 @@ resource "nexaa_container" "container" {
   ingresses = [
     {
       domain_name = null
-      port        = 80
+      port        = 8008
       tls         = true
       allow_list  = ["0.0.0.0/0"]
     }
