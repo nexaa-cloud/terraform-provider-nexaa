@@ -963,7 +963,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 		var ingDomain types.String
 
-		if container.Ingresses == nil || strings.Contains(ing.DomainName, ".tilaa.cloud") {
+		if container.Ingresses == nil {
 			ingDomain = types.StringNull()
 		} else {
 			ingDomain = types.StringValue(ing.DomainName)
