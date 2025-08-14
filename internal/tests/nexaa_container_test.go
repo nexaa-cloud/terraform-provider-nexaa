@@ -6,9 +6,11 @@ package tests
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
@@ -205,8 +207,6 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				ImportStateVerifyIgnore: []string{
 					"registry",
 					"mounts",
-					"environment_variables.0.value",
-					"environment_variables.1.value",
 					"ingresses.0.domain_name",
 					"last_updated",
 					"status",
@@ -223,10 +223,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources.ram", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "2"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.name", envVar1),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.0.value", envValue1),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.name", envVar2),
-					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.1.value", envValue2),
+					checkEnvironmentVariablesSet(map[string]string{envVar1: envValue1, envVar2: envValue2}),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
@@ -240,6 +237,47 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 			},
 		},
 	})
+}
+
+// checkEnvironmentVariablesSet validates that the Set of environment_variables contains exactly the expected (non-secret) name->value pairs regardless of ordering or hashing.
+func checkEnvironmentVariablesSet(expected map[string]string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources["nexaa_container.container"]
+		if !ok {
+			return fmt.Errorf("resource not found in state")
+		}
+		attrs := rs.Primary.Attributes
+		nameRe := regexp.MustCompile(`^environment_variables\.([^.]+)\.name$`)
+		found := map[string]string{}
+		for k, v := range attrs {
+			m := nameRe.FindStringSubmatch(k)
+			if m == nil {
+				continue
+			}
+			keyHash := m[1]
+			name := v
+			valKey := fmt.Sprintf("environment_variables.%s.value", keyHash)
+			val, okVal := attrs[valKey]
+			if !okVal {
+				continue
+			}
+			// Secrets have unknown value (represented as empty string in tests sometimes); skip those mismatches
+			found[name] = val
+		}
+		if len(found) != len(expected) {
+			return fmt.Errorf("expected %d env vars, found %d (%v)", len(expected), len(found), found)
+		}
+		for name, expVal := range expected {
+			actual, ok := found[name]
+			if !ok {
+				return fmt.Errorf("expected env var %s not found", name)
+			}
+			if actual != expVal {
+				return fmt.Errorf("env var %s expected value %s got %s", name, expVal, actual)
+			}
+		}
+		return nil
+	}
 }
 
 func minimalContainerConfig(namespaceName, containerName string) string {

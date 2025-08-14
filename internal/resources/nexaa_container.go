@@ -45,7 +45,7 @@ type containerResource struct {
 	Image                types.String `tfsdk:"image"`
 	Registry             types.String `tfsdk:"registry"`
 	Resources            types.Object `tfsdk:"resources"`
-	EnvironmentVariables types.List   `tfsdk:"environment_variables"`
+	EnvironmentVariables types.Set    `tfsdk:"environment_variables"`
 	Ports                types.List   `tfsdk:"ports"`
 	Ingresses            types.List   `tfsdk:"ingresses"`
 	Mounts               types.List   `tfsdk:"mounts"`
@@ -155,7 +155,7 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed:    true,
 				Description: "The ports used to expose for traffic, format as from:to",
 			},
-			"environment_variables": schema.ListNestedAttribute{
+			"environment_variables": schema.SetNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
@@ -163,9 +163,11 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 							Description: "The name used for the environment variable",
 						},
 						"value": schema.StringAttribute{
-							Optional:    true,
-							Computed:    true,
+							Required:    true,
 							Description: "The value used for the environment variable, is required",
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
 						},
 						"secret": schema.BoolAttribute{
 							Optional:    true,
@@ -175,7 +177,7 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				},
 				Optional:    true,
 				Computed:    true,
-				Description: "Environment variables used in the container, write the non-secrets first the the secrets",
+				Description: "Environment variables used in the container; order is not significant and matched by name",
 			},
 			"ingresses": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -560,44 +562,33 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
-		envVars := make([]attr.Value, len(container.EnvironmentVariables))
-		for i, ev := range container.EnvironmentVariables {
+		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
+		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
+		for _, ev := range container.EnvironmentVariables {
 			var val types.String
 			if ev.Secret {
-				for _, env := range input.EnvironmentVariables {
-					if ev.Name == env.Name {
-						val = types.StringValue(env.Value)
+				// keep original provided value from input to avoid perpetual diffs
+				for _, provided := range input.EnvironmentVariables {
+					if provided.Name == ev.Name {
+						val = types.StringValue(provided.Value)
+						break
 					}
+				}
+				if val.IsNull() || val.IsUnknown() { // fallback mask
+					val = types.StringValue("***")
 				}
 			} else {
 				val = types.StringValue(*ev.Value)
 			}
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":   types.StringType,
-					"value":  types.StringType,
-					"secret": types.BoolType,
-				},
-				map[string]attr.Value{
-					"name":   types.StringValue(ev.Name),
-					"value":  val,
-					"secret": types.BoolValue(ev.Secret),
-				},
-			)
-			envVars[i] = obj
+			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
+			envVarVals = append(envVarVals, obj)
 		}
-		listVal, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":   types.StringType,
-				"value":  types.StringType,
-				"secret": types.BoolType,
-			},
-		}, envVars)
-		resp.Diagnostics.Append(diags...)
+		setVal, d := types.SetValue(objType, envVarVals)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		plan.EnvironmentVariables = listVal
+		plan.EnvironmentVariables = setVal
 	}
 
 	// Ports
@@ -650,7 +641,10 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		for i, a := range ing.Allowlist {
 			allowListElems[i] = types.StringValue(a)
 		}
-		allowList, diags := types.ListValue(types.StringType, allowListElems)
+		allowList, diags := types.ListValue(
+			types.StringType,
+			allowListElems,
+		)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -876,40 +870,41 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
-		envVars := make([]attr.Value, len(container.EnvironmentVariables))
-		for i, ev := range container.EnvironmentVariables {
+		// build previous secret values map
+		prevSecrets := map[string]string{}
+		if !state.EnvironmentVariables.IsNull() && !state.EnvironmentVariables.IsUnknown() {
+			var prevEnv []environvariableResource
+			_ = state.EnvironmentVariables.ElementsAs(ctx, &prevEnv, false)
+			for _, pe := range prevEnv {
+				if pe.Secret.ValueBool() && !pe.Value.IsNull() && !pe.Value.IsUnknown() {
+					prevSecrets[pe.Name.ValueString()] = pe.Value.ValueString()
+				}
+			}
+		}
+		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
+		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
+		for _, ev := range container.EnvironmentVariables {
 			var val types.String
 			if ev.Secret {
-				val = types.StringNull()
-			} else {
+				if pv, ok := prevSecrets[ev.Name]; ok {
+					val = types.StringValue(pv)
+				} else {
+					val = types.StringValue("***")
+				}
+			} else if ev.Value != nil {
 				val = types.StringValue(*ev.Value)
+			} else {
+				val = types.StringNull()
 			}
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":   types.StringType,
-					"value":  types.StringType,
-					"secret": types.BoolType,
-				},
-				map[string]attr.Value{
-					"name":   types.StringValue(ev.Name),
-					"value":  val,
-					"secret": types.BoolValue(ev.Secret),
-				},
-			)
-			envVars[i] = obj
+			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
+			envVarVals = append(envVarVals, obj)
 		}
-		listVal, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":   types.StringType,
-				"value":  types.StringType,
-				"secret": types.BoolType,
-			},
-		}, envVars)
-		resp.Diagnostics.Append(diags...)
+		setVal, d := types.SetValue(objType, envVarVals)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		state.EnvironmentVariables = listVal
+		state.EnvironmentVariables = setVal
 	}
 
 	// Ports
@@ -1419,44 +1414,34 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	// Environment variables
 	if container.EnvironmentVariables != nil {
-		envVars := make([]attr.Value, len(container.EnvironmentVariables))
-		for i, ev := range container.EnvironmentVariables {
+		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
+		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
+		for _, ev := range container.EnvironmentVariables {
 			var val types.String
-			if !ev.Secret {
-				val = types.StringValue(*ev.Value)
-			} else {
-				for _, env := range input.EnvironmentVariables {
-					if env.Name == ev.Name {
-						val = types.StringValue(env.Value)
+			if ev.Secret {
+				for _, provided := range input.EnvironmentVariables {
+					if provided.Name == ev.Name {
+						val = types.StringValue(provided.Value)
+						break
 					}
 				}
+				if val.IsNull() || val.IsUnknown() {
+					val = types.StringValue("***")
+				}
+			} else if ev.Value != nil {
+				val = types.StringValue(*ev.Value)
+			} else {
+				val = types.StringNull()
 			}
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":   types.StringType,
-					"value":  types.StringType,
-					"secret": types.BoolType,
-				},
-				map[string]attr.Value{
-					"name":   types.StringValue(ev.Name),
-					"value":  val,
-					"secret": types.BoolValue(ev.Secret),
-				},
-			)
-			envVars[i] = obj
+			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
+			envVarVals = append(envVarVals, obj)
 		}
-		listVal, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":   types.StringType,
-				"value":  types.StringType,
-				"secret": types.BoolType,
-			},
-		}, envVars)
-		resp.Diagnostics.Append(diags...)
+		setVal, d := types.SetValue(objType, envVarVals)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		plan.EnvironmentVariables = listVal
+		plan.EnvironmentVariables = setVal
 	}
 
 	// Ports
@@ -1735,28 +1720,21 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 
 	// Environment Variables
 	var envList []attr.Value
-	for _, env := range container.EnvironmentVariables {
-		envList = append(envList, types.ObjectValueMust(
-			map[string]attr.Type{
-				"name":   types.StringType,
-				"value":  types.StringType,
-				"secret": types.BoolType,
-			},
-			map[string]attr.Value{
-				"name":   types.StringValue(env.Name),
-				"value":  types.StringPointerValue(env.Value),
-				"secret": types.BoolValue(env.Secret),
-			},
-		))
+	if container.EnvironmentVariables != nil {
+		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
+		for _, env := range container.EnvironmentVariables {
+			val := types.StringPointerValue(env.Value)
+			if env.Secret {
+				val = types.StringValue("***")
+			}
+			envList = append(envList, types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(env.Name), "value": val, "secret": types.BoolValue(env.Secret)}))
+		}
 	}
-	envTF := types.ListValueMust(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":   types.StringType,
-				"value":  types.StringType,
-				"secret": types.BoolType,
-			},
-		}, envList)
+	envTF := types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}})
+	if len(envList) > 0 {
+		setVal, _ := types.SetValue(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}, envList)
+		envTF = setVal
+	}
 
 	// Ports
 	ports := make([]attr.Value, len(container.Ports))
