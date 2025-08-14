@@ -6,6 +6,9 @@ package resources
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"strconv"
 	"strings"
 	"time"
@@ -180,7 +183,10 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						"domain_name": schema.StringAttribute{
 							Optional:    true,
 							Computed:    true,
-							Description: "The domain used for the ingress, defaults to https://101010-{namespaceName}-{containerName}.container.tilaa.cloud",
+							Description: "The domain used for the ingress, defaults to https://{tenant}-{namespaceName}-{containerName}.container.tilaa.cloud",
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
 						},
 						"port": schema.Int64Attribute{
 							Required:    true,
@@ -243,6 +249,9 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					"manual_input": schema.Int64Attribute{
 						Optional:    true,
 						Description: "The input for manual scaling, equal to the amount of running replicas you want",
+						PlanModifiers: []planmodifier.Int64{
+							int64planmodifier.UseStateForUnknown(),
+						},
 					},
 					"auto_input": schema.SingleNestedAttribute{
 						Optional:    true,
@@ -258,12 +267,12 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 							},
 							"triggers": schema.ListNestedAttribute{
 								Optional:    true,
-								Description: "Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for eacht type",
+								Description: "Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for each type",
 								NestedObject: schema.NestedAttributeObject{
 									Attributes: map[string]schema.Attribute{
 										"type": schema.StringAttribute{
 											Required:    true,
-											Description: "The type of metric used for specifying what the triggers monitors, is eihter MEMORY or CPU",
+											Description: "The type of metric used for specifying what the triggers monitors, is either MEMORY or CPU",
 											Validators: []validator.String{
 												stringvalidator.OneOf("MEMORY", "CPU"),
 											},
@@ -703,7 +712,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Scaling
-	// Declare autoInputType once
 	autoInputType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"minimal_replicas": types.Int64Type,
@@ -719,7 +727,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		},
 	}
 
-	// Declare outer scaling type
 	scalingType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"type":         types.StringType,
@@ -728,7 +735,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		},
 	}
 
-	// Initialize scalingObj to null (failsafe default)
 	var scalingObj attr.Value = types.ObjectNull(scalingType.AttrTypes)
 
 	if container.AutoScaling != nil {
@@ -755,6 +761,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 				},
 			}, triggerVals)
 		if diags.HasError() {
+			resp.Diagnostics.AddError("Scaling triggers error", "Failed to build scaling triggers list")
 			return
 		}
 
@@ -771,7 +778,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 			scalingType.AttrTypes,
 			map[string]attr.Value{
 				"type":         types.StringValue("auto"),
-				"manual_input": types.Int64Null(), // explicitly null
+				"manual_input": types.Int64Null(),
 				"auto_input":   autoInput,
 			},
 		)
@@ -950,6 +957,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	// Ingresses
 	var ingressElems []attr.Value
+	// Use the planned ingresses to build the final state, not the API response
 	for _, ing := range container.Ingresses {
 		allowListElems := make([]attr.Value, len(ing.Allowlist))
 		for i, a := range ing.Allowlist {
@@ -1085,7 +1093,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 			scalingType.AttrTypes,
 			map[string]attr.Value{
 				"type":         types.StringValue("auto"),
-				"manual_input": types.Int64Null(), // explicitly null
+				"manual_input": types.Int64Null(),
 				"auto_input":   autoInput,
 			},
 		)
@@ -1210,47 +1218,60 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	// Ingress
 	if !plan.Ingresses.IsNull() && !plan.Ingresses.IsUnknown() {
 		var ingresses []ingresResource
-		diags = plan.Ingresses.ElementsAs(ctx, &ingresses, false)
-		resp.Diagnostics.Append(diags...)
+		dag := plan.Ingresses.ElementsAs(ctx, &ingresses, false)
+		resp.Diagnostics.Append(dag...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		input.Ingresses = make([]api.IngressInput, 0, len(ingresses))
-		for _, ing := range ingresses {
-			if !ing.Port.IsNull() {
-				allowList := []string{}
-				if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
-					var rawAllowList []types.String
-					_ = ing.AllowList.ElementsAs(ctx, &rawAllowList, false)
-					for _, ip := range rawAllowList {
-						allowList = append(allowList, ip.ValueString())
-					}
-				}
-				if !ing.DomainName.IsNull() && !ing.DomainName.IsUnknown() {
-					input.Ingresses = append(input.Ingresses, api.IngressInput{
-						DomainName: ing.DomainName.ValueStringPointer(),
-						Port:       int(ing.Port.ValueInt64()),
-						EnableTLS:  ing.TLS.ValueBool(),
-						Whitelist:  allowList,
-						State:      api.StatePresent,
-					})
-				} else {
-					input.Ingresses = append(input.Ingresses, api.IngressInput{
-						DomainName: nil,
-						Port:       int(ing.Port.ValueInt64()),
-						EnableTLS:  ing.TLS.ValueBool(),
-						Whitelist:  allowList,
-						State:      api.StatePresent,
-					})
-				}
 
+		// In Update(), after building planned ingresses:
+		var previousIngresses []ingresResource
+		if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
+			var prev containerResource
+			diags := req.State.Get(ctx, &prev)
+			resp.Diagnostics.Append(diags...)
+			if !prev.Ingresses.IsNull() && !prev.Ingresses.IsUnknown() {
+				_ = prev.Ingresses.ElementsAs(ctx, &previousIngresses, false)
 			}
 		}
-	} else {
-		input.Ingresses = []api.IngressInput{}
+
+		plannedIngresses := map[string]struct{}{}
+		for _, ing := range ingresses {
+			allowList := []string{}
+			if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
+				var allowListVals []string
+				diags := ing.AllowList.ElementsAs(ctx, &allowListVals, false)
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				allowList = allowListVals
+			}
+
+			key := fmt.Sprintf("%s", ing.DomainName.ValueString())
+			plannedIngresses[key] = struct{}{}
+			input.Ingresses = append(input.Ingresses, api.IngressInput{
+				DomainName: ing.DomainName.ValueStringPointer(),
+				Port:       int(ing.Port.ValueInt64()),
+				EnableTLS:  ing.TLS.ValueBool(),
+				Whitelist:  allowList,
+				State:      api.StatePresent,
+			})
+		}
+
+		for _, prevIng := range previousIngresses {
+			key := fmt.Sprintf("%s", prevIng.DomainName.ValueString())
+			if _, exists := plannedIngresses[key]; !exists {
+				input.Ingresses = append(input.Ingresses, api.IngressInput{
+					DomainName: prevIng.DomainName.ValueStringPointer(),
+					Port:       int(prevIng.Port.ValueInt64()),
+					EnableTLS:  prevIng.TLS.ValueBool(),
+					State:      api.StateAbsent,
+				})
+			}
+		}
 	}
 
 	// Environment variables
@@ -1481,61 +1502,6 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Mounts = mountList
 	}
 
-	// Ingresses
-	var ingressElems []attr.Value
-	for _, ing := range container.Ingresses {
-		allowListElems := make([]attr.Value, len(ing.Allowlist))
-		for i, a := range ing.Allowlist {
-			allowListElems[i] = types.StringValue(a)
-		}
-		allowList, diags := types.ListValue(types.StringType, allowListElems)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var ingDomain types.String
-
-		if container.Ingresses == nil {
-			ingDomain = types.StringNull()
-		} else {
-			ingDomain = types.StringValue(ing.DomainName)
-		}
-
-		ingressObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-			map[string]attr.Value{
-				"domain_name": ingDomain,
-				"port":        types.Int64Value(int64(ing.Port)),
-				"tls":         types.BoolValue(ing.EnableTLS),
-				"allow_list":  allowList,
-			})
-		ingressElems = append(ingressElems, ingressObj)
-	}
-
-	ingressesList, diags := types.ListValue(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-		},
-		ingressElems,
-	)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	plan.Ingresses = ingressesList
-
 	// Health check
 	if container.HealthCheck != nil {
 		hc := types.ObjectValueMust(map[string]attr.Type{
@@ -1599,6 +1565,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				},
 			}, triggerVals)
 		if diags.HasError() {
+			resp.Diagnostics.AddError("Scaling triggers error", "Failed to build scaling triggers list")
 			return
 		}
 
@@ -1858,16 +1825,24 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		}, ingressList)
 
 	// Health Check
-	healthTF := types.ObjectValueMust(
-		map[string]attr.Type{
+	var healthTF types.Object
+	if container.HealthCheck != nil {
+		healthTF = types.ObjectValueMust(
+			map[string]attr.Type{
+				"port": types.Int64Type,
+				"path": types.StringType,
+			},
+			map[string]attr.Value{
+				"port": types.Int64Value(int64(container.HealthCheck.Port)),
+				"path": types.StringValue(container.HealthCheck.Path),
+			},
+		)
+	} else {
+		healthTF = types.ObjectNull(map[string]attr.Type{
 			"port": types.Int64Type,
 			"path": types.StringType,
-		},
-		map[string]attr.Value{
-			"port": types.Int64Value(int64(container.HealthCheck.Port)),
-			"path": types.StringValue(container.HealthCheck.Path),
-		},
-	)
+		})
+	}
 
 	autoInputType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{

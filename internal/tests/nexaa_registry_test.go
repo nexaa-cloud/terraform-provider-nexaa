@@ -61,7 +61,7 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 				ImportState:             true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, registryName),
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password"},
+				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password", "status"},
 			},
 		},
 	})

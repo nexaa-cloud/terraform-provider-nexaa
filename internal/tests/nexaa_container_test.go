@@ -241,3 +241,237 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 		},
 	})
 }
+
+func minimalContainerConfig(namespaceName, containerName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "nexaa_namespace" "ns" {
+  name = %q
+}
+
+resource "nexaa_container" "container" {
+  depends_on = [nexaa_namespace.ns]
+  name      = %q
+  namespace = nexaa_namespace.ns.name
+  image     = "nginx:latest"
+  registry  = null
+
+  resources = {
+    cpu = 0.25
+    ram = 0.5
+  }
+
+  scaling = {
+    type = "manual"
+    manual_input = 1
+  }
+}
+`, namespaceName, containerName)
+}
+
+func TestAcc_ContainerResource_Minimal(t *testing.T) {
+	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
+	}
+
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	containerName := generateTestContainerName()
+
+	t.Logf("=== CONTAINER INGRESS DOMAIN NAME PLAN STABILITY TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// 1) Create with minimal config (domain_name omitted)
+			{
+				Config: minimalContainerConfig(namespaceName, containerName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "0"),
+				),
+			},
+			// 2) Apply the same config again - should result in no changes
+			{
+				Config:   minimalContainerConfig(namespaceName, containerName),
+				PlanOnly: true,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "0"),
+				),
+			},
+		},
+	})
+}
+
+func minimalContainerWithIngressConfig(namespaceName, containerName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "nexaa_namespace" "ns" {
+  name = %q
+}
+
+resource "nexaa_container" "container" {
+  depends_on = [nexaa_namespace.ns]
+  name      = %q
+  namespace = nexaa_namespace.ns.name
+  image     = "nginx:latest"
+  registry  = null
+
+  resources = {
+    cpu = 0.25
+    ram = 0.5
+  }
+
+  ports = ["80:80"]
+
+  ingresses = [
+    {
+      port        = 80
+      tls         = true
+      allow_list  = ["0.0.0.0/0"]
+    }
+  ]
+
+  scaling = {
+    type = "manual"
+    manual_input = 3
+  }
+}
+`, namespaceName, containerName)
+}
+
+func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
+	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
+	}
+
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	containerName := generateTestContainerName()
+
+	t.Logf("=== CONTAINER INGRESS DOMAIN NAME PLAN STABILITY TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// 1) Create with minimal config (domain_name omitted)
+			{
+				Config: minimalContainerWithIngressConfig(namespaceName, containerName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
+					// domain_name should be computed and set by the provider
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "ingresses.0.domain_name"),
+				),
+			},
+			// 2) Apply the same config again - should result in no changes
+			{
+				Config:   minimalContainerWithIngressConfig(namespaceName, containerName),
+				PlanOnly: true,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
+					// domain_name should remain the same computed value
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "ingresses.0.domain_name"),
+				),
+			},
+		},
+	})
+}
+
+func minimalContainerWithDomainNameConfig(namespaceName, containerName string, domainName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "nexaa_namespace" "ns" {
+  name = %q
+}
+
+resource "nexaa_container" "container" {
+  depends_on = [nexaa_namespace.ns]
+  name      = %q
+  namespace = nexaa_namespace.ns.name
+  image     = "nginx:latest"
+  registry  = null
+
+  resources = {
+    cpu = 0.25
+    ram = 0.5
+  }
+
+  ports = ["80:80"]
+
+  ingresses = [
+    {
+      domain_name = %q
+      port        = 80
+      tls         = true
+      allow_list  = ["0.0.0.0/0"]
+    }
+  ]
+
+  scaling = {
+    type = "manual"
+    manual_input = 3
+  }
+}
+`, namespaceName, containerName, domainName)
+}
+
+func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing.T) {
+	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
+		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
+	}
+
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	containerName := generateTestContainerName()
+
+	t.Logf("=== CONTAINER INGRESS DOMAIN NAME PLAN STABILITY TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.com"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.com"),
+				),
+			},
+			{
+				Config: minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.org"),
+
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.org"),
+				),
+			},
+		},
+	})
+}

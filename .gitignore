@@ -31,7 +31,7 @@ website/vendor
 examples/*/auth.json
 examples/*/auth-dev.json
 internal/*/auth-dev.json
-
+go.work
 
 
 # Test exclusions
