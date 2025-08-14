@@ -145,7 +145,7 @@ Required:
 
 Optional:
 
-- `triggers` (Attributes List) Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for eacht type (see [below for nested schema](#nestedatt--scaling--auto_input--triggers))
+- `triggers` (Attributes List) Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for each type (see [below for nested schema](#nestedatt--scaling--auto_input--triggers))
 
 <a id="nestedatt--scaling--auto_input--triggers"></a>
 ### Nested Schema for `scaling.auto_input.triggers`
@@ -153,7 +153,7 @@ Optional:
 Required:
 
 - `threshold` (Number) The amount percentage wise needed to add another replica
-- `type` (String) The type of metric used for specifying what the triggers monitors, is eihter MEMORY or CPU
+- `type` (String) The type of metric used for specifying what the triggers monitors, is either MEMORY or CPU
 
 
 
@@ -191,7 +191,7 @@ Required:
 Optional:
 
 - `allow_list` (List of String) A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone
-- `domain_name` (String) The domain used for the ingress, defaults to https://101010-{namespaceName}-{containerName}.container.tilaa.cloud
+- `domain_name` (String) The domain used for the ingress, defaults to https://{tenant}-{namespaceName}-{containerName}.container.tilaa.cloud
 
 
 <a id="nestedatt--mounts"></a>

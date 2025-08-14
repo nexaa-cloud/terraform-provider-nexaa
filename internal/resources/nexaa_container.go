@@ -1250,7 +1250,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				allowList = allowListVals
 			}
 
-			key := fmt.Sprintf("%s", ing.DomainName.ValueString())
+			key := ing.DomainName.ValueString()
 			plannedIngresses[key] = struct{}{}
 			input.Ingresses = append(input.Ingresses, api.IngressInput{
 				DomainName: ing.DomainName.ValueStringPointer(),
@@ -1262,7 +1262,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 
 		for _, prevIng := range previousIngresses {
-			key := fmt.Sprintf("%s", prevIng.DomainName.ValueString())
+			key := prevIng.DomainName.ValueString()
 			if _, exists := plannedIngresses[key]; !exists {
 				input.Ingresses = append(input.Ingresses, api.IngressInput{
 					DomainName: prevIng.DomainName.ValueStringPointer(),
