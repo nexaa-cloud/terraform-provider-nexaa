@@ -36,7 +36,7 @@ func extractEnvInputsFromSet(ctx context.Context, set types.Set) ([]api.Environm
 	if set.IsNull() || set.IsUnknown() {
 		return nil, diags
 	}
-	var envs []environvariableResource
+	var envs []environmentVariableResource
 	if d := set.ElementsAs(ctx, &envs, false); d.HasError() {
 		return nil, d
 	}
@@ -62,7 +62,7 @@ func buildPrevSecretMap(ctx context.Context, prevSet types.Set) map[string]strin
 	if prevSet.IsNull() || prevSet.IsUnknown() {
 		return m
 	}
-	var prev []environvariableResource
+	var prev []environmentVariableResource
 	_ = prevSet.ElementsAs(ctx, &prev, false)
 	for _, p := range prev {
 		if p.Secret.ValueBool() && !p.Value.IsNull() && !p.Value.IsUnknown() {
@@ -73,7 +73,7 @@ func buildPrevSecretMap(ctx context.Context, prevSet types.Set) map[string]strin
 }
 
 // buildEnvSetFromAPI converts API env vars to a Terraform Set with appropriate secret handling based on mode.
-func buildEnvSetFromAPI(ctx context.Context, apiVars []api.ContainerResultEnvironmentVariablesEnvironmentVariable, provided []api.EnvironmentVariableInput, prevSet types.Set, mode secretMode) (types.Set, diag.Diagnostics) {
+func buildEnvSetFromAPI(ctx context.Context, apiVars []api.EnvironmentVariableResult, provided []api.EnvironmentVariableInput, prevSet types.Set, mode secretMode) (types.Set, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	objType := envVarObjectType()
 	providedMap := map[string]string{}

@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
-	"strconv"
 	"strings"
 	"time"
 
@@ -67,7 +66,7 @@ type mountResource struct {
 	Volume types.String `tfsdk:"volume"`
 }
 
-type environvariableResource struct {
+type environmentVariableResource struct {
 	Name   types.String `tfsdk:"name"`
 	Value  types.String `tfsdk:"value"`
 	Secret types.Bool   `tfsdk:"secret"`
@@ -510,42 +509,17 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Registry = types.StringValue(*input.Registry)
 	}
 
-	// Parse CPU and RAM from the string
-	resParts := strings.Split(string(containerResult.Resources), "_")
-	if len(resParts) == 4 {
-		cpu, err := strconv.ParseFloat(resParts[1], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing containerResult resources",
-				"Failed to parse CPU value: "+err.Error(),
-			)
-			return
-		}
-
-		ram, err := strconv.ParseFloat(resParts[3], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing containerResult resources",
-				"Failed to parse RAM value: "+err.Error(),
-			)
-			return
-		}
-
-		// Create a new types.Object with CPU and RAM fields set
-		resourcesObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"cpu": types.Float64Type,
-				"ram": types.Float64Type,
-			},
-			map[string]attr.Value{
-				"cpu": types.Float64Value(cpu / 1000),
-				"ram": types.Float64Value(ram / 1000),
-			},
+	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
+	resourcesObj, err = buildResourcesFromAPI(containerResult.Resources)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error importing container",
+			err.Error(),
 		)
-
-		// Assign it to plan.Resources
-		plan.Resources = resourcesObj
+		return
 	}
+
+	plan.Resources = resourcesObj
 
 	// Environment variables (state population)
 	if containerResult.EnvironmentVariables != nil {
@@ -574,26 +548,8 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Mounts
 	if containerResult.Mounts != nil {
-		mounts := make([]attr.Value, len(containerResult.Mounts))
-		for i, m := range containerResult.Mounts {
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"path":   types.StringType,
-					"volume": types.StringType,
-				},
-				map[string]attr.Value{
-					"path":   types.StringValue(m.Path),
-					"volume": types.StringValue(m.Volume.Name),
-				})
-			mounts[i] = obj
-		}
-		mountList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"path":   types.StringType,
-				"volume": types.StringType,
-			},
-		}, mounts)
-		resp.Diagnostics.Append(diags...)
+		mountList, d := buildMountsFromApi(containerResult.Mounts)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -747,42 +703,17 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Registry = types.StringValue(container.PrivateRegistry.Name)
 	}
 
-	// Parse CPU and RAM from the string
-	resParts := strings.Split(string(container.Resources), "_")
-	if len(resParts) == 4 {
-		cpu, err := strconv.ParseFloat(resParts[1], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing container resources",
-				"Failed to parse CPU value: "+err.Error(),
-			)
-			return
-		}
-
-		ram, err := strconv.ParseFloat(resParts[3], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing container resources",
-				"Failed to parse RAM value: "+err.Error(),
-			)
-			return
-		}
-
-		// Create a new types.Object with CPU and RAM fields set
-		resourcesObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"cpu": types.Float64Type,
-				"ram": types.Float64Type,
-			},
-			map[string]attr.Value{
-				"cpu": types.Float64Value(cpu / 1000),
-				"ram": types.Float64Value(ram / 1000),
-			},
+	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
+	resourcesObj, err = buildResourcesFromAPI(container.Resources)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error importing container",
+			err.Error(),
 		)
-
-		// Assign it to plan.Resources
-		state.Resources = resourcesObj
+		return
 	}
+
+	state.Resources = resourcesObj
 
 	// Environment variables (refresh state)
 	if container.EnvironmentVariables != nil {
@@ -811,26 +742,8 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	// Mounts
 	if container.Mounts != nil {
-		mounts := make([]attr.Value, len(container.Mounts))
-		for i, m := range container.Mounts {
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"path":   types.StringType,
-					"volume": types.StringType,
-				},
-				map[string]attr.Value{
-					"path":   types.StringValue(m.Path),
-					"volume": types.StringValue(m.Volume.Name),
-				})
-			mounts[i] = obj
-		}
-		mountList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"path":   types.StringType,
-				"volume": types.StringType,
-			},
-		}, mounts)
-		resp.Diagnostics.Append(diags...)
+		mountList, d := buildMountsFromApi(container.Mounts)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -838,7 +751,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	// Ingresses
-	ingressesTF, diags := buildIngressesFromApi(*container)
+	ingressesTF, diags := buildIngressesFromApi(container)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1208,41 +1121,16 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Parse CPU and RAM from the string
-	resParts := strings.Split(string(containerResult.Resources), "_")
-	if len(resParts) == 4 {
-		cpu, err := strconv.ParseFloat(resParts[1], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing containerResult resources",
-				"Failed to parse CPU value: "+err.Error(),
-			)
-			return
-		}
-
-		ram, err := strconv.ParseFloat(resParts[3], 64)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error parsing containerResult resources",
-				"Failed to parse RAM value: "+err.Error(),
-			)
-			return
-		}
-
-		// Create a new types.Object with CPU and RAM fields set
-		resourcesObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"cpu": types.Float64Type,
-				"ram": types.Float64Type,
-			},
-			map[string]attr.Value{
-				"cpu": types.Float64Value(cpu / 1000),
-				"ram": types.Float64Value(ram / 1000),
-			},
+	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
+	resourcesObj, err = buildResourcesFromAPI(containerResult.Resources)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			err.Error(),
+			err.Error(),
 		)
-
-		// Assign it to plan.Resources
-		plan.Resources = resourcesObj
+		return
 	}
+	plan.Resources = resourcesObj
 
 	// Environment variables (update state)
 	if containerResult.EnvironmentVariables != nil {
@@ -1271,26 +1159,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	// Mounts
 	if containerResult.Mounts != nil {
-		mounts := make([]attr.Value, len(containerResult.Mounts))
-		for i, m := range containerResult.Mounts {
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"path":   types.StringType,
-					"volume": types.StringType,
-				},
-				map[string]attr.Value{
-					"path":   types.StringValue(m.Path),
-					"volume": types.StringValue(m.Volume.Name),
-				})
-			mounts[i] = obj
-		}
-		mountList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"path":   types.StringType,
-				"volume": types.StringType,
-			},
-		}, mounts)
-		resp.Diagnostics.Append(diags...)
+		mountList, d := buildMountsFromApi(containerResult.Mounts)
+		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -1490,43 +1360,15 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 	}
 
 	// resources
-	resParts := strings.Split(string(container.Resources), "_")
-	if len(resParts) != 4 {
+	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
+	resourcesObj, err = buildResourcesFromAPI(container.Resources)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing container",
-			"Error while importing a container, err: "+err.Error(),
+			err.Error(),
 		)
 		return
 	}
-	cpu, err := strconv.ParseFloat(resParts[1], 64)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error parsing container resources",
-			"Failed to parse CPU value: "+err.Error(),
-		)
-		return
-	}
-
-	ram, err := strconv.ParseFloat(resParts[3], 64)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error parsing container resources",
-			"Failed to parse RAM value: "+err.Error(),
-		)
-		return
-	}
-
-	// Create a new types.Object with CPU and RAM fields set
-	resourcesObj := types.ObjectValueMust(
-		map[string]attr.Type{
-			"cpu": types.Float64Type,
-			"ram": types.Float64Type,
-		},
-		map[string]attr.Value{
-			"cpu": types.Float64Value(cpu / 1000),
-			"ram": types.Float64Value(ram / 1000),
-		},
-	)
 
 	// Environment Variables (import)
 	envTF := types.SetNull(envVarObjectType())
@@ -1548,29 +1390,18 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 	}
 
 	// Mounts
-	var mountList []attr.Value
-	for _, m := range container.Mounts {
-		mountList = append(mountList, types.ObjectValueMust(
-			map[string]attr.Type{
-				"path":   types.StringType,
-				"volume": types.StringType,
-			},
-			map[string]attr.Value{
-				"path":   types.StringValue(m.Path),
-				"volume": types.StringValue(m.Volume.Name),
-			},
-		))
+	mountTF := types.ListNull(MountsObjectType())
+	if container.Mounts != nil {
+		mountList, d := buildMountsFromApi(container.Mounts)
+		resp.Diagnostics.Append(d...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		mountTF = mountList
 	}
-	mountTF := types.ListValueMust(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"path":   types.StringType,
-				"volume": types.StringType,
-			},
-		}, mountList)
 
 	// Ingresses
-	ingressesTF, _ := buildIngressesFromApi(*container)
+	ingressesTF, _ := buildIngressesFromApi(container)
 
 	// Health Check
 	var healthTF types.Object
