@@ -101,7 +101,7 @@ resource "nexaa_container" "container" {
 
 ### Optional
 
-- `environment_variables` (Attributes List) Environment variables used in the container, write the non-secrets first the the secrets (see [below for nested schema](#nestedatt--environment_variables))
+- `environment_variables` (Attributes Set) Environment variables used in the container; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
 - `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
@@ -164,11 +164,11 @@ Required:
 Required:
 
 - `name` (String) The name used for the environment variable
+- `value` (String) The value used for the environment variable, is required
 
 Optional:
 
 - `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
-- `value` (String) The value used for the environment variable, is required
 
 
 <a id="nestedatt--health_check"></a>

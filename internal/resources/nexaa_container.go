@@ -6,9 +6,11 @@ package resources
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+
 	"strconv"
 	"strings"
 	"time"
@@ -410,29 +412,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		input.Ingresses = []api.IngressInput{}
 	}
 
-	// Environment variables
-	if !plan.EnvironmentVariables.IsNull() && !plan.EnvironmentVariables.IsUnknown() {
-		var envVars []environvariableResource
-		diags = plan.EnvironmentVariables.ElementsAs(ctx, &envVars, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, ev := range envVars {
-			if ev.Value.IsNull() || ev.Value.IsUnknown() {
-				resp.Diagnostics.AddError(
-					"Error Creating Container",
-					"The value for this Env variable is null or unknown, "+ev.Name.ValueString(),
-				)
-				return
-			}
-			input.EnvironmentVariables = append(input.EnvironmentVariables, api.EnvironmentVariableInput{
-				Name:   ev.Name.ValueString(),
-				Value:  ev.Value.ValueString(),
-				Secret: ev.Secret.ValueBool(),
-				State:  api.StatePresent,
-			})
-		}
+	// Environment variables (build API input from plan)
+	inputs, dEnv := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
+	resp.Diagnostics.Append(dEnv...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(inputs) > 0 {
+		input.EnvironmentVariables = inputs
 	}
 
 	// Healthcheck
@@ -503,33 +490,33 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		}
 	}
 
-	// Create container
+	// Create containerResult
 	client := api.NewClient()
-	container, err := client.ContainerCreate(input)
+	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
 		return
 	}
 
-	// Set all fields in plan from returned container
-	plan.ID = types.StringValue(container.Name)
+	// Set all fields in plan from returned containerResult
+	plan.ID = types.StringValue(containerResult.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
-	plan.Name = types.StringValue(container.Name)
-	plan.Image = types.StringValue(container.Image)
+	plan.Name = types.StringValue(containerResult.Name)
+	plan.Image = types.StringValue(containerResult.Image)
 
-	if container.PrivateRegistry == nil || container.PrivateRegistry.Name == "public" {
+	if containerResult.PrivateRegistry == nil || containerResult.PrivateRegistry.Name == "public" {
 		plan.Registry = types.StringNull()
 	} else {
 		plan.Registry = types.StringValue(*input.Registry)
 	}
 
 	// Parse CPU and RAM from the string
-	resParts := strings.Split(string(container.Resources), "_")
+	resParts := strings.Split(string(containerResult.Resources), "_")
 	if len(resParts) == 4 {
 		cpu, err := strconv.ParseFloat(resParts[1], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error parsing container resources",
+				"Error parsing containerResult resources",
 				"Failed to parse CPU value: "+err.Error(),
 			)
 			return
@@ -538,7 +525,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		ram, err := strconv.ParseFloat(resParts[3], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error parsing container resources",
+				"Error parsing containerResult resources",
 				"Failed to parse RAM value: "+err.Error(),
 			)
 			return
@@ -560,30 +547,9 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Resources = resourcesObj
 	}
 
-	// Environment variables
-	if container.EnvironmentVariables != nil {
-		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
-		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
-		for _, ev := range container.EnvironmentVariables {
-			var val types.String
-			if ev.Secret {
-				// keep original provided value from input to avoid perpetual diffs
-				for _, provided := range input.EnvironmentVariables {
-					if provided.Name == ev.Name {
-						val = types.StringValue(provided.Value)
-						break
-					}
-				}
-				if val.IsNull() || val.IsUnknown() { // fallback mask
-					val = types.StringValue("***")
-				}
-			} else {
-				val = types.StringValue(*ev.Value)
-			}
-			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
-			envVarVals = append(envVarVals, obj)
-		}
-		setVal, d := types.SetValue(objType, envVarVals)
+	// Environment variables (state population)
+	if containerResult.EnvironmentVariables != nil {
+		setVal, d := buildEnvSetFromAPI(ctx, containerResult.EnvironmentVariables, input.EnvironmentVariables, types.SetNull(envVarObjectType()), secretUseProvided)
 		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -592,9 +558,9 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Ports
-	if container.Ports != nil {
-		ports := make([]attr.Value, len(container.Ports))
-		for i, p := range container.Ports {
+	if containerResult.Ports != nil {
+		ports := make([]attr.Value, len(containerResult.Ports))
+		for i, p := range containerResult.Ports {
 			ports[i] = types.StringValue(p)
 		}
 
@@ -607,9 +573,9 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Mounts
-	if container.Mounts != nil {
-		mounts := make([]attr.Value, len(container.Mounts))
-		for i, m := range container.Mounts {
+	if containerResult.Mounts != nil {
+		mounts := make([]attr.Value, len(containerResult.Mounts))
+		for i, m := range containerResult.Mounts {
 			obj := types.ObjectValueMust(
 				map[string]attr.Type{
 					"path":   types.StringType,
@@ -635,72 +601,22 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Ingresses
-	var ingressElems []attr.Value
-	for _, ing := range container.Ingresses {
-		allowListElems := make([]attr.Value, len(ing.Allowlist))
-		for i, a := range ing.Allowlist {
-			allowListElems[i] = types.StringValue(a)
-		}
-		allowList, diags := types.ListValue(
-			types.StringType,
-			allowListElems,
-		)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var ingDomain types.String
-
-		if container.Ingresses == nil {
-			ingDomain = types.StringNull()
-		} else {
-			ingDomain = types.StringValue(ing.DomainName)
-		}
-
-		ingressObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-			map[string]attr.Value{
-				"domain_name": ingDomain,
-				"port":        types.Int64Value(int64(ing.Port)),
-				"tls":         types.BoolValue(ing.EnableTLS),
-				"allow_list":  allowList,
-			})
-		ingressElems = append(ingressElems, ingressObj)
-	}
-
-	ingressesList, diags := types.ListValue(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-		},
-		ingressElems,
-	)
-	resp.Diagnostics.Append(diags...)
+	ingresses, d := buildIngressesFromApi(containerResult)
+	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	plan.Ingresses = ingressesList
+	plan.Ingresses = ingresses
 
 	// Health check
-	if container.HealthCheck != nil {
+	if containerResult.HealthCheck != nil {
 		hc := types.ObjectValueMust(map[string]attr.Type{
 			"port": types.Int64Type,
 			"path": types.StringType,
 		},
 			map[string]attr.Value{
-				"port": types.Int64Value(int64(container.HealthCheck.Port)),
-				"path": types.StringValue(container.HealthCheck.Path),
+				"port": types.Int64Value(int64(containerResult.HealthCheck.Port)),
+				"path": types.StringValue(containerResult.HealthCheck.Path),
 			})
 		plan.HealthCheck = hc
 	}
@@ -731,9 +647,9 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 	var scalingObj attr.Value = types.ObjectNull(scalingType.AttrTypes)
 
-	if container.AutoScaling != nil {
+	if containerResult.AutoScaling != nil {
 		var triggerVals []attr.Value
-		for _, t := range container.AutoScaling.Triggers {
+		for _, t := range containerResult.AutoScaling.Triggers {
 			triggerObj := types.ObjectValueMust(
 				map[string]attr.Type{
 					"type":      types.StringType,
@@ -762,8 +678,8 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		autoInput := types.ObjectValueMust(
 			autoInputType.AttrTypes,
 			map[string]attr.Value{
-				"minimal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Minimum)),
-				"maximal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Maximum)),
+				"minimal_replicas": types.Int64Value(int64(containerResult.AutoScaling.Replicas.Minimum)),
+				"maximal_replicas": types.Int64Value(int64(containerResult.AutoScaling.Replicas.Maximum)),
 				"triggers":         triggersList,
 			},
 		)
@@ -776,12 +692,12 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 				"auto_input":   autoInput,
 			},
 		)
-	} else if container.NumberOfReplicas > 0 {
+	} else if containerResult.NumberOfReplicas > 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
 				"type":         types.StringValue("manual"),
-				"manual_input": types.Int64Value(int64(container.NumberOfReplicas)),
+				"manual_input": types.Int64Value(int64(containerResult.NumberOfReplicas)),
 				"auto_input":   types.ObjectNull(autoInputType.AttrTypes),
 			},
 		)
@@ -790,13 +706,13 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	if obj, ok := scalingObj.(types.Object); ok {
 		plan.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not transform scaling object")
 		return
 	}
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
-	plan.Status = types.StringValue(container.State)
+	plan.Status = types.StringValue(containerResult.State)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -868,38 +784,9 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Resources = resourcesObj
 	}
 
-	// Environment variables
+	// Environment variables (refresh state)
 	if container.EnvironmentVariables != nil {
-		// build previous secret values map
-		prevSecrets := map[string]string{}
-		if !state.EnvironmentVariables.IsNull() && !state.EnvironmentVariables.IsUnknown() {
-			var prevEnv []environvariableResource
-			_ = state.EnvironmentVariables.ElementsAs(ctx, &prevEnv, false)
-			for _, pe := range prevEnv {
-				if pe.Secret.ValueBool() && !pe.Value.IsNull() && !pe.Value.IsUnknown() {
-					prevSecrets[pe.Name.ValueString()] = pe.Value.ValueString()
-				}
-			}
-		}
-		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
-		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
-		for _, ev := range container.EnvironmentVariables {
-			var val types.String
-			if ev.Secret {
-				if pv, ok := prevSecrets[ev.Name]; ok {
-					val = types.StringValue(pv)
-				} else {
-					val = types.StringValue("***")
-				}
-			} else if ev.Value != nil {
-				val = types.StringValue(*ev.Value)
-			} else {
-				val = types.StringNull()
-			}
-			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
-			envVarVals = append(envVarVals, obj)
-		}
-		setVal, d := types.SetValue(objType, envVarVals)
+		setVal, d := buildEnvSetFromAPI(ctx, container.EnvironmentVariables, nil, state.EnvironmentVariables, secretPreservePrev)
 		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -951,60 +838,13 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	// Ingresses
-	var ingressElems []attr.Value
-	// Use the planned ingresses to build the final state, not the API response
-	for _, ing := range container.Ingresses {
-		allowListElems := make([]attr.Value, len(ing.Allowlist))
-		for i, a := range ing.Allowlist {
-			allowListElems[i] = types.StringValue(a)
-		}
-		allowList, diags := types.ListValue(types.StringType, allowListElems)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		var ingDomain types.String
-
-		if container.Ingresses == nil {
-			ingDomain = types.StringNull()
-		} else {
-			ingDomain = types.StringValue(ing.DomainName)
-		}
-
-		ingressObj := types.ObjectValueMust(
-			map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-			map[string]attr.Value{
-				"domain_name": ingDomain,
-				"port":        types.Int64Value(int64(ing.Port)),
-				"tls":         types.BoolValue(ing.EnableTLS),
-				"allow_list":  allowList,
-			})
-		ingressElems = append(ingressElems, ingressObj)
-	}
-
-	ingressesList, diags := types.ListValue(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-		},
-		ingressElems,
-	)
+	ingressesTF, diags := buildIngressesFromApi(*container)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.Ingresses = ingressesList
+	state.Ingresses = ingressesTF
 
 	// Health check
 	if container.HealthCheck != nil {
@@ -1269,22 +1109,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	// Environment variables
-	if !plan.EnvironmentVariables.IsNull() && !plan.EnvironmentVariables.IsUnknown() {
-		var envVars []environvariableResource
-		diags = plan.EnvironmentVariables.ElementsAs(ctx, &envVars, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, ev := range envVars {
-			input.EnvironmentVariables = append(input.EnvironmentVariables, api.EnvironmentVariableInput{
-				Name:   ev.Name.ValueString(),
-				Value:  ev.Value.ValueString(),
-				Secret: ev.Secret.ValueBool(),
-				State:  api.StatePresent,
-			})
-		}
+	// Environment variables (build API input from plan)
+	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
+	resp.Diagnostics.Append(dEnvU...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(inputsUpd) > 0 {
+		input.EnvironmentVariables = inputsUpd
 	}
 
 	// Healthcheck
@@ -1355,33 +1187,33 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	// modify container
+	// modify containerResult
 	client := api.NewClient()
-	container, err := client.ContainerModify(input)
+	containerResult, err := client.ContainerModify(input)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
 		return
 	}
 
-	// Set all fields in plan from returned container
-	plan.ID = types.StringValue(container.Name)
+	// Set all fields in plan from returned containerResult
+	plan.ID = types.StringValue(containerResult.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
-	plan.Name = types.StringValue(container.Name)
-	plan.Image = types.StringValue(container.Image)
+	plan.Name = types.StringValue(containerResult.Name)
+	plan.Image = types.StringValue(containerResult.Image)
 
-	if container.PrivateRegistry == nil {
+	if containerResult.PrivateRegistry == nil {
 		plan.Registry = types.StringNull()
 	} else {
-		plan.Registry = types.StringValue(container.PrivateRegistry.Name)
+		plan.Registry = types.StringValue(containerResult.PrivateRegistry.Name)
 	}
 
 	// Parse CPU and RAM from the string
-	resParts := strings.Split(string(container.Resources), "_")
+	resParts := strings.Split(string(containerResult.Resources), "_")
 	if len(resParts) == 4 {
 		cpu, err := strconv.ParseFloat(resParts[1], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error parsing container resources",
+				"Error parsing containerResult resources",
 				"Failed to parse CPU value: "+err.Error(),
 			)
 			return
@@ -1390,7 +1222,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		ram, err := strconv.ParseFloat(resParts[3], 64)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error parsing container resources",
+				"Error parsing containerResult resources",
 				"Failed to parse RAM value: "+err.Error(),
 			)
 			return
@@ -1412,31 +1244,9 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Resources = resourcesObj
 	}
 
-	// Environment variables
-	if container.EnvironmentVariables != nil {
-		envVarVals := make([]attr.Value, 0, len(container.EnvironmentVariables))
-		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
-		for _, ev := range container.EnvironmentVariables {
-			var val types.String
-			if ev.Secret {
-				for _, provided := range input.EnvironmentVariables {
-					if provided.Name == ev.Name {
-						val = types.StringValue(provided.Value)
-						break
-					}
-				}
-				if val.IsNull() || val.IsUnknown() {
-					val = types.StringValue("***")
-				}
-			} else if ev.Value != nil {
-				val = types.StringValue(*ev.Value)
-			} else {
-				val = types.StringNull()
-			}
-			obj := types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(ev.Name), "value": val, "secret": types.BoolValue(ev.Secret)})
-			envVarVals = append(envVarVals, obj)
-		}
-		setVal, d := types.SetValue(objType, envVarVals)
+	// Environment variables (update state)
+	if containerResult.EnvironmentVariables != nil {
+		setVal, d := buildEnvSetFromAPI(ctx, containerResult.EnvironmentVariables, input.EnvironmentVariables, plan.EnvironmentVariables, secretUseProvided)
 		resp.Diagnostics.Append(d...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -1445,9 +1255,9 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Ports
-	if container.Ports != nil {
-		ports := make([]attr.Value, len(container.Ports))
-		for i, p := range container.Ports {
+	if containerResult.Ports != nil {
+		ports := make([]attr.Value, len(containerResult.Ports))
+		for i, p := range containerResult.Ports {
 			ports[i] = types.StringValue(p)
 		}
 
@@ -1460,9 +1270,9 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Mounts
-	if container.Mounts != nil {
-		mounts := make([]attr.Value, len(container.Mounts))
-		for i, m := range container.Mounts {
+	if containerResult.Mounts != nil {
+		mounts := make([]attr.Value, len(containerResult.Mounts))
+		for i, m := range containerResult.Mounts {
 			obj := types.ObjectValueMust(
 				map[string]attr.Type{
 					"path":   types.StringType,
@@ -1487,15 +1297,22 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Mounts = mountList
 	}
 
+	ingresses, d := buildIngressesFromApi(containerResult)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.Ingresses = ingresses
+
 	// Health check
-	if container.HealthCheck != nil {
+	if containerResult.HealthCheck != nil {
 		hc := types.ObjectValueMust(map[string]attr.Type{
 			"port": types.Int64Type,
 			"path": types.StringType,
 		},
 			map[string]attr.Value{
-				"port": types.Int64Value(int64(container.HealthCheck.Port)),
-				"path": types.StringValue(container.HealthCheck.Path),
+				"port": types.Int64Value(int64(containerResult.HealthCheck.Port)),
+				"path": types.StringValue(containerResult.HealthCheck.Path),
 			})
 		plan.HealthCheck = hc
 	}
@@ -1526,9 +1343,9 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	var scalingObj attr.Value = types.ObjectNull(scalingType.AttrTypes)
 
-	if container.AutoScaling != nil {
+	if containerResult.AutoScaling != nil {
 		var triggerVals []attr.Value
-		for _, t := range container.AutoScaling.Triggers {
+		for _, t := range containerResult.AutoScaling.Triggers {
 			triggerObj := types.ObjectValueMust(
 				map[string]attr.Type{
 					"type":      types.StringType,
@@ -1557,8 +1374,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		autoInput := types.ObjectValueMust(
 			autoInputType.AttrTypes,
 			map[string]attr.Value{
-				"minimal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Minimum)),
-				"maximal_replicas": types.Int64Value(int64(container.AutoScaling.Replicas.Maximum)),
+				"minimal_replicas": types.Int64Value(int64(containerResult.AutoScaling.Replicas.Minimum)),
+				"maximal_replicas": types.Int64Value(int64(containerResult.AutoScaling.Replicas.Maximum)),
 				"triggers":         triggersList,
 			},
 		)
@@ -1571,12 +1388,12 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				"auto_input":   autoInput,
 			},
 		)
-	} else if container.NumberOfReplicas > 0 {
+	} else if containerResult.NumberOfReplicas > 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
 				"type":         types.StringValue("manual"),
-				"manual_input": types.Int64Value(int64(container.NumberOfReplicas)),
+				"manual_input": types.Int64Value(int64(containerResult.NumberOfReplicas)),
 				"auto_input":   types.ObjectNull(autoInputType.AttrTypes),
 			},
 		)
@@ -1585,13 +1402,13 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	if obj, ok := scalingObj.(types.Object); ok {
 		plan.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error updating container", "Could not update container: "+err.Error())
+		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
 		return
 	}
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
-	plan.Status = types.StringValue(container.State)
+	plan.Status = types.StringValue(containerResult.State)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -1643,17 +1460,10 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 		delay *= 2
 	}
 
-	if lastErr != nil {
-		resp.Diagnostics.AddError(
-			"Failed to delete container",
-			fmt.Sprintf("Container could not be deleted after retries. Last error: %s", lastErr.Error()),
-		)
-	} else {
-		resp.Diagnostics.AddError(
-			"Failed to delete container",
-			"Container could not be deleted after retries, but no specific error was returned.",
-		)
-	}
+	resp.Diagnostics.AddError(
+		"Failed to delete container",
+		fmt.Sprintf("Container could not be deleted after retries. Last error: %s", lastErr.Error()),
+	)
 }
 
 func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -1718,21 +1528,10 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		},
 	)
 
-	// Environment Variables
-	var envList []attr.Value
+	// Environment Variables (import)
+	envTF := types.SetNull(envVarObjectType())
 	if container.EnvironmentVariables != nil {
-		objType := types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}
-		for _, env := range container.EnvironmentVariables {
-			val := types.StringPointerValue(env.Value)
-			if env.Secret {
-				val = types.StringValue("***")
-			}
-			envList = append(envList, types.ObjectValueMust(objType.AttrTypes, map[string]attr.Value{"name": types.StringValue(env.Name), "value": val, "secret": types.BoolValue(env.Secret)}))
-		}
-	}
-	envTF := types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}})
-	if len(envList) > 0 {
-		setVal, _ := types.SetValue(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "value": types.StringType, "secret": types.BoolType}}, envList)
+		setVal, _ := buildEnvSetFromAPI(ctx, container.EnvironmentVariables, nil, types.SetNull(envVarObjectType()), secretMaskOnly)
 		envTF = setVal
 	}
 
@@ -1771,36 +1570,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		}, mountList)
 
 	// Ingresses
-	var ingressList []attr.Value
-	for _, ing := range container.Ingresses {
-		var allowList []attr.Value
-		for _, ip := range ing.Allowlist {
-			allowList = append(allowList, types.StringValue(ip))
-		}
-		ingressList = append(ingressList, types.ObjectValueMust(
-			map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-			map[string]attr.Value{
-				"domain_name": types.StringValue(ing.DomainName),
-				"port":        types.Int64Value(int64(ing.Port)),
-				"tls":         types.BoolValue(ing.EnableTLS),
-				"allow_list":  types.ListValueMust(types.StringType, allowList),
-			},
-		))
-	}
-	ingressesTF := types.ListValueMust(
-		types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"domain_name": types.StringType,
-				"port":        types.Int64Type,
-				"tls":         types.BoolType,
-				"allow_list":  types.ListType{ElemType: types.StringType},
-			},
-		}, ingressList)
+	ingressesTF, _ := buildIngressesFromApi(*container)
 
 	// Health Check
 	var healthTF types.Object
