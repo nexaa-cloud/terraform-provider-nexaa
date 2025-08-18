@@ -133,8 +133,12 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 			"Unable to log in",
 			"Error: "+err.Error(),
 		)
+		return
 	}
 
+	// Create API client and make it available to resources
+	client := api.NewClient()
+	resp.ResourceData = client
 }
 
 func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -144,6 +148,7 @@ func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resourc
 		resources.NewRegistryResource,
 		resources.NewContainerResource,
 		resources.NewContainerJobResource,
+		resources.NewCloudDatabaseClusterResource,
 	}
 }
 
