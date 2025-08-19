@@ -62,6 +62,10 @@ func (r *containerJobResource) Schema(_ context.Context, _ resource.SchemaReques
 	resp.Schema = schema.Schema{
 		Description: "Container job resource representing a scheduled container job that will be deployed on nexaa.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "Unique identifier of the container, equal to the name",
+			},
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "Name of the container job",
@@ -119,16 +123,19 @@ func (r *containerJobResource) Schema(_ context.Context, _ resource.SchemaReques
 					},
 				},
 				Optional:    true,
+				Computed:    true,
 				Description: "Environment variables used in the container job; order is not significant and matched by name",
 			},
 			"command": schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
+				Computed:    true,
 				Description: "Command to run. This is the command executed at the given schedule. When omitted, the default command of the image will be used.",
 			},
 			"entrypoint": schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
+				Computed:    true,
 				Description: "Entrypoint of the container. This field will overwrite the default entrypoint of the image. When omitted, the default entrypoint of the image will be used.",
 			},
 			"mounts": schema.ListNestedAttribute{
@@ -144,6 +151,7 @@ func (r *containerJobResource) Schema(_ context.Context, _ resource.SchemaReques
 						},
 					},
 				},
+				Computed:    true,
 				Optional:    true,
 				Description: "Used to add persistent storage to your container job",
 			},
@@ -324,6 +332,20 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		plan.Command = commandList
 	}
 
+	if containerJobResult.Entrypoint != nil {
+		entrypoints := make([]attr.Value, len(containerJobResult.Entrypoint))
+		for i, c := range containerJobResult.Entrypoint {
+			entrypoints[i] = types.StringValue(c)
+		}
+
+		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Entrypoint = entrypointList
+	}
+
 	// Mounts
 	if containerJobResult.Mounts != nil {
 		mountList, d := buildMountsFromApi(containerJobResult.Mounts)
@@ -407,6 +429,20 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 			return
 		}
 		state.Command = commandList
+	}
+
+	if containerJob.Entrypoint != nil {
+		entrypoints := make([]attr.Value, len(containerJob.Entrypoint))
+		for i, c := range containerJob.Entrypoint {
+			entrypoints[i] = types.StringValue(c)
+		}
+
+		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Entrypoint = entrypointList
 	}
 
 	// Mounts
@@ -601,6 +637,21 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		plan.Command = commandList
 	}
 
+	// Command
+	if containerJobResult.Entrypoint != nil {
+		entrypoints := make([]attr.Value, len(containerJobResult.Entrypoint))
+		for i, c := range containerJobResult.Entrypoint {
+			entrypoints[i] = types.StringValue(c)
+		}
+
+		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Command = entrypointList
+	}
+
 	// Mounts
 	if containerJobResult.Mounts != nil {
 		mountList, d := buildMountsFromApi(containerJobResult.Mounts)
@@ -666,7 +717,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 	resourcesObj, err = buildResourcesFromAPI(containerJob.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			err.Error(),
+			"Error importing container job",
 			err.Error(),
 		)
 		return
@@ -686,6 +737,17 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 	}
 
 	commandList, diags := types.ListValue(types.StringType, commands)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	entrypoints := make([]attr.Value, len(containerJob.Entrypoint))
+	for i, c := range containerJob.Entrypoint {
+		entrypoints[i] = types.StringValue(c)
+	}
+
+	entrypointList, diags := types.ListValue(types.StringType, entrypoints)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -711,6 +773,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Resources:            resourcesObj,
 		EnvironmentVariables: envTF,
 		Command:              commandList,
+		Entrypoint:           entrypointList,
 		Mounts:               mountTF,
 		Schedule:             types.StringValue(containerJob.Schedule),
 		Enabled:              types.BoolValue(containerJob.Enabled),

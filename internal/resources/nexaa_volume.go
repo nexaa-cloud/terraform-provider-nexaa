@@ -103,26 +103,10 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		maxRetries   = 4
 		initialDelay = 3 * time.Second
 	)
-	delay := initialDelay
-	var err error
-	var volume api.VolumeResult
-
+	
 	client := api.NewClient()
+	volume, err := client.VolumeCreate(input)
 
-	for i := 0; i <= maxRetries; i++ {
-		volume, err = client.VolumeCreate(input)
-		if err == nil {
-			break
-		}
-
-		resp.Diagnostics.AddWarning(
-			"Volume creation retry",
-			fmt.Sprintf("Retry %d/%d for volume creation: %s", i+1, maxRetries+1, err.Error()),
-		)
-
-		time.Sleep(delay)
-		delay *= 2
-	}
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating volume",
