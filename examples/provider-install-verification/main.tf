@@ -109,16 +109,16 @@ resource "nexaa_container" "container" {
 resource "nexaa_clouddatabasecluster" "database" {
   name      = "test-db-cluster3"
   namespace = nexaa_namespace.namespace.name
-  
+
   spec = {
     type    = "PostgreSQL"
     version = "16.4"
   }
-  
+
   plan = {
-    cpu     = 1
-    memory  = 2.0
-    storage = 60
+    cpu      = 1
+    memory   = 2.0
+    storage  = 60
     replicas = 1
   }
 }
