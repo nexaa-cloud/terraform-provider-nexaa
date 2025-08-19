@@ -19,7 +19,7 @@ func MountsObjectAttributeTypes() map[string]attr.Type {
 }
 
 func MountsObjectType() types.ObjectType {
-	return types.ObjectType{AttrTypes: IngressObjectAttributeTypes()}
+	return types.ObjectType{AttrTypes: MountsObjectAttributeTypes()}
 }
 
 func buildMountsFromApi(mounts []api.ContainerMounts) (basetypes.ListValue, diag.Diagnostics) {
