@@ -4,9 +4,17 @@ on:
   pull_request:
     paths-ignore:
       - 'README.md'
+      - 'docs/**'
   push:
     paths-ignore:
       - 'README.md'
+      - 'docs/**'
+    branches:
+      - main
+
+concurrency:
+  group: acceptance-tests
+  cancel-in-progress: false
 
 permissions:
   contents: read
