@@ -94,6 +94,11 @@ func generateRandomPort() int {
 	return rand.IntN(1000) + 8000
 }
 
+// generateTestClusterName generates a random database cluster name for tests.
+func generateTestClusterName() string {
+	return generateResourceName("tf-cluster")
+}
+
 func givenProvider() string {
 	return fmt.Sprintf(
 		`provider "nexaa" {

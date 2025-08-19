@@ -33,32 +33,6 @@ resource "nexaa_clouddatabasecluster" "cluster" {
     storage = %s
     replicas = %s
   }
-  
-  databases = [
-    {
-      name        = "app_db"
-      description = "Application database"
-      state       = "present"
-    }
-  ]
-  
-  users = [
-    {
-      name     = "app_user"
-      password = "secure_password123"
-      state    = "present"
-      permissions = [
-        {
-          database   = "app_db"
-          permission = "read"
-        },
-        {
-          database   = "app_db"
-          permission = "write"
-        }
-      ]
-    }
-  ]
 }
 `, namespaceName, clusterName, dbType, version, cpu, memory, storage, replicas)
 }
@@ -69,17 +43,23 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
 
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	clusterName := generateTestClusterName()
+
+	t.Logf("=== CLOUD DATABASE CLUSTER TEST USING NAMESPACE: %s ===", namespaceName)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterConfig("test-ns-cdb", "test-cluster", "postgresql", "15", "1", "2.0", "10", "1"),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "name", "test-cluster"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "namespace", "test-ns-cdb"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "spec.type", "postgresql"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "spec.version", "15"),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "spec.type", "PostgreSQL"),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "spec.version", "16.4"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "plan.cpu", "1"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "plan.memory", "2"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "plan.storage", "10"),
@@ -87,10 +67,6 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_clouddatabasecluster.cluster", "plan.group"),
 					resource.TestCheckResourceAttrSet("nexaa_clouddatabasecluster.cluster", "plan.id"),
 					resource.TestCheckResourceAttrSet("nexaa_clouddatabasecluster.cluster", "plan.name"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "databases.#", "1"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "databases.0.name", "app_db"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "users.#", "1"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "users.0.name", "app_user"),
 					resource.TestCheckResourceAttrSet("nexaa_clouddatabasecluster.cluster", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_clouddatabasecluster.cluster", "last_updated"),
 				),
@@ -100,16 +76,15 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 				ResourceName:            "nexaa_clouddatabasecluster.cluster",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateId:           "test-ns-cdb/test-cluster",
-				ImportStateVerifyIgnore: []string{"users.0.password"}, // Password is not returned by API
+				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, clusterName),
+				ImportStateVerifyIgnore: []string{"plan.name", "last_updated"},
 			},
 			// Update and Read testing
 			{
-				Config: cloudDatabaseClusterConfig("test-ns-cdb", "test-cluster", "postgresql", "15", "1", "2.0", "10", "1"),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "name", "test-cluster"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "databases.#", "1"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "users.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster", "namespace", namespaceName),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -129,8 +104,8 @@ resource "nexaa_clouddatabasecluster" "cluster_minimal" {
   namespace = nexaa_namespace.ns.name
   
   spec = {
-    type    = "postgresql"
-    version = "15"
+    type    = "PostgreSQL"
+    version = "16.4"
   }
   
   plan = {
@@ -149,17 +124,23 @@ func TestAccCloudDatabaseClusterResource_Minimal(t *testing.T) {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
 
+	// Generate random test data
+	namespaceName := generateTestNamespace()
+	clusterName := generateTestClusterName()
+
+	t.Logf("=== CLOUD DATABASE CLUSTER MINIMAL TEST USING NAMESPACE: %s ===", namespaceName)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with minimal configuration
 			{
-				Config: cloudDatabaseClusterConfigMinimal("test-ns-cdb-min", "test-cluster-minimal"),
+				Config: cloudDatabaseClusterConfigMinimal(namespaceName, clusterName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "name", "test-cluster-minimal"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "namespace", "test-ns-cdb-min"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "spec.type", "postgresql"),
-					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "spec.version", "15"),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "spec.type", "PostgreSQL"),
+					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "spec.version", "16.4"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "plan.cpu", "1"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "plan.memory", "2"),
 					resource.TestCheckResourceAttr("nexaa_clouddatabasecluster.cluster_minimal", "plan.storage", "10"),

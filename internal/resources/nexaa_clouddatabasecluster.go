@@ -310,7 +310,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 	)
 	plan.Spec = specObj
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -525,7 +525,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	)
 	plan.Spec = specObj
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -663,7 +663,6 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 		},
 	)
 	state.Spec = specObj
-	state.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
