@@ -202,6 +202,7 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 						"allow_list": schema.ListAttribute{
 							ElementType: types.StringType,
 							Optional:    true,
+							Computed:    true,
 							Description: "A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone",
 						},
 					},
