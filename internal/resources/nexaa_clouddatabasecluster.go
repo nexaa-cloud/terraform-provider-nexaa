@@ -57,7 +57,7 @@ type planResource struct {
 	Price types.Object `tfsdk:"price"`
 }
 
-// replicasToGroup maps replica count to API group names
+// replicasToGroup maps replica count to API group names.
 func replicasToGroup(replicas int64) string {
 	switch replicas {
 	case 1:
@@ -71,7 +71,7 @@ func replicasToGroup(replicas int64) string {
 	}
 }
 
-// findMatchingPlan finds a plan that matches the user's specifications
+// findMatchingPlan finds a plan that matches the user's specifications.
 func findMatchingPlan(client *api.Client, specs planResource) (*api.CloudDatabaseClusterPlan, error) {
 	plans, err := client.CloudDatabaseClusterListPlans()
 	if err != nil {
