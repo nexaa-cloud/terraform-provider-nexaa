@@ -87,21 +87,39 @@ resource "nexaa_container" "container" {
     type         = "manual"
     manual_input = 1
 
-    # auto_input = {
-    #   minimal_replicas = 1
-    #   maximal_replicas = 3
+    auto_input = {
+      minimal_replicas = 1
+      maximal_replicas = 3
 
-    #   triggers = [
-    #     {
-    #       type      = "CPU"
-    #       threshold = 70
-    #     },
-    #     {
-    #       type      = "MEMORY"
-    #       threshold = 80
-    #     }
-    #   ]
-    # }
+      triggers = [
+        {
+          type      = "CPU"
+          threshold = 70
+        },
+        {
+          type      = "MEMORY"
+          threshold = 80
+        }
+      ]
+    }
+  }
+}
+
+# Cloud Database Cluster example
+resource "nexaa_clouddatabasecluster" "database" {
+  name      = "test-db-cluster3"
+  namespace = nexaa_namespace.namespace.name
+  
+  spec = {
+    type    = "PostgreSQL"
+    version = "16.4"
+  }
+  
+  plan = {
+    cpu     = 1
+    memory  = 2.0
+    storage = 60
+    replicas = 1
   }
 }
 

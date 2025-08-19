@@ -12,7 +12,6 @@ import (
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -36,8 +35,6 @@ type cloudDatabaseClusterResource struct {
 	Namespace   types.String `tfsdk:"namespace"`
 	Spec        types.Object `tfsdk:"spec"`
 	Plan        types.Object `tfsdk:"plan"`
-	Databases   types.List   `tfsdk:"databases"`
-	Users       types.List   `tfsdk:"users"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -46,41 +43,18 @@ type specResource struct {
 	Version types.String `tfsdk:"version"`
 }
 
-type databaseResource struct {
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	State       types.String `tfsdk:"state"`
-}
-
-type databaseUserResource struct {
-	Name        types.String `tfsdk:"name"`
-	Password    types.String `tfsdk:"password"`
-	State       types.String `tfsdk:"state"`
-	Permissions types.List   `tfsdk:"permissions"`
-}
-
-type databaseUserPermissionResource struct {
-	Database   types.String `tfsdk:"database"`
-	Permission types.String `tfsdk:"permission"`
-}
-
 type planResource struct {
 	// User-specified inputs for plan selection
 	Cpu      types.Int64   `tfsdk:"cpu"`
 	Memory   types.Float64 `tfsdk:"memory"`
 	Storage  types.Int64   `tfsdk:"storage"`
 	Replicas types.Int64   `tfsdk:"replicas"`
-	
-	// Computed fields
-	ID       types.String  `tfsdk:"id"`
-	Name     types.String  `tfsdk:"name"`
-	Group    types.String  `tfsdk:"group"` // Computed: the actual group name from API
-	Price    types.Object  `tfsdk:"price"`
-}
 
-type planPriceResource struct {
-	Amount   types.Int64  `tfsdk:"amount"`
-	Currency types.String `tfsdk:"currency"`
+	// Computed fields
+	ID    types.String `tfsdk:"id"`
+	Name  types.String `tfsdk:"name"`
+	Group types.String `tfsdk:"group"`
+	Price types.Object `tfsdk:"price"`
 }
 
 // replicasToGroup maps replica count to API group names
@@ -121,34 +95,14 @@ func findMatchingPlan(client *api.Client, specs planResource) (*api.CloudDatabas
 		}
 	}
 
-	// If no exact match, find the smallest plan that meets or exceeds requirements
-	var bestPlan *api.CloudDatabaseClusterPlan
+	// No exact match found - create a helpful error message with available plans
+	var availablePlans []string
 	for _, plan := range plans {
-		if plan.Cpu >= requiredCpu &&
-			plan.Memory >= requiredMemory &&
-			plan.Storage >= requiredStorage &&
-			plan.Group == requiredGroup {
-			if bestPlan == nil ||
-				plan.Cpu < bestPlan.Cpu ||
-				(plan.Cpu == bestPlan.Cpu && plan.Memory < bestPlan.Memory) ||
-				(plan.Cpu == bestPlan.Cpu && plan.Memory == bestPlan.Memory && plan.Storage < bestPlan.Storage) {
-				bestPlan = &plan
-			}
-		}
+		availablePlans = append(availablePlans, fmt.Sprintf("cpu=%d, memory=%.1f, storage=%d, group=%s",
+			plan.Cpu, plan.Memory, plan.Storage, plan.Group))
 	}
-
-	if bestPlan == nil {
-		// Create a helpful error message with available plans
-		var availablePlans []string
-		for _, plan := range plans {
-			availablePlans = append(availablePlans, fmt.Sprintf("cpu=%d, memory=%.1f, storage=%d, group=%s", 
-				plan.Cpu, plan.Memory, plan.Storage, plan.Group))
-		}
-		return nil, fmt.Errorf("no plan found matching requirements: cpu=%d, memory=%.1f, storage=%d, replicas=%d (group=%s). Available plans: %v", 
-			requiredCpu, requiredMemory, requiredStorage, requiredReplicas, requiredGroup, availablePlans)
-	}
-
-	return bestPlan, nil
+	return nil, fmt.Errorf("no plan found matching requirements: cpu=%d, memory=%.1f, storage=%d, replicas=%d (group=%s). Available plans: %v",
+		requiredCpu, requiredMemory, requiredStorage, requiredReplicas, requiredGroup, availablePlans)
 }
 
 func (r *cloudDatabaseClusterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -238,75 +192,6 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 				Required:    true,
 				Description: "Database cluster plan specification - provider will find matching plan",
 			},
-			"databases": schema.ListNestedAttribute{
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							Required:    true,
-							Description: "The name of the database",
-						},
-						"description": schema.StringAttribute{
-							Optional:    true,
-							Computed:    true,
-							Description: "Optional description of the database",
-						},
-						"state": schema.StringAttribute{
-							Optional:    true,
-							Computed:    true,
-							Description: "State of the database (present/absent)",
-							Validators: []validator.String{
-								stringvalidator.OneOf("present", "absent"),
-							},
-						},
-					},
-				},
-				Optional:    true,
-				Computed:    true,
-				Description: "List of databases to create in the cluster",
-			},
-			"users": schema.ListNestedAttribute{
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							Required:    true,
-							Description: "The name of the database user",
-						},
-						"password": schema.StringAttribute{
-							Optional:    true,
-							Sensitive:   true,
-							Description: "Password for the database user",
-						},
-						"state": schema.StringAttribute{
-							Optional:    true,
-							Computed:    true,
-							Description: "State of the user (present/absent)",
-							Validators: []validator.String{
-								stringvalidator.OneOf("present", "absent"),
-							},
-						},
-						"permissions": schema.ListNestedAttribute{
-							NestedObject: schema.NestedAttributeObject{
-								Attributes: map[string]schema.Attribute{
-									"database": schema.StringAttribute{
-										Required:    true,
-										Description: "Database name for the permission",
-									},
-									"permission": schema.StringAttribute{
-										Required:    true,
-										Description: "Permission type (e.g., read, write, admin)",
-									},
-								},
-							},
-							Optional:    true,
-							Computed:    true,
-							Description: "List of database permissions for the user",
-						},
-					},
-				},
-				Optional:    true,
-				Computed:    true,
-				Description: "List of database users to create in the cluster",
-			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the cloud database cluster",
 				Computed:    true,
@@ -355,82 +240,6 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		Plan: matchingPlan.Id,
 	}
 
-	if !plan.Databases.IsNull() && !plan.Databases.IsUnknown() {
-		var databases []databaseResource
-		diags = plan.Databases.ElementsAs(ctx, &databases, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, db := range databases {
-			state := api.StatePresent
-			if !db.State.IsNull() && !db.State.IsUnknown() {
-				state = api.State(db.State.ValueString())
-			}
-
-			var description *string
-			if !db.Description.IsNull() && !db.Description.IsUnknown() {
-				desc := db.Description.ValueString()
-				description = &desc
-			}
-
-			input.Databases = append(input.Databases, api.DatabaseInput{
-				Name:        db.Name.ValueString(),
-				Description: description,
-				State:       state,
-			})
-		}
-	} else {
-		input.Databases = []api.DatabaseInput{}
-	}
-
-	if !plan.Users.IsNull() && !plan.Users.IsUnknown() {
-		var users []databaseUserResource
-		diags = plan.Users.ElementsAs(ctx, &users, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, user := range users {
-			state := api.StatePresent
-			if !user.State.IsNull() && !user.State.IsUnknown() {
-				state = api.State(user.State.ValueString())
-			}
-
-			var password *string
-			if !user.Password.IsNull() && !user.Password.IsUnknown() {
-				pwd := user.Password.ValueString()
-				password = &pwd
-			}
-
-			userInput := api.DatabaseUserInput{
-				Name:     user.Name.ValueString(),
-				Password: password,
-				State:    state,
-			}
-
-			if !user.Permissions.IsNull() && !user.Permissions.IsUnknown() {
-				var permissions []databaseUserPermissionResource
-				diags = user.Permissions.ElementsAs(ctx, &permissions, false)
-				resp.Diagnostics.Append(diags...)
-				if resp.Diagnostics.HasError() {
-					return
-				}
-				for _, perm := range permissions {
-					userInput.Permissions = append(userInput.Permissions, api.DatabaseUserPermissionInput{
-						DatabaseName: perm.Database.ValueString(),
-						Permission:   api.DatabasePermission(perm.Permission.ValueString()),
-						State:        api.StatePresent,
-					})
-				}
-			}
-
-			input.Users = append(input.Users, userInput)
-		}
-	} else {
-		input.Users = []api.DatabaseUserInput{}
-	}
-
 	cluster, err := client.CloudDatabaseClusterCreate(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating cloud database cluster", "Could not create cluster: "+err.Error())
@@ -471,7 +280,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			"id":       types.StringType,
 			"name":     types.StringType,
 			"group":    types.StringType,
-			"price":    types.ObjectType{AttrTypes: map[string]attr.Type{
+			"price": types.ObjectType{AttrTypes: map[string]attr.Type{
 				"amount":   types.Int64Type,
 				"currency": types.StringType,
 			}},
@@ -500,99 +309,6 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		},
 	)
 	plan.Spec = specObj
-
-	if cluster.Databases != nil {
-		databases := make([]attr.Value, len(cluster.Databases))
-		for i, db := range cluster.Databases {
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":        types.StringType,
-					"description": types.StringType,
-					"state":       types.StringType,
-				},
-				map[string]attr.Value{
-					"name":        types.StringValue(db.Name),
-					"description": types.StringPointerValue(db.Description),
-					"state":       types.StringValue("present"),
-				})
-			databases[i] = obj
-		}
-		dbList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":        types.StringType,
-				"description": types.StringType,
-				"state":       types.StringType,
-			},
-		}, databases)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Databases = dbList
-	}
-
-	if cluster.Users != nil {
-		users := make([]attr.Value, len(cluster.Users))
-		for i, clusterUser := range cluster.Users {
-			permissions := make([]attr.Value, len(clusterUser.Permissions))
-			for j, perm := range clusterUser.Permissions {
-				permObj := types.ObjectValueMust(
-					map[string]attr.Type{
-						"database":   types.StringType,
-						"permission": types.StringType,
-					},
-					map[string]attr.Value{
-						"database":   types.StringValue(perm.DatabaseName),
-						"permission": types.StringValue(string(perm.Permission)),
-					})
-				permissions[j] = permObj
-			}
-			permList, diags := types.ListValue(types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"database":   types.StringType,
-					"permission": types.StringType,
-				},
-			}, permissions)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":     types.StringType,
-					"password": types.StringType,
-					"state":    types.StringType,
-					"permissions": types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{
-						"database":   types.StringType,
-						"permission": types.StringType,
-					}}},
-				},
-				map[string]attr.Value{
-					"name":        types.StringValue(clusterUser.Name),
-					"password":    types.StringNull(),
-					"state":       types.StringValue("present"),
-					"permissions": permList,
-				})
-			users[i] = obj
-		}
-		userList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":     types.StringType,
-				"password": types.StringType,
-				"state":    types.StringType,
-				"permissions": types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{
-					"database":   types.StringType,
-					"permission": types.StringType,
-				}}},
-			},
-		}, users)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Users = userList
-	}
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
@@ -684,7 +400,7 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 			"id":       types.StringType,
 			"name":     types.StringType,
 			"group":    types.StringType,
-			"price":    types.ObjectType{AttrTypes: map[string]attr.Type{
+			"price": types.ObjectType{AttrTypes: map[string]attr.Type{
 				"amount":   types.Int64Type,
 				"currency": types.StringType,
 			}},
@@ -714,99 +430,6 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 	)
 	state.Spec = specObj
 
-	if cluster.Databases != nil {
-		databases := make([]attr.Value, len(cluster.Databases))
-		for i, db := range cluster.Databases {
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":        types.StringType,
-					"description": types.StringType,
-					"state":       types.StringType,
-				},
-				map[string]attr.Value{
-					"name":        types.StringValue(db.Name),
-					"description": types.StringPointerValue(db.Description),
-					"state":       types.StringValue("present"),
-				})
-			databases[i] = obj
-		}
-		dbList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":        types.StringType,
-				"description": types.StringType,
-				"state":       types.StringType,
-			},
-		}, databases)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Databases = dbList
-	}
-
-	if cluster.Users != nil {
-		users := make([]attr.Value, len(cluster.Users))
-		for i, user := range cluster.Users {
-			permissions := make([]attr.Value, len(user.Permissions))
-			for j, perm := range user.Permissions {
-				permObj := types.ObjectValueMust(
-					map[string]attr.Type{
-						"database":   types.StringType,
-						"permission": types.StringType,
-					},
-					map[string]attr.Value{
-						"database":   types.StringValue(perm.DatabaseName),
-						"permission": types.StringValue(string(perm.Permission)),
-					})
-				permissions[j] = permObj
-			}
-			permList, diags := types.ListValue(types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"database":   types.StringType,
-					"permission": types.StringType,
-				},
-			}, permissions)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-
-			obj := types.ObjectValueMust(
-				map[string]attr.Type{
-					"name":     types.StringType,
-					"password": types.StringType,
-					"state":    types.StringType,
-					"permissions": types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{
-						"database":   types.StringType,
-						"permission": types.StringType,
-					}}},
-				},
-				map[string]attr.Value{
-					"name":        types.StringValue(user.Name),
-					"password":    types.StringNull(),
-					"state":       types.StringValue("present"),
-					"permissions": permList,
-				})
-			users[i] = obj
-		}
-		userList, diags := types.ListValue(types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"name":     types.StringType,
-				"password": types.StringType,
-				"state":    types.StringType,
-				"permissions": types.ListType{ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{
-					"database":   types.StringType,
-					"permission": types.StringType,
-				}}},
-			},
-		}, users)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Users = userList
-	}
-
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -824,78 +447,6 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		Namespace: plan.Namespace.ValueString(),
 	}
 
-	if !plan.Databases.IsNull() && !plan.Databases.IsUnknown() {
-		var databases []databaseResource
-		diags = plan.Databases.ElementsAs(ctx, &databases, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, db := range databases {
-			state := api.StatePresent
-			if !db.State.IsNull() && !db.State.IsUnknown() {
-				state = api.State(db.State.ValueString())
-			}
-
-			var description *string
-			if !db.Description.IsNull() && !db.Description.IsUnknown() {
-				desc := db.Description.ValueString()
-				description = &desc
-			}
-
-			input.Databases = append(input.Databases, api.DatabaseInput{
-				Name:        db.Name.ValueString(),
-				Description: description,
-				State:       state,
-			})
-		}
-	}
-
-	if !plan.Users.IsNull() && !plan.Users.IsUnknown() {
-		var users []databaseUserResource
-		diags = plan.Users.ElementsAs(ctx, &users, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		for _, user := range users {
-			state := api.StatePresent
-			if !user.State.IsNull() && !user.State.IsUnknown() {
-				state = api.State(user.State.ValueString())
-			}
-
-			var password *string
-			if !user.Password.IsNull() && !user.Password.IsUnknown() {
-				pwd := user.Password.ValueString()
-				password = &pwd
-			}
-
-			userInput := api.DatabaseUserInput{
-				Name:     user.Name.ValueString(),
-				Password: password,
-				State:    state,
-			}
-
-			if !user.Permissions.IsNull() && !user.Permissions.IsUnknown() {
-				var permissions []databaseUserPermissionResource
-				diags = user.Permissions.ElementsAs(ctx, &permissions, false)
-				resp.Diagnostics.Append(diags...)
-				if resp.Diagnostics.HasError() {
-					return
-				}
-				for _, perm := range permissions {
-					userInput.Permissions = append(userInput.Permissions, api.DatabaseUserPermissionInput{
-						DatabaseName: perm.Database.ValueString(),
-						Permission:   api.DatabasePermission(perm.Permission.ValueString()),
-						State:        api.StatePresent,
-					})
-				}
-			}
-
-			input.Users = append(input.Users, userInput)
-		}
-	}
-
 	client := api.NewClient()
 	cluster, err := client.CloudDatabaseClusterModify(input)
 	if err != nil {
@@ -904,6 +455,76 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	}
 
 	plan.ID = types.StringValue(cluster.Id)
+	plan.Name = types.StringValue(cluster.Name)
+	plan.Namespace = types.StringValue(cluster.Namespace.Name)
+
+	// Get current plan specs from the plan
+	var currentPlan planResource
+	if !plan.Plan.IsNull() && !plan.Plan.IsUnknown() {
+		diags = plan.Plan.As(ctx, &currentPlan, basetypes.ObjectAsOptions{})
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+	}
+
+	// Set plan object with both user specs and API data
+	var amount *int64
+	if cluster.Plan.Price.Amount != nil {
+		val := int64(*cluster.Plan.Price.Amount)
+		amount = &val
+	}
+
+	planPriceObj := types.ObjectValueMust(
+		map[string]attr.Type{
+			"amount":   types.Int64Type,
+			"currency": types.StringType,
+		},
+		map[string]attr.Value{
+			"amount":   types.Int64PointerValue(amount),
+			"currency": types.StringPointerValue(cluster.Plan.Price.Currency),
+		},
+	)
+
+	planObj := types.ObjectValueMust(
+		map[string]attr.Type{
+			"cpu":      types.Int64Type,
+			"memory":   types.Float64Type,
+			"storage":  types.Int64Type,
+			"replicas": types.Int64Type,
+			"id":       types.StringType,
+			"name":     types.StringType,
+			"group":    types.StringType,
+			"price": types.ObjectType{AttrTypes: map[string]attr.Type{
+				"amount":   types.Int64Type,
+				"currency": types.StringType,
+			}},
+		},
+		map[string]attr.Value{
+			"cpu":      currentPlan.Cpu,      // Preserve user input
+			"memory":   currentPlan.Memory,   // Preserve user input
+			"storage":  currentPlan.Storage,  // Preserve user input
+			"replicas": currentPlan.Replicas, // Preserve user input
+			"id":       types.StringValue(cluster.Plan.Id),
+			"name":     types.StringValue(cluster.Plan.Name),
+			"group":    types.StringValue(cluster.Plan.Group),
+			"price":    planPriceObj,
+		},
+	)
+	plan.Plan = planObj
+
+	specObj := types.ObjectValueMust(
+		map[string]attr.Type{
+			"type":    types.StringType,
+			"version": types.StringType,
+		},
+		map[string]attr.Value{
+			"type":    types.StringValue(cluster.Spec.Type),
+			"version": types.StringValue(cluster.Spec.Version),
+		},
+	)
+	plan.Spec = specObj
+
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
@@ -1007,7 +628,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 			"id":       types.StringType,
 			"name":     types.StringType,
 			"group":    types.StringType,
-			"price":    types.ObjectType{AttrTypes: map[string]attr.Type{
+			"price": types.ObjectType{AttrTypes: map[string]attr.Type{
 				"amount":   types.Int64Type,
 				"currency": types.StringType,
 			}},
