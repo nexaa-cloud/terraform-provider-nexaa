@@ -296,8 +296,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Parse CPU and RAM from the string
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerJobResult.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerJobResult.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			err.Error(),
@@ -395,8 +394,7 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	// Parse CPU and RAM from the string
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerJob.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerJob.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			err.Error(),
@@ -601,8 +599,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Parse CPU and RAM from the string
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerJobResult.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerJobResult.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			err.Error(),
@@ -713,8 +710,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 	}
 
 	// Parse resources
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerJob.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerJob.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing container job",

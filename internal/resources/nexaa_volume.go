@@ -99,11 +99,6 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		Size:      int(plan.Size.ValueInt64()),
 	}
 
-	const (
-		maxRetries   = 4
-		initialDelay = 3 * time.Second
-	)
-	
 	client := api.NewClient()
 	volume, err := client.VolumeCreate(input)
 

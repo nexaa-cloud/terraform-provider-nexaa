@@ -509,8 +509,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Registry = types.StringValue(*input.Registry)
 	}
 
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerResult.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerResult.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing container",
@@ -703,8 +702,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Registry = types.StringValue(container.PrivateRegistry.Name)
 	}
 
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(container.Resources)
+	resourcesObj, err := buildResourcesFromAPI(container.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing container",
@@ -1121,8 +1119,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Parse CPU and RAM from the string
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(containerResult.Resources)
+	resourcesObj, err := buildResourcesFromAPI(containerResult.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			err.Error(),
@@ -1360,8 +1357,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 	}
 
 	// resources
-	resourcesObj := types.ObjectNull(ContainerResourceObjectAttributeTypes())
-	resourcesObj, err = buildResourcesFromAPI(container.Resources)
+	resourcesObj, err := buildResourcesFromAPI(container.Resources)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing container",
