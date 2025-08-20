@@ -15,7 +15,7 @@ import (
 
 func containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
 	return givenProvider() +
-		giveNamespace(namespaceName, "") +
+		givenNamespace(namespaceName, "") +
 		givenRegistry(registryName, registryUsername, registryPassword) +
 		fmt.Sprintf(`
 resource "nexaa_container" "container" {
@@ -78,7 +78,7 @@ resource "nexaa_container" "container" {
 
 func containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
 	return givenProvider() +
-		giveNamespace(namespaceName, "") +
+		givenNamespace(namespaceName, "") +
 		givenRegistry(registryName, registryUsername, registryPassword) +
 		fmt.Sprintf(`
 resource "nexaa_container" "container" {
@@ -259,7 +259,7 @@ func checkEnvironmentVariablesSet(expected map[string]string) resource.TestCheck
 }
 
 func minimalContainerConfig(namespaceName, containerName string) string {
-	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
+	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -322,7 +322,7 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 }
 
 func minimalContainerWithIngressConfig(namespaceName, containerName string) string {
-	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
+	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -404,7 +404,7 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 
 func minimalContainerWithDomainNameConfig(namespaceName, containerName string, domainName string) string {
 	return givenProvider() +
-		giveNamespace(namespaceName, "") +
+		givenNamespace(namespaceName, "") +
 		fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]

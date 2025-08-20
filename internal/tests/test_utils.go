@@ -7,21 +7,26 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+
+	"github.com/go-faker/faker/v4"
+	"github.com/go-faker/faker/v4/pkg/options"
 )
 
 // generateRandomString generates a random lowercase string of given length.
 func generateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[rand.IntN(len(charset))]
-	}
-	return string(b)
+	word := faker.Word(options.WithRandomStringLength(uint(length)))
+	return word
 }
 
 // generateResourceName generates a random resource name with prefix.
 func generateResourceName(prefix string) string {
-	return fmt.Sprintf("%s-%s", prefix, generateRandomString(8))
+	resourceName := faker.Word()
+
+	return fmt.Sprintf("%s-%s", prefix, resourceName)
+}
+
+func generateTestImage() string {
+	return "nginx:latest"
 }
 
 // generateTestNamespace generates a random namespace name for tests.
@@ -37,6 +42,27 @@ func generateTestVolumeName() string {
 // generateTestContainerName generates a random container name for tests.
 func generateTestContainerName() string {
 	return generateResourceName("tf-container")
+}
+
+func generateTestContainerJobName() string {
+	return generateResourceName("tf-container-job")
+}
+
+func generateTestEntrypoint() string {
+	return `[
+		"/bin/bash",
+	]`
+}
+
+func generateTestCommands() string {
+	return `[
+		"echo",
+		"hello",	
+	]`
+}
+
+func generateTestSchedule() string {
+	return "30 * * * 3"
 }
 
 // generateTestRegistryName generates a random registry name for tests.
@@ -111,7 +137,7 @@ func givenProvider() string {
 	)
 }
 
-func giveNamespace(name string, description string) string {
+func givenNamespace(name string, description string) string {
 	if name == "" {
 		name = generateTestNamespace()
 	}
@@ -143,7 +169,8 @@ resource "nexaa_registry" "registry" {
   username  = %q
   password  = %q
   verify    = false
-}`,
+}
+`,
 		name,
 		username,
 		password,
@@ -161,4 +188,27 @@ func givenVolume(name string, size int) string {
         name           = %q
         size           = %d
         }`, name, size)
+}
+
+func givenContainerJob(name string, image string, command string, entrypoint string, schedule string) string {
+	if name == "" {
+		name = generateTestContainerJobName()
+	}
+
+	return fmt.Sprintf(
+		`
+resource "nexaa_container_job" "job" {
+  namespace = nexaa_namespace.ns.name
+  name = %q
+  image = %q
+  registry = nexaa_registry.registry.name
+  command = %s
+  entrypoint = %s
+  resources = {
+    cpu = 0.25
+    ram = 0.5
+  }
+  schedule = %q
+}
+`, name, image, command, entrypoint, schedule)
 }

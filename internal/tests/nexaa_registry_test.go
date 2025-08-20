@@ -30,7 +30,7 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 			// 1) Create & Read
 			{
 				Config: givenProvider() +
-					giveNamespace(namespaceName, "") +
+					givenNamespace(namespaceName, "") +
 					givenRegistry(registryName, username, password),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "id"),

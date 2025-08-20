@@ -15,7 +15,7 @@ import (
 
 func volumeConfig(namespaceName, volumeName string, size int) string {
 	return givenProvider() +
-		giveNamespace(namespaceName, "") +
+		givenNamespace(namespaceName, "") +
 		givenVolume(volumeName, size)
 }
 

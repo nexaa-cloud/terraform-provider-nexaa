@@ -35,7 +35,7 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: givenProvider() + giveNamespace(namespaceName, description),
+				Config: givenProvider() + givenNamespace(namespaceName, description),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_namespace.ns", "id"),
 					resource.TestCheckResourceAttr("nexaa_namespace.ns", "name", namespaceName),

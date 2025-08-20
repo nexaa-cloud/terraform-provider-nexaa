@@ -646,7 +646,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		plan.Command = entrypointList
+		plan.Entrypoint = entrypointList
 	}
 
 	// Mounts
