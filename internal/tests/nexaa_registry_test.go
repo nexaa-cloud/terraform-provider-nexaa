@@ -29,20 +29,9 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// 1) Create & Read
 			{
-				Config: providerConfig + fmt.Sprintf(`
-				resource "nexaa_namespace" "test" {
-				name        = %q
-				}
-
-				resource "nexaa_registry" "registry" {
-				namespace		= nexaa_namespace.test.name
-				name           	= %q
-				source		 	= "registry.gitlab.com"
-				username		= %q
-				password		= %q
-				verify		 	= false
-				}
-				`, namespaceName, registryName, username, password),
+				Config: givenProvider() +
+					giveNamespace(namespaceName, "") +
+					givenRegistry(registryName, username, password),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "id"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "namespace", namespaceName),

@@ -14,21 +14,10 @@ import (
 )
 
 func containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar, envValue, healthPath string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
-resource "nexaa_registry" "registry" {
-  depends_on = [nexaa_namespace.ns]
-  namespace = nexaa_namespace.ns.name
-  name      = %q
-  source    = "registry.gitlab.com"
-  username  = %q
-  password  = %q
-  verify    = false
-}
-
+	return givenProvider() +
+		giveNamespace(namespaceName, "") +
+		givenRegistry(registryName, registryUsername, registryPassword) +
+		fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_registry.registry]
   name      = %q
@@ -84,25 +73,14 @@ resource "nexaa_container" "container" {
     }
   }
 }
-`, namespaceName, registryName, registryUsername, registryPassword, containerName, envVar, envValue, healthPath)
+`, containerName, envVar, envValue, healthPath)
 }
 
 func containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath string, port int) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
-resource "nexaa_registry" "registry" {
-  depends_on = [nexaa_namespace.ns]
-  namespace = nexaa_namespace.ns.name
-  name      = %q
-  source    = "registry.gitlab.com"
-  username  = %q
-  password  = %q
-  verify    = false
-}
-
+	return givenProvider() +
+		giveNamespace(namespaceName, "") +
+		givenRegistry(registryName, registryUsername, registryPassword) +
+		fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_registry.registry]
   name      = %q
@@ -149,7 +127,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`, namespaceName, registryName, registryUsername, registryPassword, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
+`, containerName, registryName, port, port, envVar1, envValue1, envVar2, envValue2, healthPath)
 }
 
 func TestAcc_ContainerResource_basic(t *testing.T) {
@@ -281,11 +259,7 @@ func checkEnvironmentVariablesSet(expected map[string]string) resource.TestCheck
 }
 
 func minimalContainerConfig(namespaceName, containerName string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
+	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -303,7 +277,7 @@ resource "nexaa_container" "container" {
     manual_input = 1
   }
 }
-`, namespaceName, containerName)
+`, containerName)
 }
 
 func TestAcc_ContainerResource_Minimal(t *testing.T) {
@@ -348,11 +322,7 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 }
 
 func minimalContainerWithIngressConfig(namespaceName, containerName string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
+	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -380,7 +350,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`, namespaceName, containerName)
+`, containerName)
 }
 
 func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
@@ -433,11 +403,9 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 }
 
 func minimalContainerWithDomainNameConfig(namespaceName, containerName string, domainName string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
+	return givenProvider() +
+		giveNamespace(namespaceName, "") +
+		fmt.Sprintf(`
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -466,7 +434,7 @@ resource "nexaa_container" "container" {
     manual_input = 3
   }
 }
-`, namespaceName, containerName, domainName)
+`, containerName, domainName)
 }
 
 func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing.T) {

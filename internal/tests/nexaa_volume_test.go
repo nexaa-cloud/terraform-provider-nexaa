@@ -14,17 +14,9 @@ import (
 )
 
 func volumeConfig(namespaceName, volumeName string, size int) string {
-	return providerConfig + fmt.Sprintf(`
-        resource "nexaa_namespace" "test" {
-        name        = %q
-        }
-
-        resource "nexaa_volume" "volume1" {
-        namespace      = nexaa_namespace.test.name
-        name           = %q
-        size           = %d
-        }
-        `, namespaceName, volumeName, size)
+	return givenProvider() +
+		giveNamespace(namespaceName, "") +
+		givenVolume(volumeName, size)
 }
 
 func TestAcc_VolumeResource_basic(t *testing.T) {
@@ -47,19 +39,19 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 			{
 				Config: volumeConfig(namespaceName, volumeName, initialSize),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "id"),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "namespace", namespaceName),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "name", volumeName),
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", fmt.Sprintf("%d", initialSize)),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "usage"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "last_updated"),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "id"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_volume.volume", "name", volumeName),
+					resource.TestCheckResourceAttr("nexaa_volume.volume", "size", fmt.Sprintf("%d", initialSize)),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "usage"),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "locked"),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "last_updated"),
 				),
 			},
 
 			// 2) ImportState
 			{
-				ResourceName:            "nexaa_volume.volume1",
+				ResourceName:            "nexaa_volume.volume",
 				ImportState:             true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, volumeName),
 				ImportStateVerify:       true,
@@ -70,10 +62,10 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 			{
 				Config: volumeConfig(namespaceName, volumeName, updatedSize),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_volume.volume1", "size", fmt.Sprintf("%d", updatedSize)),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "usage"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume1", "last_updated"),
+					resource.TestCheckResourceAttr("nexaa_volume.volume", "size", fmt.Sprintf("%d", updatedSize)),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "usage"),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "locked"),
+					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "last_updated"),
 				),
 			},
 		},
