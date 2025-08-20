@@ -4,7 +4,6 @@
 package tests
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -19,16 +18,6 @@ var (
 	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 		"nexaa": providerserver.NewProtocol6WithError(provider.New("test")()),
 	}
-
-	providerConfig = fmt.Sprintf(
-		`provider "nexaa" {
-				username = %q
-				password = %q
-			}
-			`,
-		os.Getenv("NEXAA_USERNAME"),
-		os.Getenv("NEXAA_PASSWORD"),
-	)
 )
 
 func TestAcc_NamespaceResource_basic(t *testing.T) {
@@ -46,21 +35,16 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + fmt.Sprintf(`
-				resource "nexaa_namespace" "test" {
-				name        = %q
-				description = %q
-				}
-				`, namespaceName, description),
+				Config: givenProvider() + giveNamespace(namespaceName, description),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("nexaa_namespace.test", "id"),
-					resource.TestCheckResourceAttr("nexaa_namespace.test", "name", namespaceName),
-					resource.TestCheckResourceAttr("nexaa_namespace.test", "description", description),
-					resource.TestCheckResourceAttrSet("nexaa_namespace.test", "last_updated"),
+					resource.TestCheckResourceAttrSet("nexaa_namespace.ns", "id"),
+					resource.TestCheckResourceAttr("nexaa_namespace.ns", "name", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_namespace.ns", "description", description),
+					resource.TestCheckResourceAttrSet("nexaa_namespace.ns", "last_updated"),
 				),
 			},
 			{
-				ResourceName:            "nexaa_namespace.test",
+				ResourceName:            "nexaa_namespace.ns",
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated"},

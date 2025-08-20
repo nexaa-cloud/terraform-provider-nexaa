@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"math/rand/v2"
+	"os"
 )
 
 // generateRandomString generates a random lowercase string of given length.
@@ -91,4 +92,68 @@ func generateRandomSize() int {
 // generateRandomPort generates a random port number (between 8000-9000).
 func generateRandomPort() int {
 	return rand.IntN(1000) + 8000
+}
+
+func givenProvider() string {
+	return fmt.Sprintf(
+		`provider "nexaa" {
+				username = %q
+				password = %q
+			}
+			`,
+		os.Getenv("NEXAA_USERNAME"),
+		os.Getenv("NEXAA_PASSWORD"),
+	)
+}
+
+func giveNamespace(name string, description string) string {
+	if name == "" {
+		name = generateTestNamespace()
+	}
+
+	return fmt.Sprintf(
+		`
+	resource "nexaa_namespace" "ns" {
+  		name = %q
+		description = %q
+	}
+	`,
+		name,
+		description,
+	)
+}
+
+func givenRegistry(name string, username string, password string) string {
+	if name == "" {
+		name = generateTestRegistryName()
+	}
+
+	return fmt.Sprintf(
+		`
+resource "nexaa_registry" "registry" {
+  depends_on = [nexaa_namespace.ns]
+  namespace = nexaa_namespace.ns.name
+  name      = %q
+  source    = "registry.gitlab.com"
+  username  = %q
+  password  = %q
+  verify    = false
+}`,
+		name,
+		username,
+		password,
+	)
+}
+
+func givenVolume(name string, size int) string {
+	if name == "" {
+		name = generateTestVolumeName()
+	}
+
+	return fmt.Sprintf(`
+        resource "nexaa_volume" "volume" {
+        namespace      = nexaa_namespace.ns.name
+        name           = %q
+        size           = %d
+        }`, name, size)
 }
