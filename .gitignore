@@ -31,8 +31,10 @@ website/vendor
 examples/*/auth.json
 examples/*/auth-dev.json
 internal/*/auth-dev.json
+vendor
 go.work
-
+go.work.sum
+CLAUDE.md
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
