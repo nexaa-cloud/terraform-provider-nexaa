@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
@@ -113,6 +114,9 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Unique identifier of the container, equal to the name",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
@@ -227,6 +231,9 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Computed:    true,
 				Optional:    true,
 				Description: "Used to add persistent storage to your container",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"health_check": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -666,12 +673,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-
 	plan.Status = types.StringValue(containerResult.State)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -1274,12 +1283,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-
 	plan.Status = types.StringValue(containerResult.State)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
