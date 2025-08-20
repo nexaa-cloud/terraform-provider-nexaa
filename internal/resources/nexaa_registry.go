@@ -238,8 +238,19 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	var lastErr error
 
-	// Retry DeleteRegistry
+	// Retry DeleteRegistry with context timeout
 	for i := 0; i <= maxRetries; i++ {
+		// Check context timeout
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError(
+				"Timeout deleting registry",
+				fmt.Sprintf("Context timeout while waiting to delete registry %q", state.Name.ValueString()),
+			)
+			return
+		default:
+		}
+
 		registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
 		if err != nil {
 			lastErr = err
@@ -270,7 +281,17 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			)
 			return
 		}
-		time.Sleep(delay)
+		
+		// Sleep with context timeout
+		select {
+		case <-ctx.Done():
+			resp.Diagnostics.AddError(
+				"Timeout deleting registry",
+				fmt.Sprintf("Context timeout while waiting to delete registry %q", state.Name.ValueString()),
+			)
+			return
+		case <-time.After(delay):
+		}
 		delay *= 2
 	}
 
