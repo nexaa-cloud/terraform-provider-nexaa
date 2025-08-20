@@ -281,7 +281,7 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			)
 			return
 		}
-		
+
 		// Sleep with context timeout
 		select {
 		case <-ctx.Done():
