@@ -12,11 +12,7 @@ import (
 )
 
 func cloudDatabaseClusterConfig(namespaceName, clusterName, dbType, version, cpu, memory, storage, replicas string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
+	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_clouddatabasecluster" "cluster" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -34,7 +30,7 @@ resource "nexaa_clouddatabasecluster" "cluster" {
     replicas = %s
   }
 }
-`, namespaceName, clusterName, dbType, version, cpu, memory, storage, replicas)
+`, clusterName, dbType, version, cpu, memory, storage, replicas)
 }
 
 func TestAccCloudDatabaseClusterResource(t *testing.T) {
@@ -93,11 +89,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 }
 
 func cloudDatabaseClusterConfigMinimal(namespaceName, clusterName string) string {
-	return providerConfig + fmt.Sprintf(`
-resource "nexaa_namespace" "ns" {
-  name = %q
-}
-
+	return givenProvider() + giveNamespace(namespaceName, "") + fmt.Sprintf(`
 resource "nexaa_clouddatabasecluster" "cluster_minimal" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -115,7 +107,7 @@ resource "nexaa_clouddatabasecluster" "cluster_minimal" {
     replicas = 1
   }
 }
-`, namespaceName, clusterName)
+`, clusterName)
 }
 
 func TestAccCloudDatabaseClusterResource_Minimal(t *testing.T) {
