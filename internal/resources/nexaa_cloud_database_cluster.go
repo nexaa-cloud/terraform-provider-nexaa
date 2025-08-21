@@ -107,7 +107,7 @@ func findMatchingPlan(client *api.Client, specs planResource) (*api.CloudDatabas
 }
 
 func (r *cloudDatabaseClusterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_clouddatabasecluster"
+	resp.TypeName = req.ProviderTypeName + "_cloud_database_cluster"
 }
 
 func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
