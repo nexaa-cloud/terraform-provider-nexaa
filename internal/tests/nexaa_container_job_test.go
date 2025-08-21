@@ -49,6 +49,12 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 				Config: containerJobConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, image, entrypoint, command, schedule),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.cpu", "0.25"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.ram", "0.5"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
 			},
 
