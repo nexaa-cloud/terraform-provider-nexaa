@@ -35,6 +35,7 @@ type cloudDatabaseClusterResource struct {
 	Namespace   types.String `tfsdk:"namespace"`
 	Spec        types.Object `tfsdk:"spec"`
 	Plan        types.Object `tfsdk:"plan"`
+	State       types.String `tfsdk:"state"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
@@ -192,6 +193,10 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 				Required:    true,
 				Description: "Database cluster plan specification - provider will find matching plan",
 			},
+			"state": schema.StringAttribute{
+				Description: "Current state of the cloud database cluster",
+				Computed:    true,
+			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the cloud database cluster",
 				Computed:    true,
@@ -310,6 +315,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 	)
 	plan.Spec = specObj
 
+	plan.State = types.StringValue(cluster.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
 	diags = resp.State.Set(ctx, plan)
@@ -430,6 +436,8 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 	)
 	state.Spec = specObj
 
+	state.State = types.StringValue(cluster.State)
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -525,6 +533,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	)
 	plan.Spec = specObj
 
+	plan.State = types.StringValue(cluster.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
 	diags = resp.State.Set(ctx, plan)
@@ -539,20 +548,77 @@ func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
+	const (
+		maxRetries   = 15
+		initialDelay = 5 * time.Second
+	)
+	delay := initialDelay
+
 	client := api.NewClient()
-	input := api.CloudDatabaseClusterResourceInput{
-		Name:      state.Name.ValueString(),
-		Namespace: state.Namespace.ValueString(),
+
+	// Wait for cluster to be ready for deletion
+	for i := 0; i <= maxRetries; i++ {
+		clusters, err := client.CloudDatabaseClusterList()
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error deleting cloud database cluster",
+				fmt.Sprintf("Could not list clusters to check status: %s", err.Error()),
+			)
+			return
+		}
+
+		var cluster *api.CloudDatabaseClusterResult
+		for _, c := range clusters {
+			if c.Name == state.Name.ValueString() && c.Namespace.Name == state.Namespace.ValueString() {
+				cluster = &c
+				break
+			}
+		}
+
+		if cluster == nil {
+			// Cluster not found, already deleted
+			return
+		}
+
+		// Check if cluster is in a state where it can be deleted
+		if cluster.State == "created" || cluster.State == "ready" || cluster.State == "failed" {
+			input := api.CloudDatabaseClusterResourceInput{
+				Name:      state.Name.ValueString(),
+				Namespace: state.Namespace.ValueString(),
+			}
+
+			_, err := client.CloudDatabaseClusterDelete(input)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error deleting cloud database cluster",
+					fmt.Sprintf("Failed to delete cluster %q: %s", state.Name.ValueString(), err.Error()),
+				)
+				return
+			}
+			return
+		}
+
+		// If cluster is failed and locked, report error
+		if cluster.State == "failed" {
+			resp.Diagnostics.AddError(
+				"Error deleting cloud database cluster",
+				fmt.Sprintf("Cluster %q is in failed state and cannot be deleted", state.Name.ValueString()),
+			)
+			return
+		}
+
+		if i < maxRetries {
+			time.Sleep(delay)
+			if delay < 30*time.Second {
+				delay *= 2
+			}
+		}
 	}
 
-	_, err := client.CloudDatabaseClusterDelete(input)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting cloud database cluster",
-			fmt.Sprintf("Failed to delete cluster %q: %s", state.Name.ValueString(), err.Error()),
-		)
-		return
-	}
+	resp.Diagnostics.AddError(
+		"Timeout deleting cloud database cluster",
+		fmt.Sprintf("Cluster %q did not reach a deletable state after waiting", state.Name.ValueString()),
+	)
 }
 
 func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -663,6 +729,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 		},
 	)
 	state.Spec = specObj
+	state.State = types.StringValue(cluster.State)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

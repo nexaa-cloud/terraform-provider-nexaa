@@ -73,7 +73,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, clusterName),
-				ImportStateVerifyIgnore: []string{"plan.name", "last_updated"},
+				ImportStateVerifyIgnore: []string{"plan.name", "last_updated", "state"},
 			},
 			// Update and Read testing
 			{
