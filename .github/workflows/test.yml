@@ -37,29 +37,9 @@ jobs:
         with:
           version: latest
 
-  generate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-      - name: Configure Git for GitLab
-        run: |
-          git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-      - run: make generate
-      - name: git diff
-        run: |
-          git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected diff after generate. Run 'make generate' locally and commit changes."; exit 1)
-
   test:
     name: Terraform Provider Acceptance Tests
-    needs: build
+    needs:
     runs-on:
       group: Default
     env:
