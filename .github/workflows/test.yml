@@ -1,14 +1,11 @@
 name: Tests
 
 on:
-  pull_request:
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
   push:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
+      - '**'
     branches:
       - main
 
