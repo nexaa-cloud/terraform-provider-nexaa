@@ -14,7 +14,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// testAccPreCheck loads .env file and checks required environment variables
+// testAccPreCheck loads .env file and checks required environment variables.
 func testAccPreCheck(t *testing.T) {
 	// Try to load .env file from project root (go up two levels from internal/tests)
 	err := godotenv.Load("../../.env")

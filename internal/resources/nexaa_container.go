@@ -1142,7 +1142,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	defer cancel()
 
 	client := api.NewClient()
-	_, err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
@@ -1353,7 +1353,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	_, err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running plan: "+err.Error())

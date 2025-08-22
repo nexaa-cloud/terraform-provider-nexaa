@@ -42,24 +42,25 @@ func containerJobLocked() fetchResourceLocked {
 	}
 }
 
-func cloudDatabaseClusterLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
-		resource, err := client.CloudDatabaseClusterGet(
-			api.CloudDatabaseClusterResourceInput{
-				Namespace: namespace,
-				Name:      resourceName,
-			},
-		)
+//
+//func cloudDatabaseClusterLocked() fetchResourceLocked {
+//	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+//		resource, err := client.CloudDatabaseClusterGet(
+//			api.CloudDatabaseClusterResourceInput{
+//				Namespace: namespace,
+//				Name:      resourceName,
+//			},
+//		)
+//
+//		if err != nil {
+//			return false, err
+//		}
+//
+//		return resource.Locked, nil
+//	}
+//}
 
-		if err != nil {
-			return false, err
-		}
-
-		return resource.Locked, nil
-	}
-}
-
-func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client api.Client, namespace string, resourceName string) (bool, error) {
+func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client api.Client, namespace string, resourceName string) error {
 	const (
 		initialDelay = 2 * time.Second
 		maxDelay     = 15 * time.Second
@@ -68,16 +69,16 @@ func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocke
 
 	for {
 		if ctx.Err() != nil {
-			return false, ctx.Err()
+			return ctx.Err()
 		}
 
 		locked, err := fetchResourceLocked(client, namespace, resourceName)
 
 		if err != nil {
-			return false, err
+			return err
 		}
 
-		if locked == false {
+		if !locked {
 			break
 		}
 
@@ -91,5 +92,5 @@ func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocke
 		}
 	}
 
-	return true, nil
+	return nil
 }

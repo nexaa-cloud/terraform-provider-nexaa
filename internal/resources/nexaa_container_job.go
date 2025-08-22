@@ -289,7 +289,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	_, err = waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err = waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a unlocked state: "+err.Error())
 	}
@@ -608,7 +608,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	defer cancel()
 
 	client := api.NewClient()
-	_, err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
@@ -723,7 +723,7 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 	defer cancel()
 
 	client := api.NewClient()
-	_, err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
