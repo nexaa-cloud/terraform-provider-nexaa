@@ -1,4 +1,4 @@
-resource "nexaa_containerjob" "containerjob" {
+resource "nexaa_container_job" "containerjob" {
   name      = "tf-containerjob"
   namespace = "terraform"
   image     = "nginx:latest"
@@ -35,5 +35,6 @@ resource "nexaa_containerjob" "containerjob" {
   ]
 
   schedule_cron_expression = "0 * * * *" # Every hour
-  command                  = "echo Hello World"
+  entrypoint               = ["/bin/bash"]
+  command                  = ["echo", "Hello World"]
 }
