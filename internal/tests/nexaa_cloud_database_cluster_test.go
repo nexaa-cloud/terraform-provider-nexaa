@@ -34,10 +34,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 }
 
 func TestAccCloudDatabaseClusterResource(t *testing.T) {
-	// Skip test if credentials are not provided
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
-	}
+	testAccPreCheck(t)
 
 	// Generate random test data
 	namespaceName := generateTestNamespace()

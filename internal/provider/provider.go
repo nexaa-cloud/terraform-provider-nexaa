@@ -118,9 +118,7 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	if err := config.Initialize(config.GetEnvironment()); err != nil {
-		panic(err)
-	}
+	config.Initialize()
 
 	if err := config.LoadConfig(); err != nil {
 		panic(err)

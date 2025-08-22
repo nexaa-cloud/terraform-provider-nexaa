@@ -5,7 +5,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -26,9 +25,7 @@ func containerJobUpdateConfig(namespaceName string, registryName string, registr
 }
 
 func TestAcc_ContainerJobResource_basic(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-	}
+	testAccPreCheck(t)
 
 	namespaceName := generateTestNamespace()
 	containerJobName := generateTestContainerJobName()

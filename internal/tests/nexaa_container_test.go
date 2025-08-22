@@ -281,9 +281,7 @@ resource "nexaa_container" "container" {
 }
 
 func TestAcc_ContainerResource_Minimal(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-	}
+	testAccPreCheck(t)
 
 	// Generate random test data
 	namespaceName := generateTestNamespace()

@@ -3,16 +3,21 @@ module github.com/nexaa-cloud/terraform-provider-nexaa
 go 1.23.7
 
 require (
+	github.com/go-faker/faker/v4 v4.6.1
 	github.com/hashicorp/terraform-plugin-framework v1.15.1
 	github.com/hashicorp/terraform-plugin-go v0.28.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.13.3
-	github.com/nexaa-cloud/nexaa-cli v1.0.19
+	github.com/joho/godotenv v1.5.1
+	github.com/nexaa-cloud/nexaa-cli v1.0.21
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
-	github.com/go-faker/faker/v4 v4.6.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	google.golang.org/grpc v1.74.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
