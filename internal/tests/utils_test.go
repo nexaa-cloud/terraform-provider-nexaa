@@ -231,8 +231,9 @@ resource "nexaa_container_job" "job" {
   }
   schedule = %q
   timeouts {
-    update = "10s"
-   	delete = "10s" 
+    create = "30s"
+    update = "30s"
+   	delete = "30s" 
   }
 }
 `, name, image, command, entrypoint, schedule)

@@ -178,6 +178,7 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 		},
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
 				Update: true,
 				Delete: true,
 			}),
@@ -288,6 +289,17 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	_, err = waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a unlocked state: "+err.Error())
+	}
+
+	containerJobResult, err = client.ContainerJobByName(plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error finding container", "Could not find container: "+err.Error())
+		return
+	}
+
 	// Set all fields in plan from returned container job result
 	plan.ID = types.StringValue(containerJobResult.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
@@ -364,6 +376,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.State = types.StringValue(containerJobResult.State)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -818,10 +831,12 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Timeouts: timeouts.Value{
 			Object: types.ObjectValueMust(
 				map[string]attr.Type{
+					"create": types.StringType,
 					"update": types.StringType,
 					"delete": types.StringType,
 				},
 				map[string]attr.Value{
+					"create": types.StringValue("30s"),
 					"update": types.StringValue("30s"),
 					"delete": types.StringValue("30s"),
 				},
