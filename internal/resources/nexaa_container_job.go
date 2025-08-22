@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
@@ -37,20 +38,21 @@ func NewContainerJobResource() resource.Resource {
 
 // containerJobResource is the resource implementation.
 type containerJobResource struct {
-	ID                   types.String `tfsdk:"id"`
-	Name                 types.String `tfsdk:"name"`
-	Namespace            types.String `tfsdk:"namespace"`
-	Image                types.String `tfsdk:"image"`
-	Registry             types.String `tfsdk:"registry"`
-	Resources            types.Object `tfsdk:"resources"`
-	EnvironmentVariables types.Set    `tfsdk:"environment_variables"`
-	Command              types.List   `tfsdk:"command"`
-	Entrypoint           types.List   `tfsdk:"entrypoint"`
-	Mounts               types.List   `tfsdk:"mounts"`
-	Schedule             types.String `tfsdk:"schedule"`
-	Enabled              types.Bool   `tfsdk:"enabled"`
-	LastUpdated          types.String `tfsdk:"last_updated"`
-	State                types.String `tfsdk:"state"`
+	ID                   types.String   `tfsdk:"id"`
+	Name                 types.String   `tfsdk:"name"`
+	Namespace            types.String   `tfsdk:"namespace"`
+	Image                types.String   `tfsdk:"image"`
+	Registry             types.String   `tfsdk:"registry"`
+	Resources            types.Object   `tfsdk:"resources"`
+	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
+	Command              types.List     `tfsdk:"command"`
+	Entrypoint           types.List     `tfsdk:"entrypoint"`
+	Mounts               types.List     `tfsdk:"mounts"`
+	Schedule             types.String   `tfsdk:"schedule"`
+	Enabled              types.Bool     `tfsdk:"enabled"`
+	LastUpdated          types.String   `tfsdk:"last_updated"`
+	State                types.String   `tfsdk:"state"`
+	Timeouts             timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the resource type name.
@@ -58,7 +60,7 @@ func (r *containerJobResource) Metadata(_ context.Context, req resource.Metadata
 	resp.TypeName = req.ProviderTypeName + "_container_job"
 }
 
-func (r *containerJobResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Container job resource representing a scheduled container job that will be deployed on nexaa.",
 		Attributes: map[string]schema.Attribute{
@@ -173,6 +175,13 @@ func (r *containerJobResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description: "Timestamp of the last Terraform update of the container job",
 				Computed:    true,
 			},
+		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+				Delete: true,
+			}),
 		},
 	}
 }
@@ -575,8 +584,24 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		input.EnvironmentVariables = inputsUpd
 	}
 
-	// Modify container job
+	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
+
 	client := api.NewClient()
+	_, err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
+	}
+
 	containerJobResult, err := client.ContainerJobModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating container job", "Could not update container job: "+err.Error())
@@ -667,20 +692,36 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state containerJobResource
-	diags := req.State.Get(ctx, &state)
+	var plan containerJobResource
+	diags := req.State.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	client := api.NewClient()
+	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
 
-	_, err := client.ContainerJobDelete(state.Namespace.ValueString(), state.Name.ValueString())
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
+
+	client := api.NewClient()
+	_, err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
+	}
+
+	_, err = client.ContainerJobDelete(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting container job",
-			fmt.Sprintf("Failed to delete container job %q: %s", state.Name.ValueString(), err.Error()),
+			fmt.Sprintf("Failed to delete container job %q: %s", plan.Name.ValueString(), err.Error()),
 		)
 		return
 	}

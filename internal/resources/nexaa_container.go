@@ -7,13 +7,14 @@ import (
 	"context"
 	"fmt"
 
+	"strings"
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-
-	"strings"
-	"time"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -41,20 +42,21 @@ func NewContainerResource() resource.Resource {
 
 // containerResource is the resource implementation.
 type containerResource struct {
-	ID                   types.String `tfsdk:"id"`
-	Name                 types.String `tfsdk:"name"`
-	Namespace            types.String `tfsdk:"namespace"`
-	Image                types.String `tfsdk:"image"`
-	Registry             types.String `tfsdk:"registry"`
-	Resources            types.Object `tfsdk:"resources"`
-	EnvironmentVariables types.Set    `tfsdk:"environment_variables"`
-	Ports                types.List   `tfsdk:"ports"`
-	Ingresses            types.List   `tfsdk:"ingresses"`
-	Mounts               types.List   `tfsdk:"mounts"`
-	HealthCheck          types.Object `tfsdk:"health_check"`
-	Scaling              types.Object `tfsdk:"scaling"`
-	LastUpdated          types.String `tfsdk:"last_updated"`
-	Status               types.String `tfsdk:"status"`
+	ID                   types.String   `tfsdk:"id"`
+	Name                 types.String   `tfsdk:"name"`
+	Namespace            types.String   `tfsdk:"namespace"`
+	Image                types.String   `tfsdk:"image"`
+	Registry             types.String   `tfsdk:"registry"`
+	Resources            types.Object   `tfsdk:"resources"`
+	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
+	Ports                types.List     `tfsdk:"ports"`
+	Ingresses            types.List     `tfsdk:"ingresses"`
+	Mounts               types.List     `tfsdk:"mounts"`
+	HealthCheck          types.Object   `tfsdk:"health_check"`
+	Scaling              types.Object   `tfsdk:"scaling"`
+	LastUpdated          types.String   `tfsdk:"last_updated"`
+	Status               types.String   `tfsdk:"status"`
+	Timeouts             timeouts.Value `tfsdk:"timeouts"`
 }
 
 type resourcesResource struct {
@@ -107,7 +109,7 @@ func (r *containerResource) Metadata(_ context.Context, req resource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_container"
 }
 
-func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Container resource representing a container that will be deployed on nexaa.",
 		Attributes: map[string]schema.Attribute{
@@ -302,11 +304,21 @@ func (r *containerResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"status": schema.StringAttribute{
 				Description: "The status of the container",
 				Computed:    true,
+				//PlanModifiers: []planmodifier.String{
+				//	stringplanmodifier.UseStateForUnknown(),
+				//},
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
 				Computed:    true,
 			},
+		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+				Delete: true,
+			}),
 		},
 	}
 }
@@ -319,6 +331,17 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	createTimeout, diags := plan.Timeouts.Create(ctx, 30*time.Second)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	// Construct CPU/RAM string
 	var resources resourcesResource
@@ -673,7 +696,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	plan.Status = types.StringValue(containerResult.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
@@ -1108,8 +1130,25 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	// modify containerResult
+	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
+
 	client := api.NewClient()
+	_, err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
+	}
+
+	// modify containerResult
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
@@ -1295,54 +1334,39 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *containerResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state containerResource
-	diags := req.State.Get(ctx, &state)
+	var plan containerResource
+	diags := req.State.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	const (
-		maxRetries   = 10
-		initialDelay = 2 * time.Second
-	)
-	delay := initialDelay
-
 	client := api.NewClient()
+	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 30*time.Second)
 
-	var lastErr error
+	resp.Diagnostics.Append(diags...)
 
-	for i := 0; i <= maxRetries; i++ {
-		container, err := client.ListContainerByName(state.Namespace.ValueString(), state.Name.ValueString())
-		if err != nil {
-			lastErr = err
-			resp.Diagnostics.AddError(
-				"Error looking up container",
-				fmt.Sprintf("Could not find container with name %q: %s", state.Name.ValueString(), err.Error()),
-			)
-			return
-		}
-		if !container.Locked {
-			_, err := client.ContainerDelete(state.Namespace.ValueString(), state.Name.ValueString())
-			if err != nil {
-				lastErr = err
-				resp.Diagnostics.AddError(
-					"Error deleting container",
-					fmt.Sprintf("Failed to delete container %q: %s", state.Name.ValueString(), err.Error()),
-				)
-				return
-			}
-			return
-		}
-
-		time.Sleep(delay)
-		delay *= 2
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	resp.Diagnostics.AddError(
-		"Failed to delete container",
-		fmt.Sprintf("Container could not be deleted after retries. Last error: %s", lastErr.Error()),
-	)
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
+
+	_, err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running plan: "+err.Error())
+	}
+
+	_, err = client.ContainerDelete(plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting container",
+			fmt.Sprintf("Failed to delete container %q: %s", plan.Name.ValueString(), err.Error()),
+		)
+		return
+	}
 }
 
 func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
