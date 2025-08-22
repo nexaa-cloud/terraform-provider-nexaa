@@ -178,7 +178,6 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 		},
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{
-				Create: true,
 				Update: true,
 				Delete: true,
 			}),
@@ -584,7 +583,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		input.EnvironmentVariables = inputsUpd
 	}
 
-	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
 
 	resp.Diagnostics.Append(diags...)
 
@@ -592,7 +591,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
 	client := api.NewClient()
@@ -699,7 +698,7 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 30*time.Second)
 
 	resp.Diagnostics.Append(diags...)
 
@@ -707,7 +706,7 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
 	client := api.NewClient()
@@ -816,6 +815,18 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Enabled:              types.BoolValue(containerJob.Enabled),
 		State:                types.StringValue(containerJob.State),
 		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
+		Timeouts: timeouts.Value{
+			Object: types.ObjectValueMust(
+				map[string]attr.Type{
+					"update": types.StringType,
+					"delete": types.StringType,
+				},
+				map[string]attr.Value{
+					"update": types.StringValue("30s"),
+					"delete": types.StringValue("30s"),
+				},
+			),
+		},
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

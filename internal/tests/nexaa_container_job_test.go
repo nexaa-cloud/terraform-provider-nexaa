@@ -66,6 +66,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"mounts",
 					"last_updated",
 					"status",
+					"timeouts",
 				},
 			},
 

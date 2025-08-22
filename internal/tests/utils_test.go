@@ -23,11 +23,11 @@ func testAccPreCheck(t *testing.T) {
 	} else {
 		t.Logf("Loaded .env file successfully")
 	}
-	
+
 	// Debug: print what we got
 	t.Logf("NEXAA_USERNAME = %s", os.Getenv("NEXAA_USERNAME"))
 	t.Logf("NEXAA_PASSWORD = %s", os.Getenv("NEXAA_PASSWORD"))
-	
+
 	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
@@ -230,6 +230,10 @@ resource "nexaa_container_job" "job" {
     ram = 0.5
   }
   schedule = %q
+  timeouts {
+    update = "10s"
+   	delete = "10s" 
+  }
 }
 `, name, image, command, entrypoint, schedule)
 }
