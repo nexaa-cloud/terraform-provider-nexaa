@@ -42,23 +42,22 @@ func containerJobLocked() fetchResourceLocked {
 	}
 }
 
-//
-//func cloudDatabaseClusterLocked() fetchResourceLocked {
-//	return func(client api.Client, namespace string, resourceName string) (bool, error) {
-//		resource, err := client.CloudDatabaseClusterGet(
-//			api.CloudDatabaseClusterResourceInput{
-//				Namespace: namespace,
-//				Name:      resourceName,
-//			},
-//		)
-//
-//		if err != nil {
-//			return false, err
-//		}
-//
-//		return resource.Locked, nil
-//	}
-//}
+func cloudDatabaseClusterLocked() fetchResourceLocked {
+	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+		resource, err := client.CloudDatabaseClusterGet(
+			api.CloudDatabaseClusterResourceInput{
+				Namespace: namespace,
+				Name:      resourceName,
+			},
+		)
+
+		if err != nil {
+			return false, err
+		}
+
+		return resource.Locked, nil
+	}
+}
 
 func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client api.Client, namespace string, resourceName string) error {
 	const (
