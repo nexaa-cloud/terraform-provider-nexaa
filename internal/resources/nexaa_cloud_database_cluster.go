@@ -446,98 +446,15 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	var plan cloudDatabaseClusterResource
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
+
+	resp.Diagnostics.AddError(
+		"Error updating cluster",
+		"You cannot modify a cluster, you can only create and delete a cluster.",
+	)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	input := api.CloudDatabaseClusterModifyInput{
-		Name:      plan.Name.ValueString(),
-		Namespace: plan.Namespace.ValueString(),
-	}
-
-	client := api.NewClient()
-	cluster, err := client.CloudDatabaseClusterModify(input)
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating cloud database cluster", "Could not update cluster: "+err.Error())
-		return
-	}
-
-	plan.ID = types.StringValue(cluster.Id)
-	plan.Name = types.StringValue(cluster.Name)
-	plan.Namespace = types.StringValue(cluster.Namespace.Name)
-
-	// Get current plan specs from the plan
-	var currentPlan planResource
-	if !plan.Plan.IsNull() && !plan.Plan.IsUnknown() {
-		diags = plan.Plan.As(ctx, &currentPlan, basetypes.ObjectAsOptions{})
-		if diags.HasError() {
-			resp.Diagnostics.Append(diags...)
-			return
-		}
-	}
-
-	// Set plan object with both user specs and API data
-	var amount *int64
-	if cluster.Plan.Price.Amount != nil {
-		val := int64(*cluster.Plan.Price.Amount)
-		amount = &val
-	}
-
-	planPriceObj := types.ObjectValueMust(
-		map[string]attr.Type{
-			"amount":   types.Int64Type,
-			"currency": types.StringType,
-		},
-		map[string]attr.Value{
-			"amount":   types.Int64PointerValue(amount),
-			"currency": types.StringPointerValue(cluster.Plan.Price.Currency),
-		},
-	)
-
-	planObj := types.ObjectValueMust(
-		map[string]attr.Type{
-			"cpu":      types.Int64Type,
-			"memory":   types.Float64Type,
-			"storage":  types.Int64Type,
-			"replicas": types.Int64Type,
-			"id":       types.StringType,
-			"name":     types.StringType,
-			"group":    types.StringType,
-			"price": types.ObjectType{AttrTypes: map[string]attr.Type{
-				"amount":   types.Int64Type,
-				"currency": types.StringType,
-			}},
-		},
-		map[string]attr.Value{
-			"cpu":      currentPlan.Cpu,      // Preserve user input
-			"memory":   currentPlan.Memory,   // Preserve user input
-			"storage":  currentPlan.Storage,  // Preserve user input
-			"replicas": currentPlan.Replicas, // Preserve user input
-			"id":       types.StringValue(cluster.Plan.Id),
-			"name":     types.StringValue(cluster.Plan.Name),
-			"group":    types.StringValue(cluster.Plan.Group),
-			"price":    planPriceObj,
-		},
-	)
-	plan.Plan = planObj
-
-	specObj := types.ObjectValueMust(
-		map[string]attr.Type{
-			"type":    types.StringType,
-			"version": types.StringType,
-		},
-		map[string]attr.Value{
-			"type":    types.StringValue(cluster.Spec.Type),
-			"version": types.StringValue(cluster.Spec.Version),
-		},
-	)
-	plan.Spec = specObj
-
-	plan.State = types.StringValue(cluster.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
-
-	diags = resp.State.Set(ctx, plan)
-	resp.Diagnostics.Append(diags...)
 }
 
 func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -548,77 +465,33 @@ func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	const (
-		maxRetries   = 15
-		initialDelay = 5 * time.Second
-	)
-	delay := initialDelay
-
 	client := api.NewClient()
 
-	// Wait for cluster to be ready for deletion
-	for i := 0; i <= maxRetries; i++ {
-		clusters, err := client.CloudDatabaseClusterList()
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error deleting cloud database cluster",
-				fmt.Sprintf("Could not list clusters to check status: %s", err.Error()),
-			)
-			return
-		}
-
-		var cluster *api.CloudDatabaseClusterResult
-		for _, c := range clusters {
-			if c.Name == state.Name.ValueString() && c.Namespace.Name == state.Namespace.ValueString() {
-				cluster = &c
-				break
-			}
-		}
-
-		if cluster == nil {
-			// Cluster not found, already deleted
-			return
-		}
-
-		// Check if cluster is in a state where it can be deleted
-		if cluster.State == "created" || cluster.State == "ready" || cluster.State == "failed" {
-			input := api.CloudDatabaseClusterResourceInput{
-				Name:      state.Name.ValueString(),
-				Namespace: state.Namespace.ValueString(),
-			}
-
-			_, err := client.CloudDatabaseClusterDelete(input)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error deleting cloud database cluster",
-					fmt.Sprintf("Failed to delete cluster %q: %s", state.Name.ValueString(), err.Error()),
-				)
-				return
-			}
-			return
-		}
-
-		// If cluster is failed and locked, report error
-		if cluster.State == "failed" {
-			resp.Diagnostics.AddError(
-				"Error deleting cloud database cluster",
-				fmt.Sprintf("Cluster %q is in failed state and cannot be deleted", state.Name.ValueString()),
-			)
-			return
-		}
-
-		if i < maxRetries {
-			time.Sleep(delay)
-			if delay < 30*time.Second {
-				delay *= 2
-			}
-		}
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, state.Namespace.ValueString(), state.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting cluster", "Could not reach a unlocked state: "+err.Error()+". Please try again later.")
+		return
 	}
 
-	resp.Diagnostics.AddError(
-		"Timeout deleting cloud database cluster",
-		fmt.Sprintf("Cluster %q did not reach a deletable state after waiting", state.Name.ValueString()),
-	)
+	input := api.CloudDatabaseClusterResourceInput{
+		Name:      state.Name.ValueString(),
+		Namespace: state.Namespace.ValueString(),
+	}
+
+	_, err = client.CloudDatabaseClusterGet(input)
+	if err != nil {
+		resp.Diagnostics.AddError("Error finding cluster", "Could not find cluster: "+err.Error())
+		return
+	}
+
+	_, err = client.CloudDatabaseClusterDelete(input)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting cloud database cluster",
+			fmt.Sprintf("Failed to delete cluster %q: %s", state.Name.ValueString(), err.Error()),
+		)
+		return
+	}
 }
 
 func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
