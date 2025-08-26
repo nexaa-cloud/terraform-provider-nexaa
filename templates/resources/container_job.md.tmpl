@@ -13,7 +13,7 @@ description: |-
 
 {{ tffile (printf "examples/resources/%s/complete.tf" .Name)}}
 
-### Variables file (terraform.tfvars)
+### Variables file (variables.tfvars)
 {{ tffile (printf "examples/resources/%s/complete.tfvars" .Name)}}
 
 {{ .SchemaMarkdown | trimspace }}

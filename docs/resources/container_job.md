@@ -117,7 +117,7 @@ resource "nexaa_container_job" "containerjob" {
 }
 ```
 
-### Variables file (terraform.tfvars)
+### Variables file (variables.tfvars)
 ```terraform
 nexaa_username = "your-nexaa-username"
 nexaa_password = "your-nexaa-password"

@@ -15,25 +15,25 @@ Once you're logged in, take a moment to familiarize yourself with the Nexaa port
 - **Volumes**: Manage persistent storage for your applications
 - **Cloud Databases**: Launch managed MySQL and PostgreSQL clusters in your cloud environment—without the operational overhead [[2]](https://docs.nexaa.io/cloud-databases/01-introduction/).
 
-## 3. Provision Services with Terraform
+## 3. Provision Services with Infrastructure as Code
 
-The recommended way to provision and manage your Nexaa resources is through the **Nexaa Terraform Provider**. This approach provides:
+Nexaa officially supports OpenTofu and Terraform. This provides you with the following benefits:
 
 - Infrastructure as Code (IaC) best practices
 - Version control for your infrastructure
 - Reproducible deployments
 - Easy collaboration with your team
 
-### Get Started with Terraform
+### Get Started with OpenTofu / Terraform
 
 Visit the [Terraform documentation](https://docs.nexaa.io/automation/terraform/) to learn how to:
 - Install and configure the Nexaa Terraform provider
-- Create your first resources using Terraform
-- Manage containers, volumes, and other Nexaa services declaratively
+- Create your first resources using OpenTofu / Terraform
+- Manage containers, Cloud Databases, and other Nexaa services declaratively
 
 ## Next Steps
 
-- **Start with Terraform**: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/) to provision your first resources
+- Start with Terraform or OpenTofu: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/) to deploy your first services
 - Explore the [complete documentation](https://docs.nexaa.io/) for detailed feature guides
 
 ## Need Help?
