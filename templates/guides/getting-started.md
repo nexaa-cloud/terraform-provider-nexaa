@@ -13,7 +13,7 @@ Once you're logged in, take a moment to familiarize yourself with the Nexaa port
 - **Namespaces**: Organize your applications and resources
 - **Containers**: Deploy both Containers and Container jobs
 - **Volumes**: Manage persistent storage for your applications
-- **Cloud Databases**: Launch managed MySQL and PostgreSQL clusters in your cloud environment—without the operational overhead [[2]](https://docs.nexaa.io/cloud-databases/01-introduction/).
+- **Cloud Databases**: Launch managed MySQL and PostgreSQL clusters in your cloud environment—without the operational overhead [[2]](https://docs.nexaa.io/cloud-databases/introduction/).
 
 ## 3. Provision Services with Infrastructure as Code
 
