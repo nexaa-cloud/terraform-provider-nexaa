@@ -8,8 +8,38 @@ terraform {
 }
 
 provider "nexaa" {
-  username = var.username
-  password = var.password
+  username = var.nexaa_username
+  password = var.nexaa_password
+}
+
+variable "nexaa_username" {
+  description = "Username for Nexaa authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "nexaa_password" {
+  description = "Password for Nexaa authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "namespace" {
+  description = "Namespace name"
+  type        = string
+  sensitive   = true
+}
+
+variable "namespace_description" {
+  description = "Namespace description"
+  type        = string
+  sensitive   = true
+}
+
+variable "container_job_name" {
+  description = "Container Job name"
+  type        = string
+  sensitive   = true
 }
 
 resource "nexaa_namespace" "project" {
