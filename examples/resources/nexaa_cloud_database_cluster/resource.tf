@@ -36,6 +36,13 @@ variable "namespace_description" {
   sensitive   = true
 }
 
+data "nexaa_cloud_database_cluster_plans" "plan" {
+  cpu      = 1
+  memory   = 2.0
+  storage  = 10
+  replicas = 1
+}
+
 resource "nexaa_namespace" "project" {
   name        = var.namespace
   description = var.namespace_description
@@ -54,10 +61,5 @@ resource "nexaa_cloud_database_cluster" "cluster" {
     version = "16.4"
   }
 
-  plan = {
-    cpu      = "1"
-    memory   = "2"
-    storage  = "10"
-    replicas = "1"
-  }
+  plan = data.nexaa_cloud_database_cluster_plans.plan.id
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -157,7 +158,9 @@ func (p *NexaaProvider) EphemeralResources(ctx context.Context) []func() ephemer
 }
 
 func (p *NexaaProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		data_sources.NewCloudDatabaseClusterPlans,
+	}
 }
 
 func (p *NexaaProvider) Functions(ctx context.Context) []func() function.Function {

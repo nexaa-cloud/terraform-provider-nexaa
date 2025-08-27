@@ -29,7 +29,7 @@ type cloudDatabaseClusterResource struct {
 	ID          types.String   `tfsdk:"id"`
 	Cluster     ClusterRef     `tfsdk:"cluster"`
 	Spec        Spec           `tfsdk:"spec"`
-	Plan        Plan           `tfsdk:"plan"`
+	Plan        types.String   `tfsdk:"plan"`
 	State       types.String   `tfsdk:"state"`
 	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
@@ -59,11 +59,9 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 				CustomType:     NewSpecType(),
 				AttributeTypes: SpecAttributes(),
 			},
-			"plan": schema.ObjectAttribute{
-				Required:       true,
-				Description:    "Plan for the cloud database cluster.",
-				CustomType:     NewPlanType(),
-				AttributeTypes: PlanAttributes(),
+			"plan": schema.StringAttribute{
+				Required:    true,
+				Description: "Plan for the cloud database cluster.",
 			},
 			"state": schema.StringAttribute{
 				Description: "Current state of the cloud database cluster",
@@ -104,16 +102,6 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 
 	client := api.NewClient()
 
-	planId, err := getPlanId(client, plan.Plan.Replicas.ValueInt64(), plan.Plan.Cpu.ValueInt64(), plan.Plan.Memory.ValueInt64(), plan.Plan.Storage.ValueInt64())
-
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error finding plan",
-			"Could not get plan: "+err.Error(),
-		)
-		return
-	}
-
 	input := api.CloudDatabaseClusterCreateInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -121,12 +109,12 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			Type:    plan.Spec.Type.ValueString(),
 			Version: plan.Spec.Version.ValueString(),
 		},
-		Plan:      planId,
+		Plan:      plan.Plan.ValueString(),
 		Databases: []api.DatabaseInput{},
 		Users:     []api.DatabaseUserInput{},
 	}
 
-	_, err = client.CloudDatabaseClusterCreate(input)
+	_, err := client.CloudDatabaseClusterCreate(input)
 
 	if err != nil {
 		resp.Diagnostics.AddError(

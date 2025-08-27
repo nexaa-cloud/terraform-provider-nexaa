@@ -244,7 +244,16 @@ resource "nexaa_container_job" "job" {
 }
 
 func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
-	return fmt.Sprintf(`
+	data := fmt.Sprintf(`
+data "nexaa_cloud_database_cluster_plans" "plan" {
+  cpu      = %q
+  memory   = %q
+  storage  = %q
+  replicas = %q
+}
+`, cpu, memory, storage, replicas)
+
+	return data + fmt.Sprintf(`
 resource "nexaa_cloud_database_cluster" "cluster-database" {
   depends_on = [nexaa_namespace.ns]
   cluster = {
@@ -257,12 +266,7 @@ resource "nexaa_cloud_database_cluster" "cluster-database" {
     version = %q
   }
 
-  plan = {
-    cpu      = %q
-    memory   = %q
-    storage  = %q
-    replicas = %q
-  }
+  plan = data.nexaa_cloud_database_cluster_plans.plan.id
 
   timeouts {
 	create = "2m"
@@ -270,7 +274,7 @@ resource "nexaa_cloud_database_cluster" "cluster-database" {
   }
 }
 
-`, name, dbType, version, cpu, memory, storage, replicas)
+`, name, dbType, version)
 }
 
 func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) string {

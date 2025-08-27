@@ -37,12 +37,9 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.type", "PostgreSQL"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "16.4"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.cpu", "1"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.memory", "2"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.storage", "10"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.replicas", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "last_updated"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "plan"),
 				),
 			},
 			// ImportState testing

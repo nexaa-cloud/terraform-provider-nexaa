@@ -51,6 +51,13 @@ variable "namespace_description" {
   sensitive   = true
 }
 
+data "nexaa_cloud_database_cluster_plans" "plan" {
+  cpu      = 1
+  memory   = 2.0
+  storage  = 10
+  replicas = 1
+}
+
 resource "nexaa_namespace" "project" {
   name        = var.namespace
   description = var.namespace_description
@@ -69,12 +76,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
     version = "16.4"
   }
 
-  plan = {
-    cpu      = "1"
-    memory   = "2"
-    storage  = "10"
-    replicas = "1"
-  }
+  plan = data.nexaa_cloud_database_cluster_plans.plan.id
 }
 ```
 
@@ -84,7 +86,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 ### Required
 
 - `cluster` (Object) Cloud database cluster (see [below for nested schema](#nestedatt--cluster))
-- `plan` (Object) Plan for the cloud database cluster. (see [below for nested schema](#nestedatt--plan))
+- `plan` (String) Plan for the cloud database cluster.
 - `spec` (Object) Database specification including type and version (see [below for nested schema](#nestedatt--spec))
 
 ### Optional
@@ -104,17 +106,6 @@ Required:
 
 - `name` (String)
 - `namespace` (String)
-
-
-<a id="nestedatt--plan"></a>
-### Nested Schema for `plan`
-
-Required:
-
-- `cpu` (Number)
-- `memory` (Number)
-- `replicas` (Number)
-- `storage` (Number)
 
 
 <a id="nestedatt--spec"></a>
