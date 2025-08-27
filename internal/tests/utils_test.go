@@ -146,6 +146,10 @@ func generateTestClusterName() string {
 	return generateResourceName("tf-cluster")
 }
 
+func generateTestCloudDatabaseClusterDatabaseName() string {
+	return generateResourceName("")
+}
+
 func givenProvider() string {
 	return fmt.Sprintf(
 		`provider "nexaa" {
@@ -237,4 +241,40 @@ resource "nexaa_container_job" "job" {
   }
 }
 `, name, image, command, entrypoint, schedule)
+}
+
+func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
+	return fmt.Sprintf(`
+	resource "nexaa_cloud_database_cluster" "cluster" {
+		depends_on = [nexaa_namespace.ns]
+		name      = %q
+		namespace = nexaa_namespace.ns.name
+		
+		spec = {
+			type    = %q
+			version = %q
+		}
+		
+		plan = {
+			cpu     = %s
+			memory  = %s
+			storage = %s
+			replicas = %s
+		}
+}
+`, name, dbType, version, cpu, memory, storage, replicas)
+}
+
+func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string, cluster string, namespace string) string {
+	return fmt.Sprintf(`
+	
+	resource "nexaa_cloud_database_cluster_database" "database" {
+		depends_on = [nexaa_cloud_database_cluster.cluster]
+		name      = %q
+		description = %q
+		cluster = {
+			name      = %q
+			namespace = %q
+		}		
+	}`, dbName, dbDescription, cluster, namespace)
 }

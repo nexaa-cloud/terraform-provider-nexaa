@@ -289,7 +289,7 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 	}
 
 	state := cloudDatabaseClusterDatabaseResource{
-		ID:          types.StringValue(fmt.Sprintf("%s/%s/%s", namespace, clusterName, database.Name)),
+		ID:          types.StringValue(generateCloudDatabaseClusterChildId(namespace, clusterName, database.Name)),
 		Name:        types.StringValue(database.Name),
 		Description: types.StringPointerValue(database.Description),
 		Cluster: ClusterRef{

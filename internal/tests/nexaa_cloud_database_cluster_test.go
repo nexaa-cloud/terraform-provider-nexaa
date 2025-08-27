@@ -98,7 +98,7 @@ resource "nexaa_cloud_database_cluster" "cluster_minimal" {
   
   plan = {
     cpu     = 1
-    memory  = 2.0
+    memory  = 2
     storage = 10
     replicas = 1
   }
