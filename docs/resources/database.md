@@ -17,9 +17,8 @@ Database resource representing a database within a cloud database cluster on Nex
 
 ### Required
 
-- `cluster` (String) Name of the cloud database cluster this database belongs to
+- `cluster` (Object) Cloud database cluster this database belongs to. (see [below for nested schema](#nestedatt--cluster))
 - `name` (String) Name of the database
-- `namespace` (String) Name of the namespace that the cluster belongs to
 
 ### Optional
 
@@ -29,3 +28,11 @@ Database resource representing a database within a cloud database cluster on Nex
 
 - `id` (String) Unique identifier of the database
 - `last_updated` (String) Timestamp of the last Terraform update of the database
+
+<a id="nestedatt--cluster"></a>
+### Nested Schema for `cluster`
+
+Required:
+
+- `name` (String)
+- `namespace` (String)
