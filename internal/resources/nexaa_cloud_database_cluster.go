@@ -211,6 +211,19 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		return
 	}
 
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

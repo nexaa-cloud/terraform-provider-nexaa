@@ -43,7 +43,7 @@ func generateRandomString(length int) string {
 func generateResourceName(prefix string) string {
 	resourceName := faker.Word()
 
-	return fmt.Sprintf("%s-%s", prefix, resourceName)
+	return fmt.Sprintf("%s%s", prefix, resourceName)
 }
 
 func generateTestImage() string {
@@ -147,7 +147,7 @@ func generateTestClusterName() string {
 }
 
 func generateTestCloudDatabaseClusterDatabaseName() string {
-	return generateResourceName("")
+	return generateResourceName("db")
 }
 
 func givenProvider() string {
@@ -245,7 +245,7 @@ resource "nexaa_container_job" "job" {
 
 func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
 	return fmt.Sprintf(`
-resource "nexaa_cloud_database_cluster" "cluster" {
+resource "nexaa_cloud_database_cluster" "cluster-database" {
   depends_on = [nexaa_namespace.ns]
   cluster = {
     name      = %q
@@ -273,16 +273,16 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 `, name, dbType, version, cpu, memory, storage, replicas)
 }
 
-func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string, cluster string, namespace string) string {
+func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) string {
 	return fmt.Sprintf(`
 	
-	resource "nexaa_cloud_database_cluster_database" "database" {
-		depends_on = [nexaa_cloud_database_cluster.cluster]
+	resource "nexaa_cloud_database_cluster_database" "db1" {
+		depends_on = [nexaa_cloud_database_cluster.cluster-database]
 		name      = %q
 		description = %q
 		cluster = {
-			name      = %q
-			namespace = %q
+			name      = nexaa_cloud_database_cluster.cluster-database.cluster.name
+			namespace = nexaa_namespace.ns.name
 		}		
-	}`, dbName, dbDescription, cluster, namespace)
+	}`, dbName, dbDescription)
 }

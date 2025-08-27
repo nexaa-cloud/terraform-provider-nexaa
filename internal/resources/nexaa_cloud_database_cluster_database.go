@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -188,16 +189,29 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 
 // Omitting is not supported for this resource. So we write the current state back unchanged.
 func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// No in-place updates supported; preserve current state.
-	var state cloudDatabaseClusterDatabaseResource
+	// No in-place updates supported; preserve current plan.
+	var plan cloudDatabaseClusterDatabaseResource
 
-	// Read current state and write it back unchanged
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	// Read current plan and write it back unchanged
+	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -288,7 +302,7 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 		return
 	}
 
-	state := cloudDatabaseClusterDatabaseResource{
+	plan := cloudDatabaseClusterDatabaseResource{
 		ID:          types.StringValue(generateCloudDatabaseClusterChildId(namespace, clusterName, database.Name)),
 		Name:        types.StringValue(database.Name),
 		Description: types.StringPointerValue(database.Description),
@@ -298,6 +312,17 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 		},
 		LastUpdated: types.StringValue(time.Now().Format(time.RFC3339)),
 	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

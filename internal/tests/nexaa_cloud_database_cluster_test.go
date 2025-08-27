@@ -33,32 +33,32 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			{
 				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.name", clusterName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.namespace", namespaceName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "spec.type", "PostgreSQL"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "spec.version", "16.4"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.cpu", "1"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.memory", "2"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.storage", "10"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.replicas", "1"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "last_updated"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.type", "PostgreSQL"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "16.4"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.cpu", "1"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.memory", "2"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.storage", "10"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "plan.replicas", "1"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "id"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "last_updated"),
 				),
 			},
 			// ImportState testing
 			{
-				ResourceName:            "nexaa_cloud_database_cluster.cluster",
+				ResourceName:            "nexaa_cloud_database_cluster.cluster-database",
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, clusterName),
-				ImportStateVerifyIgnore: []string{"plan.name", "last_updated", "state"},
+				ImportStateVerifyIgnore: []string{"last_updated", "state"},
 			},
 			// Update and Read testing
 			{
 				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.name", clusterName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
