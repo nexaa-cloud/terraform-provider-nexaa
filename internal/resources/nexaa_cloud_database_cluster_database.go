@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -26,11 +27,12 @@ func NewCloudDatabaseClusterDatabaseResource() resource.Resource {
 }
 
 type cloudDatabaseClusterDatabaseResource struct {
-	ID          types.String `tfsdk:"id"`
-	Cluster     ClusterRef   `tfsdk:"cluster"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	LastUpdated types.String `tfsdk:"last_updated"`
+	ID          types.String   `tfsdk:"id"`
+	Cluster     ClusterRef     `tfsdk:"cluster"`
+	Name        types.String   `tfsdk:"name"`
+	Description types.String   `tfsdk:"description"`
+	LastUpdated types.String   `tfsdk:"last_updated"`
+	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -65,11 +67,13 @@ func (r *cloudDatabaseClusterDatabaseResource) Schema(_ context.Context, _ resou
 				Computed:    true,
 			},
 		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
+				Create: true,
+				Delete: true,
+			}),
+		},
 	}
-}
-
-func generateId(namespace string, cluster string, name string) string {
-	return fmt.Sprintf("%s/%s/%s", namespace, cluster, name)
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -80,7 +84,24 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 		return
 	}
 
+	createTimeout, diags := plan.Timeouts.Create(ctx, 2*time.Minute)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
+
 	client := api.NewClient()
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating database", "Cloud database cluster is not ready yet: "+err.Error())
+	}
+
 	clusterInput := api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -157,7 +178,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 		return
 	}
 
-	plan.ID = types.StringValue(generateId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
+	plan.ID = types.StringValue(generateCloudDatabaseClusterChildId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
 	plan.Name = types.StringValue(database.Name)
 	plan.Description = types.StringPointerValue(database.Description)
 
@@ -187,7 +208,24 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 		return
 	}
 
+	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 2*time.Minute)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
+
 	client := api.NewClient()
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating database", "Cloud database cluster is not ready yet: "+err.Error())
+	}
+
 	clusterInput := api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -198,7 +236,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 		Name:    plan.Name.ValueString(),
 	}
 
-	_, err := client.CloudDatabaseClusterDatabaseDelete(input)
+	_, err = client.CloudDatabaseClusterDatabaseDelete(input)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database",

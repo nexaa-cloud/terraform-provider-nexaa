@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -36,4 +38,8 @@ func ClusterRefAttributes() map[string]attr.Type {
 type ClusterRef struct {
 	Namespace types.String `tfsdk:"namespace"`
 	Name      types.String `tfsdk:"name"`
+}
+
+func generateCloudDatabaseClusterChildId(namespace string, cluster string, name string) string {
+	return fmt.Sprintf("%s/%s/%s", namespace, cluster, name)
 }
