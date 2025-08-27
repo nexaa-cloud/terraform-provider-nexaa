@@ -14,9 +14,10 @@ Cloud Database Cluster resource representing a managed database cluster on Nexaa
 
 ```terraform
 terraform {
+  required_version = ">= 1.0"
   required_providers {
     nexaa = {
-      source = "registry.terraform.io/tilaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }
@@ -27,174 +28,53 @@ provider "nexaa" {
 }
 
 variable "nexaa_username" {
-  description = "Nexaa API username"
+  description = "Username for Nexaa authentication"
   type        = string
   sensitive   = true
 }
 
 variable "nexaa_password" {
-  description = "Nexaa API password"
+  description = "Password for Nexaa authentication"
   type        = string
   sensitive   = true
 }
 
-# Create a namespace first
-resource "nexaa_namespace" "example" {
-  name = "db-example"
+variable "namespace" {
+  description = "Namespace name"
+  type        = string
+  sensitive   = true
+}
+
+variable "namespace_description" {
+  description = "Namespace description"
+  type        = string
+  sensitive   = true
+}
+
+resource "nexaa_namespace" "project" {
+  name        = var.namespace
+  description = var.namespace_description
 }
 
 # Basic cloud database cluster
-resource "nexaa_clouddatabasecluster" "basic" {
-  name      = "my-database-cluster"
-  namespace = nexaa_namespace.example.name
+resource "nexaa_cloud_database_cluster" "cluster" {
+  depends_on = [nexaa_namespace.project]
+  cluster = {
+    name      = "database-cluster"
+    namespace = nexaa_namespace.project.name
+  }
 
   spec = {
-    type    = "postgresql"
-    version = "15"
+    type    = "PostgreSQL"
+    version = "16.4"
   }
 
   plan = {
-    cpu      = 1
-    memory   = 2.0
-    storage  = 10
-    replicas = 1
+    cpu      = "1"
+    memory   = "2"
+    storage  = "10"
+    replicas = "1"
   }
-}
-
-# Cloud database cluster with databases and users
-resource "nexaa_clouddatabasecluster" "complete" {
-  name      = "complete-database-cluster"
-  namespace = nexaa_namespace.example.name
-
-  spec = {
-    type    = "postgresql"
-    version = "15"
-  }
-
-  plan = {
-    cpu      = 2
-    memory   = 4.0
-    storage  = 20
-    replicas = 1
-  }
-
-  databases = [
-    {
-      name        = "app_database"
-      description = "Main application database"
-      state       = "present"
-    },
-    {
-      name        = "analytics_db"
-      description = "Analytics and reporting database"
-      state       = "present"
-    }
-  ]
-
-  users = [
-    {
-      name     = "app_user"
-      password = "secure_app_password_123"
-      state    = "present"
-      permissions = [
-        {
-          database   = "app_database"
-          permission = "read"
-        },
-        {
-          database   = "app_database"
-          permission = "write"
-        }
-      ]
-    },
-    {
-      name     = "analytics_user"
-      password = "analytics_password_456"
-      state    = "present"
-      permissions = [
-        {
-          database   = "analytics_db"
-          permission = "read"
-        },
-        {
-          database   = "analytics_db"
-          permission = "write"
-        },
-        {
-          database   = "app_database"
-          permission = "read"
-        }
-      ]
-    },
-    {
-      name     = "readonly_user"
-      password = "readonly_password_789"
-      state    = "present"
-      permissions = [
-        {
-          database   = "app_database"
-          permission = "read"
-        },
-        {
-          database   = "analytics_db"
-          permission = "read"
-        }
-      ]
-    }
-  ]
-}
-
-# MySQL cluster example
-resource "nexaa_clouddatabasecluster" "mysql" {
-  name      = "mysql-cluster"
-  namespace = nexaa_namespace.example.name
-
-  spec = {
-    type    = "mysql"
-    version = "8.0"
-  }
-
-  plan = {
-    cpu      = 4
-    memory   = 8.0
-    storage  = 40
-    replicas = 2 # Use redundant setup for larger plan
-  }
-
-  databases = [
-    {
-      name        = "wordpress"
-      description = "WordPress database"
-      state       = "present"
-    }
-  ]
-
-  users = [
-    {
-      name     = "wp_user"
-      password = "wordpress_password_321"
-      state    = "present"
-      permissions = [
-        {
-          database   = "wordpress"
-          permission = "admin"
-        }
-      ]
-    }
-  ]
-}
-
-# Output cluster information
-output "basic_cluster_id" {
-  value = nexaa_clouddatabasecluster.basic.id
-}
-
-output "complete_cluster_databases" {
-  value = [for db in nexaa_clouddatabasecluster.complete.databases : db.name]
-}
-
-output "complete_cluster_users" {
-  value = [for user in nexaa_clouddatabasecluster.complete.users : user.name]
 }
 ```
 
@@ -203,10 +83,13 @@ output "complete_cluster_users" {
 
 ### Required
 
-- `name` (String) Name of the cloud database cluster
-- `namespace` (String) Name of the namespace that the cluster will belong to
-- `plan` (Attributes) Database cluster plan specification - provider will find matching plan (see [below for nested schema](#nestedatt--plan))
-- `spec` (Attributes) Database specification including type and version (see [below for nested schema](#nestedatt--spec))
+- `cluster` (Object) Cloud database cluster (see [below for nested schema](#nestedatt--cluster))
+- `plan` (Object) Plan for the cloud database cluster. (see [below for nested schema](#nestedatt--plan))
+- `spec` (Object) Database specification including type and version (see [below for nested schema](#nestedatt--spec))
+
+### Optional
+
+- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
@@ -214,31 +97,24 @@ output "complete_cluster_users" {
 - `last_updated` (String) Timestamp of the last Terraform update of the cloud database cluster
 - `state` (String) Current state of the cloud database cluster
 
+<a id="nestedatt--cluster"></a>
+### Nested Schema for `cluster`
+
+Required:
+
+- `name` (String)
+- `namespace` (String)
+
+
 <a id="nestedatt--plan"></a>
 ### Nested Schema for `plan`
 
 Required:
 
-- `cpu` (Number) Number of CPU cores required
-- `memory` (Number) Memory required in GB
-- `replicas` (Number) Number of replicas/nodes (1 = single node, 2 = redundant, 3 = highly available)
-- `storage` (Number) Storage required in GB
-
-Read-Only:
-
-- `group` (String) Matched plan group (e.g., 'Single (1 node)', 'Redundant (2 nodes)')
-- `id` (String) Matched plan ID
-- `name` (String) Matched plan name
-- `price` (Attributes) Matched plan pricing information (see [below for nested schema](#nestedatt--plan--price))
-
-<a id="nestedatt--plan--price"></a>
-### Nested Schema for `plan.price`
-
-Read-Only:
-
-- `amount` (Number) Price amount in cents
-- `currency` (String) Price currency
-
+- `cpu` (Number)
+- `memory` (Number)
+- `replicas` (Number)
+- `storage` (Number)
 
 
 <a id="nestedatt--spec"></a>
@@ -246,5 +122,14 @@ Read-Only:
 
 Required:
 
-- `type` (String) Database type (e.g., postgresql, mysql)
-- `version` (String) Database version
+- `type` (String)
+- `version` (String)
+
+
+<a id="nestedblock--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.

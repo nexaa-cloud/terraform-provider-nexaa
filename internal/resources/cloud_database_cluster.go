@@ -41,26 +41,27 @@ func translateGroupToReplicas(Group string) int {
 	}
 }
 
-func translateApiToCloudDatabaseClusterResource(cluster api.CloudDatabaseClusterResult) cloudDatabaseClusterResource {
+func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResource, cluster api.CloudDatabaseClusterResult) cloudDatabaseClusterResource {
 	namespace := cluster.GetNamespace()
-	return cloudDatabaseClusterResource{
-		ID: types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName())),
-		Cluster: ClusterRef{
-			Name:      types.StringValue(cluster.Name),
-			Namespace: types.StringValue(namespace.GetName()),
-		},
-		Plan: Plan{
-			Cpu:      types.Int64Value(int64(cluster.Plan.GetCpu())),
-			Memory:   types.Int64Value(int64(cluster.Plan.GetMemory())),
-			Storage:  types.Int64Value(int64(cluster.Plan.GetStorage())),
-			Replicas: types.Int64Value(int64(translateGroupToReplicas(cluster.Plan.GetGroup()))),
-		},
-		Spec: Spec{
-			Type:    types.StringValue(cluster.Spec.GetType()),
-			Version: types.StringValue(cluster.Spec.GetVersion()),
-		},
-		LastUpdated: types.StringValue(time.Now().Format(time.RFC3339)),
+	plan.ID = types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName()))
+	plan.Cluster = ClusterRef{
+		Name:      types.StringValue(cluster.Name),
+		Namespace: types.StringValue(namespace.GetName()),
 	}
+	plan.Plan = Plan{
+		Cpu:      types.Int64Value(int64(cluster.Plan.GetCpu())),
+		Memory:   types.Int64Value(int64(cluster.Plan.GetMemory())),
+		Storage:  types.Int64Value(int64(cluster.Plan.GetStorage())),
+		Replicas: types.Int64Value(int64(translateGroupToReplicas(cluster.Plan.GetGroup()))),
+	}
+	plan.Spec = Spec{
+		Type:    types.StringValue(cluster.Spec.GetType()),
+		Version: types.StringValue(cluster.Spec.GetVersion()),
+	}
+	plan.State = types.StringValue(cluster.GetState())
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+
+	return plan
 }
 
 func getPlanId(client *api.Client, Replicas int64, Cpu int64, Memory int64, Storage int64) (string, error) {

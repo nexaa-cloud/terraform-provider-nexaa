@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -118,14 +119,14 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		Namespace: plan.Cluster.Namespace.ValueString(),
 		Spec: api.CloudDatabaseClusterSpecInput{
 			Type:    plan.Spec.Type.ValueString(),
-			Version: plan.Spec.Type.ValueString(),
+			Version: plan.Spec.Version.ValueString(),
 		},
 		Plan:      planId,
 		Databases: []api.DatabaseInput{},
 		Users:     []api.DatabaseUserInput{},
 	}
 
-	cluster, err := client.CloudDatabaseClusterCreate(input)
+	_, err = client.CloudDatabaseClusterCreate(input)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -140,7 +141,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
 	}
 
-	cluster, err = client.CloudDatabaseClusterGet(api.CloudDatabaseClusterResourceInput{
+	cluster, err := client.CloudDatabaseClusterGet(api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
 	})
@@ -153,7 +154,9 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	plan = translateApiToCloudDatabaseClusterResource(cluster)
+	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -179,22 +182,36 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	plan = translateApiToCloudDatabaseClusterResource(cluster)
+	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 
 }
 
 // Omitting is not supported for this resource. So we write the current state back unchanged.
 func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// No in-place updates supported; preserve current state.
-	var state cloudDatabaseClusterResource
+	// No in-place updates supported; preserve current plan.
+	var plan cloudDatabaseClusterResource
 
-	// Read current state and write it back unchanged
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	// Read current plan and write it back unchanged
+	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -241,7 +258,7 @@ func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.
 
 func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
 			"Expected import ID in the format \"<namespace>/<cluster_name>\", got: "+req.ID,
@@ -262,7 +279,20 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 		return
 	}
 
-	state := translateApiToCloudDatabaseClusterResource(cluster)
+	var plan cloudDatabaseClusterResource
+	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

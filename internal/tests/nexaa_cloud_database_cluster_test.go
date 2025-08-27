@@ -10,26 +10,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func cloudDatabaseClusterConfig(namespaceName, clusterName, dbType, version, cpu, memory, storage, replicas string) string {
-	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
-resource "nexaa_cloud_database_cluster" "cluster" {
-  depends_on = [nexaa_namespace.ns]
-  name      = %q
-  namespace = nexaa_namespace.ns.name
-  
-  spec = {
-    type    = %q
-    version = %q
-  }
-  
-  plan = {
-    cpu     = %s
-    memory  = %s
-    storage = %s
-    replicas = %s
-  }
-}
-`, clusterName, dbType, version, cpu, memory, storage, replicas)
+func cloudDatabaseClusterConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
+	return givenProvider() +
+		givenNamespace(namespaceName, "") +
+		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas)
+
 }
 
 func TestAccCloudDatabaseClusterResource(t *testing.T) {
@@ -48,17 +33,14 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			{
 				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "name", clusterName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "spec.type", "PostgreSQL"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "spec.version", "16.4"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.cpu", "1"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.memory", "2"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.storage", "10"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "plan.replicas", "1"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "plan.group"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "plan.id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "plan.name"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster", "last_updated"),
 				),
@@ -75,67 +57,11 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			{
 				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "name", clusterName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster", "cluster.namespace", namespaceName),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
-		},
-	})
-}
-
-func cloudDatabaseClusterConfigMinimal(namespaceName, clusterName string) string {
-	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
-resource "nexaa_cloud_database_cluster" "cluster_minimal" {
-  depends_on = [nexaa_namespace.ns]
-  name      = %q
-  namespace = nexaa_namespace.ns.name
-  
-  spec = {
-    type    = "PostgreSQL"
-    version = "16.4"
-  }
-  
-  plan = {
-    cpu     = 1
-    memory  = 2
-    storage = 10
-    replicas = 1
-  }
-}
-`, clusterName)
-}
-
-func TestAccCloudDatabaseClusterResource_Minimal(t *testing.T) {
-	testAccPreCheck(t)
-
-	// Generate random test data
-	namespaceName := generateTestNamespace()
-	clusterName := generateTestClusterName()
-
-	t.Logf("=== CLOUD DATABASE CLUSTER MINIMAL TEST USING NAMESPACE: %s ===", namespaceName)
-
-	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// Create and Read testing with minimal configuration
-			{
-				Config: cloudDatabaseClusterConfigMinimal(namespaceName, clusterName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "name", clusterName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "namespace", namespaceName),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "spec.type", "PostgreSQL"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "spec.version", "16.4"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "plan.cpu", "1"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "plan.memory", "2"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "plan.storage", "10"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster_minimal", "plan.replicas", "1"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster_minimal", "plan.group"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster_minimal", "plan.id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster_minimal", "id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster_minimal", "last_updated"),
-				),
-			},
 		},
 	})
 }

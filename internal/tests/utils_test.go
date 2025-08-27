@@ -245,23 +245,31 @@ resource "nexaa_container_job" "job" {
 
 func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
 	return fmt.Sprintf(`
-	resource "nexaa_cloud_database_cluster" "cluster" {
-		depends_on = [nexaa_namespace.ns]
-		name      = %q
-		namespace = nexaa_namespace.ns.name
-		
-		spec = {
-			type    = %q
-			version = %q
-		}
-		
-		plan = {
-			cpu     = %s
-			memory  = %s
-			storage = %s
-			replicas = %s
-		}
+resource "nexaa_cloud_database_cluster" "cluster" {
+  depends_on = [nexaa_namespace.ns]
+  cluster = {
+    name      = %q
+    namespace = nexaa_namespace.ns.name
+  }
+
+  spec = {
+    type    = %q
+    version = %q
+  }
+
+  plan = {
+    cpu      = %q
+    memory   = %q
+    storage  = %q
+    replicas = %q
+  }
+
+  timeouts {
+	create = "2m"
+	delete = "2m"
+  }
 }
+
 `, name, dbType, version, cpu, memory, storage, replicas)
 }
 

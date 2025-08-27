@@ -15,6 +15,8 @@ generate:
 fmt:
 	gofmt -s -w -e .
 
+validate: fmt lint
+
 test:
 	go test -v -cover -timeout=120s -parallel=10 ./...
 
