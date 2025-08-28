@@ -284,9 +284,28 @@ func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) stri
 		depends_on = [nexaa_cloud_database_cluster.cluster-database]
 		name      = %q
 		description = %q
-		cluster = {
-			name      = nexaa_cloud_database_cluster.cluster-database.cluster.name
-			namespace = nexaa_namespace.ns.name
-		}		
+		cluster =  nexaa_cloud_database_cluster.cluster-database.cluster
 	}`, dbName, dbDescription)
+}
+
+func givenCloudDatabaseClusterUser(userName string) string {
+	return fmt.Sprintf(`
+	resource "nexaa_cloud_database_cluster_user" "user" {
+		depends_on = [
+			nexaa_cloud_database_cluster.cluster-database,
+			nexaa_cloud_database_cluster_database.db1,
+		]
+
+		cluster = nexaa_cloud_database_cluster.cluster-database.cluster
+		name = %q
+		password = %q
+		permissions = [
+			{
+				database_name = nexaa_cloud_database_cluster_database.db1.name,
+				permission = "read_write",
+				state = "present",
+			}
+		]
+	}
+`, userName, generateTestPassword())
 }

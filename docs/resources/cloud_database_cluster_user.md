@@ -23,7 +23,7 @@ Database User resource representing a database user within a cloud database clus
 ### Optional
 
 - `password` (String, Sensitive) Password for the database user
-- `permissions` (List of Object) Permissions for the database user (see [below for nested schema](#nestedatt--permissions))
+- `permissions` (Attributes Set) (see [below for nested schema](#nestedatt--permissions))
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
@@ -43,10 +43,14 @@ Required:
 <a id="nestedatt--permissions"></a>
 ### Nested Schema for `permissions`
 
+Required:
+
+- `database_name` (String) The name of the database
+- `permission` (String) The permission to be granted to the database user
+
 Optional:
 
-- `type` (String)
-- `version` (String)
+- `state` (String) The state of the permission
 
 
 <a id="nestedblock--timeouts"></a>
@@ -56,3 +60,4 @@ Optional:
 
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).

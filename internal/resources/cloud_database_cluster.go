@@ -31,6 +31,59 @@ func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResourc
 	return plan
 }
 
+func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUserResource, cluster api.CloudDatabaseClusterResult, userName string) (cloudDatabaseClusterUserResource, error) {
+	var user = findUser(cluster, userName)
+
+	if user == nil {
+		return cloudDatabaseClusterUserResource{}, fmt.Errorf("error finding created user")
+	}
+
+	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
+	plan.Name = types.StringValue(user.Name)
+	plan.Cluster = ClusterRef{
+		Name:      types.StringValue(plan.Cluster.Name.ValueString()),
+		Namespace: types.StringValue(plan.Cluster.Namespace.ValueString()),
+	}
+	var apiPermissions []map[string]attr.Value
+	for _, permission := range user.Permissions {
+		var databasePermission = "read_write"
+		if permission.Permission == api.DatabasePermissionReadOnly {
+			databasePermission = "read_only"
+		}
+
+		apiPermissions = append(apiPermissions, map[string]attr.Value{
+			"database_name": types.StringValue(permission.DatabaseName),
+			"permission":    types.StringValue(databasePermission),
+			"state":         types.StringValue("present"),
+		})
+	}
+	elementType := types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"database_name": types.StringType,
+			"permission":    types.StringType,
+			"state":         types.StringType,
+		},
+	}
+
+	values := make([]attr.Value, 0, len(apiPermissions))
+	for _, m := range apiPermissions {
+		values = append(values, types.ObjectValueMust(elementType.AttrTypes, m))
+	}
+	plan.Permissions = types.SetValueMust(elementType, values)
+
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	return plan, nil
+}
+
+func findUser(cluster api.CloudDatabaseClusterResult, userName string) *api.CloudDatabaseClusterResultUsersDatabaseUser {
+	for _, u := range cluster.Users {
+		if u.Name == userName {
+			return &u
+		}
+	}
+	return nil
+}
+
 func generateCloudDatabaseClusterChildId(namespace string, cluster string, name string) string {
 	return fmt.Sprintf("%s/%s/%s", namespace, cluster, name)
 }
@@ -111,42 +164,6 @@ type Spec struct {
 }
 
 func SpecAttributes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"type":    types.StringType,
-		"version": types.StringType,
-	}
-}
-
-type PermissionListType struct {
-	basetypes.ListType
-}
-
-func NewPermissionListType() PermissionListType {
-	return PermissionListType{
-		ListType: types.ListType{
-			ElemType: NewPermissionType(),
-		},
-	}
-}
-
-type PermissionType struct {
-	basetypes.ObjectType
-}
-
-func NewPermissionType() PermissionType {
-	return PermissionType{
-		ObjectType: types.ObjectType{
-			AttrTypes: PermissionAttributes(),
-		},
-	}
-}
-
-type Permission struct {
-	Type    types.String `tfsdk:"type"`
-	Version types.String `tfsdk:"version"`
-}
-
-func PermissionAttributes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"type":    types.StringType,
 		"version": types.StringType,

@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -55,18 +57,62 @@ func (d *cloudDatabasePlansDataSource) Schema(_ context.Context, _ datasource.Sc
 			"cpu": schema.Int64Attribute{
 				MarkdownDescription: "Number of CPU cores required",
 				Required:            true,
+				Validators: []validator.Int64{
+					int64validator.OneOf(
+						1,
+						2,
+						4,
+						8,
+						16,
+					),
+				},
 			},
 			"memory": schema.Int64Attribute{
 				MarkdownDescription: "Memory in MB required",
 				Required:            true,
+				Validators: []validator.Int64{
+					int64validator.OneOf(
+						2,
+						4,
+						8,
+						12,
+						16,
+						24,
+						32,
+						48,
+						64,
+					),
+				},
 			},
 			"storage": schema.Int64Attribute{
 				MarkdownDescription: "Storage in GB required",
 				Required:            true,
+				Validators: []validator.Int64{
+					int64validator.OneOf(
+						10,
+						20,
+						40,
+						60,
+						80,
+						100,
+						120,
+						160,
+						240,
+						320,
+						480,
+					),
+				},
 			},
 			"replicas": schema.Int64Attribute{
 				MarkdownDescription: "Number of replicas required",
 				Required:            true,
+				Validators: []validator.Int64{
+					int64validator.OneOf(
+						1,
+						2,
+						3,
+					),
+				},
 			},
 		},
 	}
@@ -179,18 +225,5 @@ func translateReplicasToGroup(Replicas int64) string {
 		return "Highly available (3 nodes)"
 	default:
 		return "Single (1 node)" // fallback
-	}
-}
-
-func translateGroupToReplicas(Group string) int {
-	switch Group {
-	case "Single (1 node)":
-		return 1
-	case "Redundant (2 nodes)":
-		return 2
-	case "Highly available (3 nodes)":
-		return 3
-	default:
-		return 1 // fallback
 	}
 }
