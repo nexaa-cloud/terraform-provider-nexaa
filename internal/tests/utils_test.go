@@ -41,7 +41,7 @@ func generateRandomString(length int) string {
 
 // generateResourceName generates a random resource name with prefix.
 func generateResourceName(prefix string) string {
-	resourceName := faker.Word()
+	resourceName := generateRandomString(8)
 
 	return fmt.Sprintf("%s%s", prefix, resourceName)
 }
@@ -52,7 +52,7 @@ func generateTestImage() string {
 
 // generateTestNamespace generates a random namespace name for tests.
 func generateTestNamespace() string {
-	return generateResourceName("tf-test-ns")
+	return generateResourceName("tf-test")
 }
 
 // generateTestVolumeName generates a random volume name for tests.
@@ -290,6 +290,10 @@ func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) stri
 
 func givenCloudDatabaseClusterUser(userName string) string {
 	return fmt.Sprintf(`
+	variable "password" {
+	  sensitive = true
+	}
+
 	resource "nexaa_cloud_database_cluster_user" "user" {
 		depends_on = [
 			nexaa_cloud_database_cluster.cluster-database,
@@ -298,7 +302,7 @@ func givenCloudDatabaseClusterUser(userName string) string {
 
 		cluster = nexaa_cloud_database_cluster.cluster-database.cluster
 		name = %q
-		password = %q
+		password = var.password
 		permissions = [
 			{
 				database_name = nexaa_cloud_database_cluster_database.db1.name,
@@ -307,5 +311,5 @@ func givenCloudDatabaseClusterUser(userName string) string {
 			}
 		]
 	}
-`, userName, generateTestPassword())
+`, userName)
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
@@ -35,8 +36,16 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 			// Create and Read testing
 			{
 				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, "", user),
+				ConfigVariables: config.Variables{
+					"password": config.StringVariable(generateTestPassword()),
+				},
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "cluster.name", clusterName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "cluster.namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "name", user),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "permissions.#", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "password"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),
 				),
 			},
@@ -45,17 +54,23 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 				ResourceName:            "nexaa_cloud_database_cluster_user.user",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateId:           fmt.Sprintf("%s/%s/%s", namespaceName, clusterName, user),
-				ImportStateVerifyIgnore: []string{"last_updated"},
+				ImportStateId:           fmt.Sprintf("%s/%s/user/%s", namespaceName, clusterName, user),
+				ImportStateVerifyIgnore: []string{"last_updated", "password"},
+				ConfigVariables: config.Variables{
+					"password": config.StringVariable(generateTestPassword()),
+				},
 			},
 			// Update and Read testing
-			//{
-			//	Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, ""),
-			//	Check: resource.ComposeAggregateTestCheckFunc(
-			//		resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "id"),
-			//		resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "last_updated"),
-			//	),
-			//},
+			{
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),
+				),
+				ConfigVariables: config.Variables{
+					"password": config.StringVariable(generateTestPassword()),
+				},
+			},
 			// Delete testing automatically occurs in TestCase
 		},
 	})

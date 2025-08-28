@@ -4,7 +4,9 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -38,11 +40,11 @@ func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUse
 		return cloudDatabaseClusterUserResource{}, fmt.Errorf("error finding created user")
 	}
 
-	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
-	plan.Name = types.StringValue(user.Name)
+	plan.ID = types.StringValue(generateCloudDatabaseClusterUserId(cluster.Namespace.GetName(), cluster.GetName(), user.GetName()))
+	plan.Name = types.StringValue(user.GetName())
 	plan.Cluster = ClusterRef{
-		Name:      types.StringValue(plan.Cluster.Name.ValueString()),
-		Namespace: types.StringValue(plan.Cluster.Namespace.ValueString()),
+		Name:      types.StringValue(cluster.GetName()),
+		Namespace: types.StringValue(cluster.Namespace.GetName()),
 	}
 	var apiPermissions []map[string]attr.Value
 	for _, permission := range user.Permissions {
@@ -84,8 +86,41 @@ func findUser(cluster api.CloudDatabaseClusterResult, userName string) *api.Clou
 	return nil
 }
 
-func generateCloudDatabaseClusterChildId(namespace string, cluster string, name string) string {
-	return fmt.Sprintf("%s/%s/%s", namespace, cluster, name)
+type childId struct {
+	Namespace string
+	Cluster   string
+	Name      string
+}
+
+func generateCloudDatabaseClusterChildId(namespace string, cluster string, typeName string, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s", namespace, cluster, typeName, name)
+}
+
+func generateCloudDatabaseClusterDatabaseId(namespace string, cluster string, name string) string {
+	return generateCloudDatabaseClusterChildId(namespace, cluster, "database", name)
+}
+
+func generateCloudDatabaseClusterUserId(namespace string, cluster string, name string) string {
+	return generateCloudDatabaseClusterChildId(namespace, cluster, "user", name)
+}
+
+func unpackChildId(id string) (childId, error) {
+	parts := strings.SplitN(id, "/", 4)
+	if len(parts) != 4 || parts[0] == "" || parts[1] == "" || parts[2] == "" || parts[3] == "" {
+		return childId{}, errors.New(
+			"Expected import ID in the format \"<namespace>/<cluster_name>/<type_name>/<child_name>\", got: " + id,
+		)
+	}
+
+	namespace := parts[0]
+	clusterName := parts[1]
+	childName := parts[3]
+
+	return childId{
+		Namespace: namespace,
+		Cluster:   clusterName,
+		Name:      childName,
+	}, nil
 }
 
 func generateCloudDatabaseClusterId(namespace string, cluster string) string {

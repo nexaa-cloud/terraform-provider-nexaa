@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -62,6 +63,7 @@ func (r *cloudDatabaseClusterUserResource) Schema(_ context.Context, _ resource.
 				Description: "Name of the database user",
 			},
 			"password": schema.StringAttribute{
+				Computed:    true,
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Password for the database user",
@@ -210,18 +212,33 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	client := api.NewClient()
+	namespace := plan.Cluster.Namespace.ValueString()
+	name := plan.Cluster.Name.ValueString()
 
+	if namespace == "" || name == "" {
+		id, err := unpackChildId(plan.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not unpack ID", err.Error(),
+			)
+			return
+		}
+
+		namespace = id.Namespace
+		name = id.Cluster
+	}
+
+	client := api.NewClient()
 	clusterInput := api.CloudDatabaseClusterResourceInput{
-		Name:      plan.Cluster.Name.ValueString(),
-		Namespace: plan.Cluster.Namespace.ValueString(),
+		Name:      name,
+		Namespace: namespace,
 	}
 
 	cluster, err := client.CloudDatabaseClusterGet(clusterInput)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error reading cluster, cluster not found",
+			"Error reading cluster \""+clusterInput.Name+"\" not found in namespace \""+clusterInput.Namespace+"\"",
 			err.Error(),
 		)
 		return
@@ -307,10 +324,10 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 	}
 
 	userInput := api.DatabaseUserInput{
-		Name:        plan.Cluster.Name.ValueString(),
+		Name:        plan.Name.ValueString(),
 		Password:    plan.Password.ValueStringPointer(),
 		Permissions: []api.DatabaseUserPermissionInput{},
-		State:       api.StatePresent,
+		State:       api.StateAbsent,
 	}
 
 	input := api.CloudDatabaseClusterModifyInput{
@@ -325,7 +342,7 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting database",
-			fmt.Sprintf("Failed to delete database %q: %s", plan.Name.ValueString(), err.Error()),
+			fmt.Sprintf("Failed to delete user %q: %s", plan.Name.ValueString(), err.Error()),
 		)
 		return
 	}
@@ -333,5 +350,47 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 }
 
 func (r *cloudDatabaseClusterUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	id, err := unpackChildId(req.ID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			err.Error(),
+		)
+		return
+	}
+
+	client := api.NewClient()
+	clusterResourceInput := api.CloudDatabaseClusterResourceInput{
+		Namespace: id.Namespace,
+		Name:      id.Cluster,
+	}
+	cluster, err := client.CloudDatabaseClusterGet(clusterResourceInput)
+	if err != nil {
+		resp.Diagnostics.AddError("Error importing database", "Could not list clusters: "+err.Error())
+		return
+	}
+
+	var plan cloudDatabaseClusterUserResource
+	plan, err = translateApiToCloudDatabaseClusterUserResource(plan, cluster, id.Name)
+	if err != nil {
+		resp.Diagnostics.AddError("Error importing user", err.Error())
+		return
+	}
+	plan.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"update": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("2m"),
+				"update": types.StringValue("2m"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 
 }

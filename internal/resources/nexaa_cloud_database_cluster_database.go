@@ -6,7 +6,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -165,13 +164,17 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 	// Find the database in the cluster
 	var database *api.CloudDatabaseClusterResultDatabasesDatabase
 	for _, db := range cluster.GetDatabases() {
-		if db.Name == plan.Name.ValueString() {
-			database = &api.CloudDatabaseClusterResultDatabasesDatabase{
+		if db.Name != plan.Name.ValueString() {
+			continue
+		}
+
+		database = &api.CloudDatabaseClusterResultDatabasesDatabase{
+			CloudDatabaseClusterDatabaseResult: api.CloudDatabaseClusterDatabaseResult{
 				Name:        db.Name,
 				Description: db.Description,
-			}
-			break
+			},
 		}
+		break
 	}
 
 	if database == nil {
@@ -179,7 +182,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 		return
 	}
 
-	plan.ID = types.StringValue(generateCloudDatabaseClusterChildId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
+	plan.ID = types.StringValue(generateCloudDatabaseClusterDatabaseId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
 	plan.Name = types.StringValue(database.Name)
 	plan.Description = types.StringPointerValue(database.Description)
 
@@ -262,22 +265,19 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "/", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+	id, err := unpackChildId(req.ID)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
-			"Expected import ID in the format \"<namespace>/<cluster_name>/<database_name>\", got: "+req.ID,
+			err.Error(),
 		)
 		return
 	}
-	namespace := parts[0]
-	clusterName := parts[1]
-	databaseName := parts[2]
 
 	client := api.NewClient()
 	clusterResourceInput := api.CloudDatabaseClusterResourceInput{
-		Namespace: namespace,
-		Name:      clusterName,
+		Namespace: id.Namespace,
+		Name:      id.Cluster,
 	}
 	cluster, err := client.CloudDatabaseClusterGet(clusterResourceInput)
 	if err != nil {
@@ -288,7 +288,7 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 	// Find the database in the cluster
 	var database *api.CloudDatabaseClusterResultDatabasesDatabase
 	for _, db := range cluster.Databases {
-		if db.Name == databaseName {
+		if db.Name == id.Name {
 			database = &db
 			break
 		}
@@ -297,18 +297,18 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 	if database == nil {
 		resp.Diagnostics.AddError(
 			"Error importing database",
-			fmt.Sprintf("Unable to find database %q in cluster %q", databaseName, clusterName),
+			fmt.Sprintf("Unable to find database %q in cluster %q", id.Name, id.Cluster),
 		)
 		return
 	}
 
 	plan := cloudDatabaseClusterDatabaseResource{
-		ID:          types.StringValue(generateCloudDatabaseClusterChildId(namespace, clusterName, database.Name)),
+		ID:          types.StringValue(generateCloudDatabaseClusterDatabaseId(id.Namespace, id.Cluster, database.Name)),
 		Name:        types.StringValue(database.Name),
 		Description: types.StringPointerValue(database.Description),
 		Cluster: ClusterRef{
 			Name:      types.StringValue(cluster.Name),
-			Namespace: types.StringValue(namespace),
+			Namespace: types.StringValue(id.Namespace),
 		},
 		LastUpdated: types.StringValue(time.Now().Format(time.RFC3339)),
 	}

@@ -47,7 +47,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 				ResourceName:            "nexaa_cloud_database_cluster_database.db1",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateId:           fmt.Sprintf("%s/%s/%s", namespaceName, clusterName, databaseName),
+				ImportStateId:           fmt.Sprintf("%s/%s/database/%s", namespaceName, clusterName, databaseName),
 				ImportStateVerifyIgnore: []string{"last_updated"},
 			},
 			// Update and Read testing
