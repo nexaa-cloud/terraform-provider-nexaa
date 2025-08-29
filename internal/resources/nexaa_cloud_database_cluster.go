@@ -30,6 +30,7 @@ type cloudDatabaseClusterResource struct {
 	Cluster     ClusterRef     `tfsdk:"cluster"`
 	Spec        Spec           `tfsdk:"spec"`
 	Plan        types.String   `tfsdk:"plan"`
+	Hostname    types.String   `tfsdk:"hostname"`
 	State       types.String   `tfsdk:"state"`
 	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
@@ -62,6 +63,10 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 			"plan": schema.StringAttribute{
 				Required:    true,
 				Description: "Plan for the cloud database cluster.",
+			},
+			"hostname": schema.StringAttribute{
+				Computed:    true,
+				Description: "Hostname of the cloud database cluster",
 			},
 			"state": schema.StringAttribute{
 				Description: "Current state of the cloud database cluster",

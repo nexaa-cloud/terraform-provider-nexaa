@@ -22,6 +22,7 @@ func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResourc
 		Name:      types.StringValue(cluster.Name),
 		Namespace: types.StringValue(namespace.GetName()),
 	}
+	plan.Hostname = types.StringValue(cluster.Hostname)
 	plan.Plan = types.StringValue(cluster.Plan.GetId())
 	plan.Spec = Spec{
 		Type:    types.StringValue(cluster.Spec.GetType()),
