@@ -15,9 +15,10 @@ Within minutes your solution has been deployed.
 
 ## Next Steps
 
-- Start with Terraform or OpenTofu: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/) to deploy your first services
-- Explore the [complete documentation](https://docs.nexaa.io/) for detailed feature guides
+- Start with Terraform or OpenTofu: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/?utm_source=terraform) to deploy your first services
+- Explore the [complete documentation](https://docs.nexaa.io/?utm_source=terraform) for detailed feature guides
+- Learn more about hosting OpenSource on Nexaa [OpenSource](https://nexaa.io/opensource.html?utm_source=terraform)
 
 ## Need Help?
 
-Visit the [Nexaa documentation](https://docs.nexaa.io/) for detailed guides and tutorials on specific features and use cases.
+Visit the [Nexaa documentation](https://docs.nexaa.io/?utm_source=terraform) for detailed guides and tutorials on specific features and use cases.

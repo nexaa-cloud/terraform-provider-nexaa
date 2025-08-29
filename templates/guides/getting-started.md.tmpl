@@ -26,16 +26,16 @@ Nexaa officially supports OpenTofu and Terraform. This provides you with the fol
 
 ### Get Started with OpenTofu / Terraform
 
-Visit the [Terraform documentation](https://docs.nexaa.io/automation/terraform/) to learn how to:
+Visit the [Terraform documentation](https://docs.nexaa.io/automation/terraform/?utm_source=terraform) to learn how to:
 - Install and configure the Nexaa Terraform provider
 - Create your first resources using OpenTofu / Terraform
 - Manage containers, Cloud Databases, and other Nexaa services declaratively
 
 ## Next Steps
 
-- Start with Terraform or OpenTofu: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/) to deploy your first services
-- Explore the [complete documentation](https://docs.nexaa.io/) for detailed feature guides
+- Start with Terraform or OpenTofu: Follow the [Terraform guide](https://docs.nexaa.io/automation/terraform/?utm_source=terraform) to deploy your first services
+- Explore the [complete documentation](https://docs.nexaa.io/?utm_source=terraform) for detailed feature guides
 
 ## Need Help?
 
-Visit the [Nexaa documentation](https://docs.nexaa.io/) for detailed guides and tutorials on specific features and use cases.
+Visit the [Nexaa documentation](https://docs.nexaa.io/?utm_source=terraform) for detailed guides and tutorials on specific features and use cases.

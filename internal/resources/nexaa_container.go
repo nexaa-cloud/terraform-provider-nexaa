@@ -123,6 +123,9 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "Name of the container",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"namespace": schema.StringAttribute{
 				Required:    true,
