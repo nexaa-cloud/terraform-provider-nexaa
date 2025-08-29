@@ -141,8 +141,8 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
-github.com/nexaa-cloud/nexaa-cli v1.0.28 h1:8uKnnnk9Y+pGEjg/pVFtR3V8vtK9UzNZ4Wf62Js48Sk=
-github.com/nexaa-cloud/nexaa-cli v1.0.28/go.mod h1:SI9SdIMsTvUykqvO0rXNWyDfv9PULDrgDE2j8tgo4vA=
+github.com/nexaa-cloud/nexaa-cli v1.0.29 h1:EmiJAimNayjmErI5NHO67fz23/AUMMPOwHAaE1ivYFg=
+github.com/nexaa-cloud/nexaa-cli v1.0.29/go.mod h1:SI9SdIMsTvUykqvO0rXNWyDfv9PULDrgDE2j8tgo4vA=
 github.com/oklog/run v1.0.0 h1:Ru7dDtJNOyC66gQ5dQmaCa0qIsAUFY3sFpK1Xk8igrw=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/pjbgf/sha1cd v0.3.2 h1:a9wb0bp1oC2TGwStyn0Umc/IGKQnEgF0vVaZ8QF8eo4=
