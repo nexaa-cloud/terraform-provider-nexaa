@@ -12,17 +12,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/enums"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -43,7 +39,7 @@ type containerJobResource struct {
 	Namespace            types.String   `tfsdk:"namespace"`
 	Image                types.String   `tfsdk:"image"`
 	Registry             types.String   `tfsdk:"registry"`
-	Resources            types.Object   `tfsdk:"resources"`
+	Resources            types.String   `tfsdk:"resources"`
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Command              types.List     `tfsdk:"command"`
 	Entrypoint           types.List     `tfsdk:"entrypoint"`
@@ -84,23 +80,7 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Optional:    true,
 				Description: "The registry used to access images that are saved in a private environment, leave empty to use a public registry",
 			},
-			"resources": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"cpu": schema.Float64Attribute{
-						Required:    true,
-						Description: "The amount of cpu used for the container job, can be the following values: 0.25, 0.5, 0.75, 1, 2, 3, 4",
-						Validators: []validator.Float64{
-							float64validator.OneOf(enums.CPU...),
-						},
-					},
-					"ram": schema.Float64Attribute{
-						Required:    true,
-						Description: "The amount of ram used for the container job (in GB), can be the following values: 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16",
-						Validators: []validator.Float64{
-							float64validator.OneOf(enums.RAM...),
-						},
-					},
-				},
+			"resources": schema.StringAttribute{
 				Required:    true,
 				Description: "The resources used for running the container job",
 			},
@@ -195,17 +175,6 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	// Construct CPU/RAM string
-	var resources resourcesResource
-	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return
-	}
-
-	cpu := int(resources.CPU.ValueFloat64() * 1000)
-	ram := int(resources.RAM.ValueFloat64() * 1000)
-	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
-
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
 		plan.Registry = types.StringNull()
 	}
@@ -216,7 +185,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueString(),
 		Registry:  plan.Registry.ValueStringPointer(),
-		Resources: api.ContainerResources(cpuRam),
+		Resources: api.ContainerResources(plan.Resources.ValueString()),
 		Schedule:  plan.Schedule.ValueString(),
 		Enabled:   plan.Enabled.ValueBool(),
 	}
@@ -315,16 +284,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		plan.Registry = types.StringValue(*input.Registry)
 	}
 
-	// Parse CPU and RAM from the string
-	resourcesObj, err := buildResourcesFromAPI(containerJobResult.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			err.Error(),
-			err.Error(),
-		)
-		return
-	}
-	plan.Resources = resourcesObj
+	plan.Resources = types.StringValue(string(containerJobResult.Resources))
 
 	// Environment variables (state population)
 	if containerJobResult.EnvironmentVariables != nil {
@@ -414,16 +374,7 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 		state.Registry = types.StringValue(containerJob.PrivateRegistry.Name)
 	}
 
-	// Parse CPU and RAM from the string
-	resourcesObj, err := buildResourcesFromAPI(containerJob.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			err.Error(),
-			err.Error(),
-		)
-		return
-	}
-	state.Resources = resourcesObj
+	state.Resources = types.StringValue(string(containerJob.Resources))
 
 	// Environment variables (refresh state)
 	if containerJob.EnvironmentVariables != nil {
@@ -487,20 +438,11 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	// Construct CPU/RAM string
-	var resources resourcesResource
-	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return
-	}
-
-	cpu := int(resources.CPU.ValueFloat64() * 1000)
-	ram := int(resources.RAM.ValueFloat64() * 1000)
-	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
-
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
 		plan.Registry = types.StringNull()
 	}
+
+	containerJobResources := api.ContainerResources(plan.Resources.ValueString())
 
 	// Build input struct
 	input := api.ContainerJobModifyInput{
@@ -508,7 +450,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
-		Resources: (*api.ContainerResources)(&cpuRam),
+		Resources: &containerJobResources,
 		Schedule:  plan.Schedule.ValueStringPointer(),
 		Enabled:   plan.Enabled.ValueBoolPointer(),
 	}
@@ -635,16 +577,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		plan.Registry = types.StringValue(containerJobResult.PrivateRegistry.Name)
 	}
 
-	// Parse CPU and RAM from the string
-	resourcesObj, err := buildResourcesFromAPI(containerJobResult.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			err.Error(),
-			err.Error(),
-		)
-		return
-	}
-	plan.Resources = resourcesObj
+	plan.Resources = types.StringValue(string(containerJobResult.Resources))
 
 	// Environment variables (update state)
 	if containerJobResult.EnvironmentVariables != nil {
@@ -762,16 +695,6 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		return
 	}
 
-	// Parse resources
-	resourcesObj, err := buildResourcesFromAPI(containerJob.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error importing container job",
-			err.Error(),
-		)
-		return
-	}
-
 	// Environment Variables (import)
 	envTF := types.SetNull(envVarObjectType())
 	if containerJob.EnvironmentVariables != nil {
@@ -819,7 +742,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Namespace:            types.StringValue(namespace),
 		Image:                types.StringValue(containerJob.Image),
 		Registry:             types.StringValue(containerJob.PrivateRegistry.Name),
-		Resources:            resourcesObj,
+		Resources:            types.StringValue(string(containerJob.Resources)),
 		EnvironmentVariables: envTF,
 		Command:              commandList,
 		Entrypoint:           entrypointList,

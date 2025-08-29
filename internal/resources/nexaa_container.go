@@ -18,7 +18,6 @@ import (
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -26,7 +25,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/enums"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -47,7 +45,7 @@ type containerResource struct {
 	Namespace            types.String   `tfsdk:"namespace"`
 	Image                types.String   `tfsdk:"image"`
 	Registry             types.String   `tfsdk:"registry"`
-	Resources            types.Object   `tfsdk:"resources"`
+	Resources            types.String   `tfsdk:"resources"`
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
@@ -57,11 +55,6 @@ type containerResource struct {
 	LastUpdated          types.String   `tfsdk:"last_updated"`
 	Status               types.String   `tfsdk:"status"`
 	Timeouts             timeouts.Value `tfsdk:"timeouts"`
-}
-
-type resourcesResource struct {
-	CPU types.Float64 `tfsdk:"cpu"`
-	RAM types.Float64 `tfsdk:"ram"`
 }
 
 type mountResource struct {
@@ -139,23 +132,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
 			},
-			"resources": schema.SingleNestedAttribute{
-				Attributes: map[string]schema.Attribute{
-					"cpu": schema.Float64Attribute{
-						Required:    true,
-						Description: "The amount of cpu used for the container, can be the following values: 0.25, 0.5, 0.75, 1, 2, 3, 4",
-						Validators: []validator.Float64{
-							float64validator.OneOf(enums.CPU...),
-						},
-					},
-					"ram": schema.Float64Attribute{
-						Required:    true,
-						Description: "The amount of ram used for the container (in GB), can be the following values: 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16",
-						Validators: []validator.Float64{
-							float64validator.OneOf(enums.RAM...),
-						},
-					},
-				},
+			"resources": schema.StringAttribute{
 				Required:    true,
 				Description: "The resources used for running the container",
 			},
@@ -346,17 +323,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-	// Construct CPU/RAM string
-	var resources resourcesResource
-	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return
-	}
-
-	cpu := int(resources.CPU.ValueFloat64() * 1000)
-	ram := int(resources.RAM.ValueFloat64() * 1000)
-	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
-
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
 		plan.Registry = types.StringNull()
 	}
@@ -367,7 +333,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueString(),
 		Registry:  plan.Registry.ValueStringPointer(),
-		Resources: api.ContainerResources(cpuRam),
+		Resources: api.ContainerResources(plan.Resources.ValueString()),
 	}
 
 	//Ports
@@ -543,16 +509,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Registry = types.StringValue(*input.Registry)
 	}
 
-	resourcesObj, err := buildResourcesFromAPI(containerResult.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error importing container",
-			err.Error(),
-		)
-		return
-	}
-
-	plan.Resources = resourcesObj
+	plan.Resources = types.StringValue(string(containerResult.Resources))
 
 	// Environment variables (state population)
 	if containerResult.EnvironmentVariables != nil {
@@ -737,16 +694,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		state.Registry = types.StringValue(container.PrivateRegistry.Name)
 	}
 
-	resourcesObj, err := buildResourcesFromAPI(container.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error importing container",
-			err.Error(),
-		)
-		return
-	}
-
-	state.Resources = resourcesObj
+	state.Resources = types.StringValue(string(container.Resources))
 
 	// Environment variables (refresh state)
 	if container.EnvironmentVariables != nil {
@@ -911,20 +859,11 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	// Construct CPU/RAM string
-	var resources resourcesResource
-	diags = plan.Resources.As(ctx, &resources, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return
-	}
-
-	cpu := int(resources.CPU.ValueFloat64() * 1000)
-	ram := int(resources.RAM.ValueFloat64() * 1000)
-	cpuRam := fmt.Sprintf("CPU_%d_RAM_%d", cpu, ram)
-
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
 		plan.Registry = types.StringNull()
 	}
+
+	containerResources := api.ContainerResources(plan.Resources.ValueString())
 
 	// Build input struct
 	input := api.ContainerModifyInput{
@@ -932,7 +871,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
-		Resources: (*api.ContainerResources)(&cpuRam),
+		Resources: &containerResources,
 	}
 
 	//Ports
@@ -1170,16 +1109,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Registry = types.StringValue(containerResult.PrivateRegistry.Name)
 	}
 
-	// Parse CPU and RAM from the string
-	resourcesObj, err := buildResourcesFromAPI(containerResult.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			err.Error(),
-			err.Error(),
-		)
-		return
-	}
-	plan.Resources = resourcesObj
+	plan.Resources = types.StringValue(string(containerResult.Resources))
 
 	// Environment variables (update state)
 	if containerResult.EnvironmentVariables != nil {
@@ -1395,16 +1325,6 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 
-	// resources
-	resourcesObj, err := buildResourcesFromAPI(container.Resources)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error importing container",
-			err.Error(),
-		)
-		return
-	}
-
 	// Environment Variables (import)
 	envTF := types.SetNull(envVarObjectType())
 	if container.EnvironmentVariables != nil {
@@ -1545,7 +1465,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Namespace:            types.StringValue(namespace),
 		Image:                types.StringValue(container.Image),
 		Registry:             types.StringValue(container.PrivateRegistry.Name),
-		Resources:            resourcesObj,
+		Resources:            types.StringValue(string(container.Resources)),
 		EnvironmentVariables: envTF,
 		Ports:                portList,
 		Ingresses:            ingressesTF,
