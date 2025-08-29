@@ -134,7 +134,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,
-				Description: "The resources used for running the container",
+				Description: "The resources used for running the container, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory",
 			},
 			"ports": schema.ListAttribute{
 				ElementType: types.StringType,

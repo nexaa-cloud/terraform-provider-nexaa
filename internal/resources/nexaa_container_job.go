@@ -82,7 +82,7 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,
-				Description: "The resources used for running the container job",
+				Description: "The resources used for running the container job, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory",
 			},
 			"environment_variables": schema.SetNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
