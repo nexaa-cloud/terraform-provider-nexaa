@@ -156,13 +156,6 @@ func (d *cloudDatabasePlansDataSource) Read(ctx context.Context, req datasource.
 		data.Storage.ValueInt64(),
 	)
 
-	resp.Diagnostics.AddWarning("plan found", fmt.Sprintf("Plan found: %s (CPU: %d, Memory: %d MB, Storage: %d GB, Replicas: %d)",
-		plan.Id.ValueString(),
-		plan.Cpu.ValueInt64(),
-		plan.Memory.ValueInt64(),
-		plan.Storage.ValueInt64(),
-		plan.Replicas.ValueInt64()))
-
 	if err != nil {
 		resp.Diagnostics.AddError("Error could not find plan", err.Error())
 	}

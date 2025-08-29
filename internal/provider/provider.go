@@ -160,6 +160,7 @@ func (p *NexaaProvider) EphemeralResources(ctx context.Context) []func() ephemer
 func (p *NexaaProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		data_sources.NewCloudDatabaseClusterPlans,
+		data_sources.NewContainerResources,
 	}
 }
 
