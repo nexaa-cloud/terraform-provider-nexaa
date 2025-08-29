@@ -136,7 +136,7 @@ container_job_name = "container-job"
 - `image` (String) The image used to run the container job
 - `name` (String) Name of the container job
 - `namespace` (String) Name of the namespace that the container job will belong to
-- `resources` (Attributes) The resources used for running the container job (see [below for nested schema](#nestedatt--resources))
+- `resources` (String) The resources used for running the container job, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory
 - `schedule` (String) Cron notation to schedule jobs. Format is equal to regular cron notation. For example, to run a job every day at 4am, use `0 4 * * *`. You can use https://crontab.guru/ to help you build your cron expressions.
 
 ### Optional
@@ -154,15 +154,6 @@ container_job_name = "container-job"
 - `id` (String) Unique identifier of the container, equal to the name
 - `last_updated` (String) Timestamp of the last Terraform update of the container job
 - `state` (String) The state of the container job
-
-<a id="nestedatt--resources"></a>
-### Nested Schema for `resources`
-
-Required:
-
-- `cpu` (Number) The amount of cpu used for the container job, can be the following values: 0.25, 0.5, 0.75, 1, 2, 3, 4
-- `ram` (Number) The amount of ram used for the container job (in GB), can be the following values: 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-
 
 <a id="nestedatt--environment_variables"></a>
 ### Nested Schema for `environment_variables`

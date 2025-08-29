@@ -96,7 +96,7 @@ resource "nexaa_container" "container" {
 - `image` (String) The image use to run the container
 - `name` (String) Name of the container
 - `namespace` (String) Name of the namespace that the container will belong to
-- `resources` (Attributes) The resources used for running the container (see [below for nested schema](#nestedatt--resources))
+- `resources` (String) The resources used for running the container, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory
 - `scaling` (Attributes) Used to specify or automaticaly scale the amount of replicas running (see [below for nested schema](#nestedatt--scaling))
 
 ### Optional
@@ -114,15 +114,6 @@ resource "nexaa_container" "container" {
 - `id` (String) Unique identifier of the container, equal to the name
 - `last_updated` (String) Timestamp of the last Terraform update of the private registry
 - `status` (String) The status of the container
-
-<a id="nestedatt--resources"></a>
-### Nested Schema for `resources`
-
-Required:
-
-- `cpu` (Number) The amount of cpu used for the container, can be the following values: 0.25, 0.5, 0.75, 1, 2, 3, 4
-- `ram` (Number) The amount of ram used for the container (in GB), can be the following values: 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-
 
 <a id="nestedatt--scaling"></a>
 ### Nested Schema for `scaling`
