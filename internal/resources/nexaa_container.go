@@ -1474,6 +1474,20 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Status:               types.StringValue(container.State),
 		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
 	}
+	state.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"update": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("30s"),
+				"update": types.StringValue("30s"),
+				"delete": types.StringValue("30s"),
+			},
+		),
+	}
 
 	if obj, ok := scalingObj.(types.Object); ok {
 		state.Scaling = obj
