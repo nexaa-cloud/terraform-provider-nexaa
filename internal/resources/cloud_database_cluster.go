@@ -87,7 +87,7 @@ func findUser(cluster api.CloudDatabaseClusterResult, userName string) *api.Clou
 	return nil
 }
 
-type childId struct {
+type cloudDatabaseClusterChildId struct {
 	Namespace string
 	Cluster   string
 	Name      string
@@ -105,10 +105,10 @@ func generateCloudDatabaseClusterUserId(namespace string, cluster string, name s
 	return generateCloudDatabaseClusterChildId(namespace, cluster, "user", name)
 }
 
-func unpackChildId(id string) (childId, error) {
+func unpackCloudDatabaseClusterChildId(id string) (cloudDatabaseClusterChildId, error) {
 	parts := strings.SplitN(id, "/", 4)
 	if len(parts) != 4 || parts[0] == "" || parts[1] == "" || parts[2] == "" || parts[3] == "" {
-		return childId{}, errors.New(
+		return cloudDatabaseClusterChildId{}, errors.New(
 			"Expected import ID in the format \"<namespace>/<cluster_name>/<type_name>/<child_name>\", got: " + id,
 		)
 	}
@@ -117,7 +117,7 @@ func unpackChildId(id string) (childId, error) {
 	clusterName := parts[1]
 	childName := parts[3]
 
-	return childId{
+	return cloudDatabaseClusterChildId{
 		Namespace: namespace,
 		Cluster:   clusterName,
 		Name:      childName,

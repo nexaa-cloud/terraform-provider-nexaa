@@ -6,10 +6,8 @@ package resources
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -33,8 +31,6 @@ type volumeResource struct {
 	Namespace   types.String `tfsdk:"namespace"`
 	Name        types.String `tfsdk:"name"`
 	Size        types.Int64  `tfsdk:"size"`
-	Usage       types.Int64  `tfsdk:"usage"`
-	Locked      types.Bool   `tfsdk:"locked"`
 	Status      types.String `tfsdk:"status"`
 	LastUpdated types.String `tfsdk:"last_updated"`
 }
@@ -63,14 +59,6 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"size": schema.Int64Attribute{
 				Description: "Size of the volume in GB, min 1GB/ max 100GB.",
 				Required:    true,
-			},
-			"usage": schema.Int64Attribute{
-				Description: "Amount of GB that is being used",
-				Computed:    true,
-			},
-			"locked": schema.BoolAttribute{
-				Description: "If the volume is locked it can't be edited",
-				Computed:    true,
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the volume",
@@ -110,20 +98,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Add diagnostic info about the created volume
-	resp.Diagnostics.AddWarning(
-		"Volume created",
-		fmt.Sprintf("Volume created with state: %s, locked: %t", volume.State, volume.Locked),
-	)
-
-	plan.ID = types.StringValue(volume.Name)
-	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
-	plan.Name = types.StringValue(volume.Name)
-	plan.Size = types.Int64Value(int64(volume.Size))
-	plan.Usage = types.Int64Value(int64(volume.Usage))
-	plan.Locked = types.BoolValue(volume.Locked)
-	plan.Status = types.StringValue(volume.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan = translateApiToVolumeResource(plan, volume)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -152,13 +127,7 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	state.ID = types.StringValue(volume.Name)
-	state.Namespace = types.StringValue(state.Namespace.ValueString())
-	state.Name = types.StringValue(volume.Name)
-	state.Size = types.Int64Value(int64(volume.Size))
-	state.Usage = types.Int64Value(int64(volume.Usage))
-	state.Locked = types.BoolValue(volume.Locked)
-	state.Status = types.StringValue(volume.State)
+	state = translateApiToVolumeResource(state, *volume)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -193,14 +162,7 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	plan.ID = types.StringValue(volume.Name)
-	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
-	plan.Name = types.StringValue(volume.Name)
-	plan.Size = types.Int64Value(int64(volume.Size))
-	plan.Usage = types.Int64Value(int64(volume.Usage))
-	plan.Locked = types.BoolValue(volume.Locked)
-	plan.Status = types.StringValue(volume.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan = translateApiToVolumeResource(plan, volume)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -266,34 +228,28 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 // ImportState implements resource.ResourceWithImportState.
 func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Expect import ID as "namespace/volumeName"
-	parts := strings.SplitN(req.ID, "/", 2)
-	if len(parts) != 2 {
+	id, err := unpackNamespaceChildId(req.ID)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
-			"Expected import ID in the format \"<namespace>/<volume_name>\", got: "+req.ID,
+			err.Error(),
 		)
 		return
 	}
-	ns := parts[0]
-	volName := parts[1]
 
 	client := api.NewClient()
 	// Fetch the volume using the namespace and volume name
-	volume, err := client.ListVolumeByName(ns, volName)
+	volume, err := client.ListVolumeByName(id.Namespace, id.Name)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
-			"Could not read volume "+volName+": "+err.Error(),
+			"Could not read volume "+id.Name+": "+err.Error(),
 		)
 		return
 	}
 
-	// Set the volume attributes in the state
-	resp.State.SetAttribute(ctx, path.Root("id"), volume.Name)
-	resp.State.SetAttribute(ctx, path.Root("namespace"), ns)
-	resp.State.SetAttribute(ctx, path.Root("name"), volume.Name)
-	resp.State.SetAttribute(ctx, path.Root("size"), int64(volume.Size))
-	resp.State.SetAttribute(ctx, path.Root("usage"), int64(volume.Usage))
-	resp.State.SetAttribute(ctx, path.Root("status"), volume.State)
-	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
+	var state volumeResource
+	state = translateApiToVolumeResource(state, *volume)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

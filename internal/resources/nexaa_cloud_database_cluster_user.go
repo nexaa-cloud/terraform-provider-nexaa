@@ -216,7 +216,7 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 	name := plan.Cluster.Name.ValueString()
 
 	if namespace == "" || name == "" {
-		id, err := unpackChildId(plan.ID.ValueString())
+		id, err := unpackCloudDatabaseClusterChildId(plan.ID.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Could not unpack ID", err.Error(),
@@ -350,7 +350,7 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 }
 
 func (r *cloudDatabaseClusterUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := unpackChildId(req.ID)
+	id, err := unpackCloudDatabaseClusterChildId(req.ID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",

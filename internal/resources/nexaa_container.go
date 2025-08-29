@@ -284,9 +284,9 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			"status": schema.StringAttribute{
 				Description: "The status of the container",
 				Computed:    true,
-				//PlanModifiers: []planmodifier.String{
-				//	stringplanmodifier.UseStateForUnknown(),
-				//},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",

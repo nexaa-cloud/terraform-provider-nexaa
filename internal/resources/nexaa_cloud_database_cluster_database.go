@@ -265,7 +265,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := unpackChildId(req.ID)
+	id, err := unpackCloudDatabaseClusterChildId(req.ID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Invalid import ID",
