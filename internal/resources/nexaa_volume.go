@@ -5,9 +5,10 @@ package resources
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,12 +28,13 @@ func NewVolumeResource() resource.Resource {
 
 // volumeResource is the resource implementation.
 type volumeResource struct {
-	ID          types.String `tfsdk:"id"`
-	Namespace   types.String `tfsdk:"namespace"`
-	Name        types.String `tfsdk:"name"`
-	Size        types.Int64  `tfsdk:"size"`
-	Status      types.String `tfsdk:"status"`
-	LastUpdated types.String `tfsdk:"last_updated"`
+	ID          types.String   `tfsdk:"id"`
+	Namespace   types.String   `tfsdk:"namespace"`
+	Name        types.String   `tfsdk:"name"`
+	Size        types.Int64    `tfsdk:"size"`
+	Status      types.String   `tfsdk:"status"`
+	LastUpdated types.String   `tfsdk:"last_updated"`
+	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the resource type name.
@@ -41,7 +43,7 @@ func (r *volumeResource) Metadata(_ context.Context, req resource.MetadataReques
 }
 
 // Schema defines the schema for the resource.
-func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *volumeResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -68,6 +70,11 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Description: "Timestamp of the last Terraform update of the volume",
 				Computed:    true,
 			},
+		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Delete: true,
+			}),
 		},
 	}
 }
@@ -180,49 +187,42 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	const (
-		maxRetries   = 10
-		initialDelay = 2 * time.Second
-	)
-	delay := initialDelay
+	deleteTimeout, diags := state.Timeouts.Delete(ctx, 2*time.Minute)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
 
 	client := api.NewClient()
 
-	for i := 0; i <= maxRetries; i++ {
-		volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error deleting volume",
-				fmt.Sprintf("Could not find volume with name %q: %s", state.Name.ValueString(), err.Error()),
-			)
-			return
-		}
-		if volume.State == "created" || volume.State == "failed" {
-			_, err := client.VolumeDelete(state.Namespace.ValueString(), state.Name.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Error deleting volume",
-					fmt.Sprintf("Failed to delete volume %q: %s", state.Name.ValueString(), err.Error()),
-				)
-				return
-			}
-			return
-		}
-		if volume.State == "failed" && volume.Locked {
-			resp.Diagnostics.AddError(
-				"Error deleting volume",
-				fmt.Sprintf("Failed to delete volume %q, the volume is locked and could not be deleted", state.Name.ValueString()),
-			)
-			return
-		}
-		time.Sleep(delay)
-		delay *= 2
+	namespaceName := state.Namespace.ValueString()
+	volumeName := state.Name.ValueString()
+
+	err := waitForUnlocked(ctx, volumeLocked(), *client, namespaceName, volumeName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting volume", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
-	resp.Diagnostics.AddError(
-		"Timeout deleting volume",
-		fmt.Sprintf("Volume %q did not reach a deletable state after a couple retries", state.Name.ValueString()),
-	)
+	err = waitForAllContainersToBeUnmounted(ctx, *client, namespaceName, volumeName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting volume", "Could not reach a unmounted state: "+err.Error())
+		return
+	}
+
+	_, err = client.VolumeDelete(namespaceName, volumeName)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting volume",
+			"Could not delete volume "+volumeName+": "+err.Error(),
+		)
+		return
+	}
 }
 
 // ImportState implements resource.ResourceWithImportState.
@@ -250,6 +250,58 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 
 	var state volumeResource
 	state = translateApiToVolumeResource(state, *volume)
+	state.Timeouts = timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func waitForAllContainersToBeUnmounted(ctx context.Context, client api.Client, namespace string, volumeName string) error {
+	const (
+		initialDelay = 2 * time.Second
+		maxDelay     = 15 * time.Second
+	)
+	delay := initialDelay
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		volume, err := client.ListVolumeByName(namespace, volumeName)
+		if err != nil {
+			return err
+		}
+
+		if !hasContainersAttached(*volume) && !hasContainerJobsAttached(*volume) {
+			break
+		}
+
+		// Backoff between polls
+		time.Sleep(delay)
+		if delay < maxDelay {
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
+
+	return nil
+}
+
+func hasContainersAttached(volume api.VolumeResult) bool {
+	return len(volume.Containers) != 0
+}
+
+func hasContainerJobsAttached(volume api.VolumeResult) bool {
+	return len(volume.ContainerJobs) != 0
 }

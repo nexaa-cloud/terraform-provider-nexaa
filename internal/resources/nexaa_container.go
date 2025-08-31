@@ -502,6 +502,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
 	plan.Name = types.StringValue(containerResult.Name)
 	plan.Image = types.StringValue(containerResult.Image)
+	plan.Status = types.StringValue(containerResult.State)
 
 	if containerResult.PrivateRegistry == nil || containerResult.PrivateRegistry.Name == "public" {
 		plan.Registry = types.StringNull()
@@ -1275,7 +1276,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	}
 
 	client := api.NewClient()
-	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 30*time.Second)
+	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 2*time.Minute)
 
 	resp.Diagnostics.Append(diags...)
 

@@ -42,6 +42,21 @@ func containerJobLocked() fetchResourceLocked {
 	}
 }
 
+func volumeLocked() fetchResourceLocked {
+	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+		resource, err := client.ListVolumeByName(
+			namespace,
+			resourceName,
+		)
+
+		if err != nil {
+			return false, err
+		}
+
+		return resource.Locked, nil
+	}
+}
+
 func cloudDatabaseClusterLocked() fetchResourceLocked {
 	return func(client api.Client, namespace string, resourceName string) (bool, error) {
 		resource, err := client.CloudDatabaseClusterGet(

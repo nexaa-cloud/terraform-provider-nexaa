@@ -5,9 +5,9 @@ package resources
 
 import (
 	"context"
-	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -29,10 +29,11 @@ func NewNamespaceResource() resource.Resource {
 
 // namespaceResource is the resource implementation.
 type namespaceResource struct {
-	ID          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	LastUpdated types.String `tfsdk:"last_updated"`
+	ID          types.String   `tfsdk:"id"`
+	Name        types.String   `tfsdk:"name"`
+	Description types.String   `tfsdk:"description"`
+	LastUpdated types.String   `tfsdk:"last_updated"`
+	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the resource type name.
@@ -61,6 +62,11 @@ func (r *namespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Description: "Timestamp of the last Terraform update of the namespace",
 				Computed:    true,
 			},
+		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
+				Delete: true,
+			}),
 		},
 	}
 }
@@ -157,50 +163,33 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	const (
-		maxRetries   = 4
-		initialDelay = 10 * time.Second
-	)
-	delay := initialDelay
-	client := api.NewClient()
+	deleteTimeout, diags := state.Timeouts.Delete(ctx, 5*time.Minute)
 
-	var err error
+	resp.Diagnostics.Append(diags...)
 
-	// Retry DeleteNamespace until it no longer complains about "locked"
-	for i := 0; i <= maxRetries; i++ {
-		_, err = client.NamespaceDelete(state.ID.ValueString())
-		if err == nil {
-			// Success
-			return
-		}
-		msg := err.Error()
-		if strings.Contains(msg, "locked") {
-			// Still locked—wait & back off
-			time.Sleep(delay)
-			delay *= 2
-			continue
-		}
-		if strings.Contains(msg, "Not found") {
-			// Gone already—treat as success
-			resp.Diagnostics.AddWarning(
-				"Namespace already deleted",
-				"DeleteNamespace returned Not Found; assuming success.",
-			)
-			return
-		}
-		// Any other error is fatal
-		resp.Diagnostics.AddError(
-			"Error deleting namespace",
-			"Could not delete namespace "+state.Name.ValueString()+": "+msg,
-		)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// If we exit the loop still with locked error, report it
-	resp.Diagnostics.AddError(
-		"Timeout waiting for namespace to unlock",
-		"Namespace is locked and can't be deleted, try again after a bit. Error: "+err.Error(),
-	)
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
+
+	client := api.NewClient()
+	namespaceName := state.Name.ValueString()
+	err := waitForAllChildrenToBeRemoved(ctx, *client, namespaceName)
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting namespace", err.Error())
+		return
+	}
+
+	_, err = client.NamespaceDelete(state.ID.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting namespace",
+			"Could not delete namespace "+state.Name.ValueString()+": "+err.Error(),
+		)
+	}
 }
 
 func (r *namespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -224,4 +213,54 @@ func (r *namespaceResource) ImportState(ctx context.Context, req resource.Import
 		"Error importing namespace",
 		"Could not find namespace with name: "+id,
 	)
+}
+
+func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, namespaceName string) error {
+	const (
+		initialDelay = 2 * time.Second
+		maxDelay     = 15 * time.Second
+	)
+	delay := initialDelay
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		namespace, err := client.NamespaceListByName(namespaceName)
+		if err != nil {
+			return err
+		}
+
+		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) {
+			break
+		}
+
+		// Backoff between polls
+		time.Sleep(delay)
+		if delay < maxDelay {
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
+
+	return nil
+}
+
+func namespaceHasContainers(namespace api.NamespaceResult) bool {
+	return len(namespace.Containers) != 0
+}
+
+func namespaceHasContainerJobs(namespace api.NamespaceResult) bool {
+	return len(namespace.ContainerJobs) != 0
+}
+
+func namespaceHasVolumes(namespace api.NamespaceResult) bool {
+	return len(namespace.Volumes) != 0
+}
+
+func namespaceHasCloudDatabaseClusters(namespace api.NamespaceResult) bool {
+	return len(namespace.CloudDatabaseClusters) != 0
 }
