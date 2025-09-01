@@ -1256,6 +1256,17 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating containerResult", "Could not reach a running state: "+err.Error())
+	}
+
+	containerResult, err = client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
+		return
+	}
+
 	plan.Status = types.StringValue(containerResult.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
