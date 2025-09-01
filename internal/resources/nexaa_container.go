@@ -1098,6 +1098,17 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating containerResult", "Could not reach a running state: "+err.Error())
+	}
+
+	containerResult, err = client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
+		return
+	}
+
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
@@ -1252,17 +1263,6 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	if obj, ok := scalingObj.(types.Object); ok {
 		plan.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
-		return
-	}
-
-	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating containerResult", "Could not reach a running state: "+err.Error())
-	}
-
-	containerResult, err = client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
 		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
 		return
 	}

@@ -29,8 +29,19 @@ resource "nexaa_volume" "volume-test" {
 - `namespace` (String) Name of the namespace where the volume is located
 - `size` (Number) Size of the volume in GB, min 1GB/ max 100GB.
 
+### Optional
+
+- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
+
 ### Read-Only
 
 - `id` (String) Identifier of the volume, equal to the name of the volume
 - `last_updated` (String) Timestamp of the last Terraform update of the volume
 - `status` (String) The status of the volume
+
+<a id="nestedblock--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
