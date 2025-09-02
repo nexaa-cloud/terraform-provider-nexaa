@@ -283,10 +283,10 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the container",
-				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the private registry",
@@ -504,11 +504,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	plan.Image = types.StringValue(containerResult.Image)
 	plan.Status = types.StringValue(containerResult.State)
 
-	if containerResult.PrivateRegistry == nil || containerResult.PrivateRegistry.Name == "public" {
-		plan.Registry = types.StringNull()
-	} else {
-		plan.Registry = types.StringValue(*input.Registry)
-	}
+	plan.Registry = processRegistryName(containerResult)
 
 	plan.Resources = types.StringValue(string(containerResult.Resources))
 
@@ -689,11 +685,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.Name = types.StringValue(container.Name)
 	state.Image = types.StringValue(container.Image)
 
-	if container.PrivateRegistry == nil || container.PrivateRegistry.Name == "public" {
-		state.Registry = types.StringNull()
-	} else {
-		state.Registry = types.StringValue(container.PrivateRegistry.Name)
-	}
+	state.Registry = processRegistryName(container)
 
 	state.Resources = types.StringValue(string(container.Resources))
 
@@ -1115,11 +1107,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	plan.Name = types.StringValue(containerResult.Name)
 	plan.Image = types.StringValue(containerResult.Image)
 
-	if containerResult.PrivateRegistry == nil {
-		plan.Registry = types.StringNull()
-	} else {
-		plan.Registry = types.StringValue(containerResult.PrivateRegistry.Name)
-	}
+	plan.Registry = processRegistryName(containerResult)
 
 	plan.Resources = types.StringValue(string(containerResult.Resources))
 
@@ -1476,7 +1464,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Name:                 types.StringValue(container.Name),
 		Namespace:            types.StringValue(namespace),
 		Image:                types.StringValue(container.Image),
-		Registry:             types.StringValue(container.PrivateRegistry.Name),
+		Registry:             processRegistryName(container),
 		Resources:            types.StringValue(string(container.Resources)),
 		EnvironmentVariables: envTF,
 		Ports:                portList,
@@ -1509,4 +1497,10 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+func processRegistryName(containerResult api.ContainerResult) types.String {
+	if containerResult.PrivateRegistry != nil {
+		return types.StringValue(containerResult.PrivateRegistry.Name)
+	}
+	return types.StringNull()
 }
