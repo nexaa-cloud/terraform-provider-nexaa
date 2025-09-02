@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -248,6 +249,14 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 		return
 	}
 
+	if volume == nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Volume",
+			"Could not read volume "+id.Name+", volume not found",
+		)
+		return
+	}
+
 	var state volumeResource
 	state = translateApiToVolumeResource(state, *volume)
 	state.Timeouts = timeouts.Value{
@@ -279,6 +288,10 @@ func waitForAllContainersToBeUnmounted(ctx context.Context, client api.Client, n
 		volume, err := client.ListVolumeByName(namespace, volumeName)
 		if err != nil {
 			return err
+		}
+
+		if volume == nil {
+			return fmt.Errorf("volume %s not found", volumeName)
 		}
 
 		if !hasContainersAttached(*volume) && !hasContainerJobsAttached(*volume) {
