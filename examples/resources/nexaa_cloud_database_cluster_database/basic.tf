@@ -37,10 +37,15 @@ variable "cluster_name" {
   sensitive   = true
 }
 
-variable "database_name" {
+variable "user_name" {
   description = "Name of user created on the cluster"
   type        = string
   sensitive   = true
+}
+
+variable "password" {
+  sensitive = true
+  type      = string
 }
 
 provider "nexaa" {
@@ -76,11 +81,14 @@ resource "nexaa_cloud_database_cluster" "cluster" {
   plan = data.nexaa_cloud_database_cluster_plans.plan.id
 }
 
-resource "nexaa_cloud_database_cluster_database" "db" {
+resource "nexaa_cloud_database_cluster_user" "user" {
   depends_on = [
     nexaa_cloud_database_cluster.cluster,
   ]
 
-  cluster = nexaa_cloud_database_cluster.cluster.cluster
-  name    = var.database_name
+  cluster  = nexaa_cloud_database_cluster.cluster.cluster
+  name     = var.user_name
+  password = var.password
+  permissions = [
+  ]
 }

@@ -6,4 +6,4 @@ namespace_description = "This is a optional description for a namespace"
 
 cluster_name = "cluster"
 
-database_name = "test"
+user_name = "tf-user"

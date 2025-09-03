@@ -23,14 +23,7 @@ description: |-
 Import is supported using the following syntax:
 
 ```shell
-terraform import nexaa_cloud_database_cluster_user.user project/cluster/user/test
+terraform import nexaa_cloud_database_cluster_database.database project/cluster/database/test
 ```
 
 ## More examples
-
-### Complete Cloud Database Cluster User
-This cloud database cluster user has read_write permissions to the created database.
-{{ tffile (printf "examples/resources/%s/complete.tf" .Name)}}
-
-
-{{ tffile (printf "examples/resources/%s/complete.tfvars" .Name)}}
