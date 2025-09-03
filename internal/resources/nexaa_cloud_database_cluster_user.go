@@ -115,7 +115,7 @@ func (r *cloudDatabaseClusterUserResource) Schema(_ context.Context, _ resource.
 	}
 }
 
-func translatePlanToUserInput(ctx context.Context, plan cloudDatabaseClusterUserResource) api.CloudDatabaseClusterModifyInput {
+func translatePlanToUserCreateInput(ctx context.Context, plan cloudDatabaseClusterUserResource) api.CloudDatabaseClusterUserCreateInput {
 	var permissions []api.DatabaseUserPermissionInput
 
 	type databasePermission struct {
@@ -150,15 +150,57 @@ func translatePlanToUserInput(ctx context.Context, plan cloudDatabaseClusterUser
 		Permissions: permissions,
 		State:       api.StatePresent,
 	}
-
-	return api.CloudDatabaseClusterModifyInput{
-		Name:      plan.Cluster.Name.ValueString(),
-		Namespace: plan.Cluster.Namespace.ValueString(),
-		Users: []api.DatabaseUserInput{
-			userInput,
+	return api.CloudDatabaseClusterUserCreateInput{
+		Cluster: api.CloudDatabaseClusterResourceInput{
+			Name:      plan.Cluster.Name.ValueString(),
+			Namespace: plan.Cluster.Namespace.ValueString(),
 		},
+		User: userInput,
+	}
+}
+
+func translatePlanToUserModifyInput(ctx context.Context, plan cloudDatabaseClusterUserResource) api.CloudDatabaseClusterUserModifyInput {
+	var permissions []api.DatabaseUserPermissionInput
+
+	type databasePermission struct {
+		DatabaseName string `tfsdk:"database_name"`
+		Permission   string `tfsdk:"permission"`
+		State        string `tfsdk:"state"`
 	}
 
+	var databasePermissions []databasePermission
+	plan.Permissions.ElementsAs(ctx, &databasePermissions, false)
+	for _, permission := range databasePermissions {
+		var role = api.DatabasePermissionReadWrite
+		if permission.Permission == "read_only" {
+			role = api.DatabasePermissionReadOnly
+		}
+
+		var state = api.StatePresent
+		if permission.State == "absent" {
+			state = api.StateAbsent
+		}
+
+		permissions = append(permissions, api.DatabaseUserPermissionInput{
+			DatabaseName: permission.DatabaseName,
+			Permission:   role,
+			State:        state,
+		})
+	}
+
+	userInput := api.DatabaseUserInput{
+		Name:        plan.Name.ValueString(),
+		Password:    plan.Password.ValueStringPointer(),
+		Permissions: permissions,
+		State:       api.StatePresent,
+	}
+	return api.CloudDatabaseClusterUserModifyInput{
+		Cluster: &api.CloudDatabaseClusterResourceInput{
+			Name:      plan.Cluster.Name.ValueString(),
+			Namespace: plan.Cluster.Namespace.ValueString(),
+		},
+		User: &userInput,
+	}
 }
 
 func (r *cloudDatabaseClusterUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -186,19 +228,14 @@ func (r *cloudDatabaseClusterUserResource) Create(ctx context.Context, req resou
 		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
 	}
 
-	input := translatePlanToUserInput(ctx, plan)
-	result, err := client.CloudDatabaseClusterModify(input)
+	input := translatePlanToUserCreateInput(ctx, plan)
+	result, err := client.CloudDatabaseClusterUserCreate(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating user", "Could not create user: "+err.Error())
 		return
 	}
 
-	plan, err = translateApiToCloudDatabaseClusterUserResource(plan, result, plan.Name.ValueString())
-
-	if err != nil {
-		resp.Diagnostics.AddError("Error creating user", "Could not create user: "+err.Error())
-		return
-	}
+	plan = translateApiToCloudDatabaseClusterUserResource(plan, plan.Cluster, result)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -234,7 +271,7 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 		Namespace: namespace,
 	}
 
-	cluster, err := client.CloudDatabaseClusterGet(clusterInput)
+	user, err := client.CloudDatabaseClusterUserGet(clusterInput, plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -244,11 +281,7 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	plan, err = translateApiToCloudDatabaseClusterUserResource(plan, cluster, plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Error reading user", "Could not read user: "+err.Error())
-		return
-	}
+	plan = translateApiToCloudDatabaseClusterUserResource(plan, plan.Cluster, user)
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -280,19 +313,14 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
 	}
 
-	input := translatePlanToUserInput(ctx, plan)
-	result, err := client.CloudDatabaseClusterModify(input)
+	input := translatePlanToUserModifyInput(ctx, plan)
+	result, err := client.CloudDatabaseClusterUserModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating database", "Could not create database: "+err.Error())
 		return
 	}
 
-	plan, err = translateApiToCloudDatabaseClusterUserResource(plan, result, plan.Name.ValueString())
-
-	if err != nil {
-		resp.Diagnostics.AddError("Error creating user", "Could not create user: "+err.Error())
-		return
-	}
+	plan = translateApiToCloudDatabaseClusterUserResource(plan, plan.Cluster, result)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -364,18 +392,17 @@ func (r *cloudDatabaseClusterUserResource) ImportState(ctx context.Context, req 
 		Namespace: id.Namespace,
 		Name:      id.Cluster,
 	}
-	cluster, err := client.CloudDatabaseClusterGet(clusterResourceInput)
+	user, err := client.CloudDatabaseClusterUserGet(clusterResourceInput, id.Name)
 	if err != nil {
 		resp.Diagnostics.AddError("Error importing database", "Could not list clusters: "+err.Error())
 		return
 	}
 
 	var plan cloudDatabaseClusterUserResource
-	plan, err = translateApiToCloudDatabaseClusterUserResource(plan, cluster, id.Name)
-	if err != nil {
-		resp.Diagnostics.AddError("Error importing user", err.Error())
-		return
-	}
+	plan = translateApiToCloudDatabaseClusterUserResource(plan, ClusterRef{
+		Name:      types.StringValue(clusterResourceInput.Name),
+		Namespace: types.StringValue(clusterResourceInput.Namespace),
+	}, user)
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{

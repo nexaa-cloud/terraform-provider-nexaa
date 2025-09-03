@@ -34,18 +34,12 @@ func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResourc
 	return plan
 }
 
-func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUserResource, cluster api.CloudDatabaseClusterResult, userName string) (cloudDatabaseClusterUserResource, error) {
-	var user = findUser(cluster, userName)
-
-	if user == nil {
-		return cloudDatabaseClusterUserResource{}, fmt.Errorf("error finding created user")
-	}
-
-	plan.ID = types.StringValue(generateCloudDatabaseClusterUserId(cluster.Namespace.GetName(), cluster.GetName(), user.GetName()))
+func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUserResource, cluster ClusterRef, user api.CloudDatabaseClusterUserResult) cloudDatabaseClusterUserResource {
+	plan.ID = types.StringValue(generateCloudDatabaseClusterUserId(cluster.Namespace.ValueString(), cluster.Name.ValueString(), user.GetName()))
 	plan.Name = types.StringValue(user.GetName())
 	plan.Cluster = ClusterRef{
-		Name:      types.StringValue(cluster.GetName()),
-		Namespace: types.StringValue(cluster.Namespace.GetName()),
+		Namespace: types.StringValue(cluster.Namespace.ValueString()),
+		Name:      types.StringValue(cluster.Name.ValueString()),
 	}
 	var apiPermissions []map[string]attr.Value
 	for _, permission := range user.Permissions {
@@ -75,16 +69,7 @@ func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUse
 	plan.Permissions = types.SetValueMust(elementType, values)
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-	return plan, nil
-}
-
-func findUser(cluster api.CloudDatabaseClusterResult, userName string) *api.CloudDatabaseClusterResultUsersDatabaseUser {
-	for _, u := range cluster.Users {
-		if u.Name == userName {
-			return &u
-		}
-	}
-	return nil
+	return plan
 }
 
 type cloudDatabaseClusterChildId struct {
