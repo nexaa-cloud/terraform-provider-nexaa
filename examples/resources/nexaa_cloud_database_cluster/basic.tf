@@ -7,11 +7,6 @@ terraform {
   }
 }
 
-provider "nexaa" {
-  username = var.nexaa_username
-  password = var.nexaa_password
-}
-
 variable "nexaa_username" {
   description = "Username for Nexaa authentication"
   type        = string
@@ -36,6 +31,23 @@ variable "namespace_description" {
   sensitive   = true
 }
 
+variable "cluster_name" {
+  description = "Cluster name"
+  type        = string
+  sensitive   = true
+}
+
+variable "database_name" {
+  description = "Name of user created on the cluster"
+  type        = string
+  sensitive   = true
+}
+
+provider "nexaa" {
+  username = var.nexaa_username
+  password = var.nexaa_password
+}
+
 data "nexaa_cloud_database_cluster_plans" "plan" {
   cpu      = 1
   memory   = 2.0
@@ -52,7 +64,7 @@ resource "nexaa_namespace" "project" {
 resource "nexaa_cloud_database_cluster" "cluster" {
   depends_on = [nexaa_namespace.project]
   cluster = {
-    name      = "database-cluster"
+    name      = var.cluster_name
     namespace = nexaa_namespace.project.name
   }
 
