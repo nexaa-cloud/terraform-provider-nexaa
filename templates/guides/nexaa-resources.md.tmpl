@@ -6,7 +6,7 @@ description: "The resources the terraform provider provides"
 # Resources
 ## Introduction
 This is the introduction about the resources we are offering. We start by defining a namespace where our project will live
-and share resources like Registries, Persistent Volumes and more. Namespaces have only a required field which is their unique name
+and share resources like Containers, Database Clusters, Persistent Volumes and more. Namespaces have only a required field which is their unique name
 and an optional description that help us provide more context if needed.
 
 ## Registry (nexaa_registry)
