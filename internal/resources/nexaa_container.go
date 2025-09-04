@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -31,6 +32,7 @@ import (
 var (
 	_ resource.Resource                = &containerResource{}
 	_ resource.ResourceWithImportState = &containerResource{}
+	_ resource.ResourceWithIdentity    = &containerResource{}
 )
 
 // NewContainerResource is a helper function to simplify the provider implementation.
@@ -100,6 +102,21 @@ type triggerResource struct {
 // Metadata returns the resource type name.
 func (r *containerResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_container"
+}
+
+func (r *containerResource) IdentitySchema(ctx context.Context, request resource.IdentitySchemaRequest, response *resource.IdentitySchemaResponse) {
+	response.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"name": identityschema.StringAttribute{
+				Description:       "The name of the container.",
+				RequiredForImport: true,
+			},
+			"namespace": identityschema.StringAttribute{
+				Description:       "The namespace where the container belongs to.",
+				RequiredForImport: true,
+			},
+		},
+	}
 }
 
 func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

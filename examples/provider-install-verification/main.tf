@@ -1,8 +1,7 @@
 terraform {
   required_providers {
     nexaa = {
-      source  = "nexaa-cloud/nexaa/nexaa"
-      version = "0.1.4"
+      source = "nexaa-cloud/nexaa/nexaa"
     }
   }
 }

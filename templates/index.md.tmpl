@@ -1,0 +1,26 @@
+---
+page_title: "{{.ProviderShortName | title}} Provider"
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.ProviderShortName | title}} Provider
+
+{{ .Description | trimspace }}
+
+## Marketplace
+We offer a variety of predefined configurations for Nexaa so you can easily get started with the applications. To see more of our marketplace visit our [Marketplace][2] guide.
+
+## Resources
+The resources we provide can be found 
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{tffile .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+[1]: https://docs.nexaa.io/?utm_source=terraform
+[2]: guides/marketplace.md

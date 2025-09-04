@@ -46,6 +46,11 @@ func (p *NexaaProvider) Metadata(ctx context.Context, req provider.MetadataReque
 
 func (p *NexaaProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+
+		MarkdownDescription: `
+This is the official provider for Nexaa, an application platform build for developers. We as Nexaa believe that you should focus
+on delivering and not on managing your infrastructure. That is why we made it easy for every developer to deploy their applications on Nexaa.
+`,
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
 				Required:    true,
