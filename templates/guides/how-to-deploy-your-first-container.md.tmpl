@@ -1,6 +1,7 @@
 ---
 page_title: "Deploy your first container"
 description: "How to deploy your first container on Nexaa"
+subcategory: "How to"
 ---
 
 # Deploy your first container
