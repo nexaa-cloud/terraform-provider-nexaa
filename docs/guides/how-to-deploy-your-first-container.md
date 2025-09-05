@@ -118,6 +118,6 @@ resource "nexaa_container" "container" {
 ```
 
 ## Next Steps
-- Explore our [marketplace](../marketplace.md)
+- Explore our [marketplace](marketplace.md)
 - Explore the [complete documentation](https://docs.nexaa.io/?utm_source=terraform) for detailed feature guides
 - Learn more about hosting OpenSource on Nexaa [OpenSource](https://nexaa.io/opensource.html?utm_source=terraform)
