@@ -37,7 +37,7 @@ Before we can start we need to know what your application needs. For example, a 
 We will go through this step by step, at the end you will find the full example. 
 
 ### Persistent storage?
-Does your application need persistent storage, then we want to specify a nexaa_volume. This will create a volume which can be mounted on a path in container(s). If mounted to multiple containers multiple containers can write and read to it.
+Does your application need shared and persistent storage among the containers? Then it's the perfect time to specify a nexaa_volume. This will create a volume which can be mounted on a path in container(s). If mounted to multiple containers multiple containers can write and read to it.
 ```terraform
 resource "nexaa_volume" "volume" {
   depends_on = [
@@ -50,7 +50,7 @@ resource "nexaa_volume" "volume" {
 ```
 
 ### Database?
-Does your application need something to store it's data. We have something called a cloud database cluster. This can be a cluster up to 3 replicas.
+Does your application need to store structured data? Then you can make use of our cloud database clusters. This can be a cluster up to 3 replicas.
 
 > **Note:** the cloud database clusters need a data source, this data source validates the resources you want to give to your cluster.
 ```terraform
@@ -129,7 +129,8 @@ resource "nexaa_registry" "registry" {
 ```
 
 ### Container
-After all this preparation, we haven't deployed our Container image yet. Depending on your needs we have an example below, one with a volume and one without one. 
+After our preparation, we are ready to deploy our application. This is where we would have to specify the Container image. <br>
+We prepared two examples for you, which you can choose from depending on your needs; one with a volume and one without.
 
 > **Note:** the containers and container_jobs need a data source, this data source validates the resources you want to give to your cluster.
 

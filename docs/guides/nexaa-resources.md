@@ -27,7 +27,7 @@ You can always scale your storage needs up if you see that you are in need of mo
 - Configuring [Volumes](../resources/volume.md)
 
 ## Container (nexaa_container)
-A container is an encapsulated environment with your application running in it. You can deploy your container on nexaa by only specifying your image. When this image is hosted on a private registry you have to add you [registry](#registry-(nexaa_registry)) to the configuration.
+A container is an encapsulated environment with your application running in it. You can deploy your container on nexaa by only specifying your image. When this image is hosted on a private registry you have to add you registry to the configuration.
 Nexaa is supporting all the powerful perks a container is packed with such as:
 ### Scaling 
 - **Auto-scaling** with minimum and maximum number of replicas and replication triggers
