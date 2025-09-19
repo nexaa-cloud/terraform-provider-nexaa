@@ -31,7 +31,7 @@ resource "nexaa_registry" "registry" {
 }
 
 data "nexaa_container_resources" "container_resource" {
-  cpu = 0.25
+  cpu    = 0.25
   memory = 0.5
 }
 

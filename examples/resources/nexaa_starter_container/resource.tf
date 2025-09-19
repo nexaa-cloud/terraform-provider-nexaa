@@ -1,15 +1,8 @@
-data "nexaa_container_resources" "container_resource" {
-  cpu    = 0.25
-  memory = 0.5
-}
-
-resource "nexaa_container" "container" {
-  name      = "tf-container"
+resource "nexaa_starter_container" "starter-container" {
+  name      = "tf-starter-container"
   namespace = "terraform"
   image     = "nginx:latest"
   registry  = "gitlab"
-
-  resources = data.nexaa_container_resources.container_resource.id
 
   ports = ["8000:8000", "80:80"]
 
@@ -50,26 +43,5 @@ resource "nexaa_container" "container" {
   health_check = {
     port = 80
     path = "/storage/health"
-  }
-
-  scaling = {
-    type = "auto"
-
-    #manual_input = 1
-    auto_input = {
-      minimal_replicas = 1
-      maximal_replicas = 3
-
-      triggers = [
-        {
-          type      = "CPU"
-          threshold = 70
-        },
-        {
-          type      = "MEMORY"
-          threshold = 80
-        }
-      ]
-    }
   }
 }
