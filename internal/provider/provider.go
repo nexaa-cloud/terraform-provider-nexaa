@@ -151,6 +151,7 @@ func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resourc
 		resources.NewVolumeResource,
 		resources.NewRegistryResource,
 		resources.NewContainerResource,
+		resources.NewStarterContainerResource,
 		resources.NewContainerJobResource,
 		resources.NewCloudDatabaseClusterResource,
 		resources.NewCloudDatabaseClusterDatabaseResource,
