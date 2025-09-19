@@ -353,27 +353,80 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		Resources: api.ContainerResources(plan.Resources.ValueString()),
 	}
 
-	// Use common functions to build input
-	ports, diags := buildPortsInput(ctx, plan.Ports)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	//Ports
+	if !plan.Ports.IsNull() && !plan.Ports.IsUnknown() {
+		var ports []string
+		diags = plan.Ports.ElementsAs(ctx, &ports, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Ports = ports
+	} else {
+		input.Ports = make([]string, 0)
 	}
-	input.Ports = ports
 
-	mounts, diags := buildMountsInput(ctx, plan.Mounts)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Mounts
+	if !plan.Mounts.IsNull() && !plan.Mounts.IsUnknown() {
+		var mounts []mountResource
+		diags = plan.Mounts.ElementsAs(ctx, &mounts, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		for _, m := range mounts {
+			input.Mounts = append(input.Mounts, api.MountInput{
+				Path: m.Path.ValueString(),
+				Volume: api.MountVolumeInput{
+					Name:       m.Volume.ValueString(),
+					AutoCreate: false,
+					Increase:   false,
+					Size:       nil,
+				},
+				State: api.StatePresent,
+			})
+		}
+	} else {
+		input.Mounts = []api.MountInput{}
 	}
-	input.Mounts = mounts
 
-	ingresses, diags := buildIngressesInput(ctx, plan.Ingresses)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Ingress
+	if !plan.Ingresses.IsNull() && !plan.Ingresses.IsUnknown() {
+		var ingresses []ingresResource
+		diags = plan.Ingresses.ElementsAs(ctx, &ingresses, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Ingresses = make([]api.IngressInput, 0, len(ingresses))
+		for _, ing := range ingresses {
+			if !ing.Port.IsNull() {
+				allowList := []string{}
+				if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
+					var rawAllowList []types.String
+					_ = ing.AllowList.ElementsAs(ctx, &rawAllowList, false)
+					for _, ip := range rawAllowList {
+						allowList = append(allowList, ip.ValueString())
+					}
+				}
+				var domain string
+				if !ing.DomainName.IsNull() || !ing.DomainName.IsUnknown() {
+					domain = ing.DomainName.ValueString()
+				} else {
+					domain = "	"
+				}
+				input.Ingresses = append(input.Ingresses, api.IngressInput{
+					DomainName: &domain,
+					Port:       int(ing.Port.ValueInt64()),
+					EnableTLS:  ing.TLS.ValueBool(),
+					Whitelist:  allowList,
+					State:      api.StatePresent,
+				})
+			}
+		}
+	} else {
+		input.Ingresses = []api.IngressInput{}
 	}
-	input.Ingresses = ingresses
 
 	// Environment variables (build API input from plan)
 	inputs, dEnv := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -385,13 +438,20 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		input.EnvironmentVariables = inputs
 	}
 
-	// Health check
-	healthCheck, diags := buildHealthCheckInput(ctx, plan.HealthCheck)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Healthcheck
+	if !plan.HealthCheck.IsNull() && !plan.HealthCheck.IsUnknown() {
+		var hc healthcheckResource
+		diags = plan.HealthCheck.As(ctx, &hc, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		input.HealthCheck = &api.HealthCheckInput{
+			Port: int(hc.Port.ValueInt64()),
+			Path: hc.Path.ValueString(),
+		}
 	}
-	input.HealthCheck = healthCheck
 
 	// Scaling
 	var scaling scalingResource
@@ -475,13 +535,20 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.EnvironmentVariables = setVal
 	}
 
-	// Use common functions for response processing
-	portList, diags := buildPortsState(containerResult)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Ports
+	if containerResult.Ports != nil {
+		ports := make([]attr.Value, len(containerResult.Ports))
+		for i, p := range containerResult.Ports {
+			ports[i] = types.StringValue(p)
+		}
+
+		portList, diags := types.ListValue(types.StringType, ports)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Ports = portList
 	}
-	plan.Ports = portList
 
 	// Mounts
 	if containerResult.Mounts != nil {
@@ -494,15 +561,25 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Ingresses
-	ingressesList, d := buildIngressesFromApi(containerResult)
+	ingresses, d := buildIngressesFromApi(containerResult)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	plan.Ingresses = ingressesList
+	plan.Ingresses = ingresses
 
 	// Health check
-	plan.HealthCheck = buildHealthCheckState(containerResult)
+	if containerResult.HealthCheck != nil {
+		hc := types.ObjectValueMust(map[string]attr.Type{
+			"port": types.Int64Type,
+			"path": types.StringType,
+		},
+			map[string]attr.Value{
+				"port": types.Int64Value(int64(containerResult.HealthCheck.Port)),
+				"path": types.StringValue(containerResult.HealthCheck.Path),
+			})
+		plan.HealthCheck = hc
+	}
 
 	// Scaling
 	autoInputType := types.ObjectType{
@@ -640,12 +717,19 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	// Ports
-	portList, diags := buildPortsState(container)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	if container.Ports != nil {
+		ports := make([]attr.Value, len(container.Ports))
+		for i, p := range container.Ports {
+			ports[i] = types.StringValue(p)
+		}
+
+		portList, diags := types.ListValue(types.StringType, ports)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Ports = portList
 	}
-	state.Ports = portList
 
 	// Mounts
 	if container.Mounts != nil {
@@ -667,7 +751,17 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.Ingresses = ingressesTF
 
 	// Health check
-	state.HealthCheck = buildHealthCheckState(container)
+	if container.HealthCheck != nil {
+		hc := types.ObjectValueMust(map[string]attr.Type{
+			"port": types.Int64Type,
+			"path": types.StringType,
+		},
+			map[string]attr.Value{
+				"port": types.Int64Value(int64(container.HealthCheck.Port)),
+				"path": types.StringValue(container.HealthCheck.Path),
+			})
+		state.HealthCheck = hc
+	}
 
 	// Scaling
 	// Declare autoInputType once
@@ -790,40 +884,125 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		Resources: &containerResources,
 	}
 
-	// Ports
-	ports, diags := buildPortsInput(ctx, plan.Ports)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	input.Ports = ports
-
-	// Mounts - get previous state for comparison
-	var prev containerResource
-	prevMounts := types.ListNull(MountsObjectType())
-	if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
-		diags := req.State.Get(ctx, &prev)
+	//Ports
+	if !plan.Ports.IsNull() && !plan.Ports.IsUnknown() {
+		var ports []string
+		diags = plan.Ports.ElementsAs(ctx, &ports, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		prevMounts = prev.Mounts
+		input.Ports = ports
+	} else {
+		input.Ports = make([]string, 0)
 	}
 
-	mounts, diags := buildMountsUpdateInput(ctx, plan.Mounts, prevMounts)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Mounts
+	var previousMounts []mountResource
+	if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
+		var prev containerResource
+		diags := req.State.Get(ctx, &prev)
+		resp.Diagnostics.Append(diags...)
+		if !prev.Mounts.IsNull() && !prev.Mounts.IsUnknown() {
+			_ = prev.Mounts.ElementsAs(ctx, &previousMounts, false)
+		}
 	}
-	input.Mounts = mounts
 
-	// Ingresses
-	ingresses, diags := buildIngressesUpdateInput(ctx, plan.Ingresses, prev.Ingresses)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	input.Mounts = []api.MountInput{}
+	plannedMounts := map[string]struct{}{}
+	if !plan.Mounts.IsNull() && !plan.Mounts.IsUnknown() {
+		var mounts []mountResource
+		diags = plan.Mounts.ElementsAs(ctx, &mounts, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		for _, m := range mounts {
+			key := fmt.Sprintf("%s|%s", m.Path.ValueString(), m.Volume.ValueString())
+			plannedMounts[key] = struct{}{}
+			input.Mounts = append(input.Mounts, api.MountInput{
+				Path: m.Path.ValueString(),
+				Volume: api.MountVolumeInput{
+					Name:       m.Volume.ValueString(),
+					AutoCreate: false,
+					Increase:   false,
+					Size:       nil,
+				},
+				State: api.StatePresent,
+			})
+		}
 	}
-	input.Ingresses = ingresses
+	for _, m := range previousMounts {
+		key := fmt.Sprintf("%s|%s", m.Path.ValueString(), m.Volume.ValueString())
+		if _, exists := plannedMounts[key]; !exists {
+			input.Mounts = append(input.Mounts, api.MountInput{
+				Path: m.Path.ValueString(),
+				Volume: api.MountVolumeInput{
+					Name:       m.Volume.ValueString(),
+					AutoCreate: false,
+					Increase:   false,
+					Size:       nil,
+				},
+				State: api.StateAbsent,
+			})
+		}
+	}
+
+	if !plan.Ingresses.IsNull() && !plan.Ingresses.IsUnknown() {
+		var ingresses []ingresResource
+		dag := plan.Ingresses.ElementsAs(ctx, &ingresses, false)
+		resp.Diagnostics.Append(dag...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		// In Update(), after building planned ingresses:
+		var previousIngresses []ingresResource
+		if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
+			var prev containerResource
+			diags := req.State.Get(ctx, &prev)
+			resp.Diagnostics.Append(diags...)
+			if !prev.Ingresses.IsNull() && !prev.Ingresses.IsUnknown() {
+				_ = prev.Ingresses.ElementsAs(ctx, &previousIngresses, false)
+			}
+		}
+
+		plannedIngresses := map[string]struct{}{}
+		for _, ing := range ingresses {
+			allowList := []string{}
+			if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
+				var allowListVals []string
+				diags := ing.AllowList.ElementsAs(ctx, &allowListVals, false)
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				allowList = allowListVals
+			}
+
+			key := ing.DomainName.ValueString()
+			plannedIngresses[key] = struct{}{}
+			input.Ingresses = append(input.Ingresses, api.IngressInput{
+				DomainName: ing.DomainName.ValueStringPointer(),
+				Port:       int(ing.Port.ValueInt64()),
+				EnableTLS:  ing.TLS.ValueBool(),
+				Whitelist:  allowList,
+				State:      api.StatePresent,
+			})
+		}
+
+		for _, prevIng := range previousIngresses {
+			key := prevIng.DomainName.ValueString()
+			if _, exists := plannedIngresses[key]; !exists {
+				input.Ingresses = append(input.Ingresses, api.IngressInput{
+					DomainName: prevIng.DomainName.ValueStringPointer(),
+					Port:       int(prevIng.Port.ValueInt64()),
+					EnableTLS:  prevIng.TLS.ValueBool(),
+					State:      api.StateAbsent,
+				})
+			}
+		}
+	}
 
 	// Environment variables (build API input from plan)
 	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -835,13 +1014,20 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		input.EnvironmentVariables = inputsUpd
 	}
 
-	// Health check
-	healthCheck, diags := buildHealthCheckInput(ctx, plan.HealthCheck)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	// Healthcheck
+	if !plan.HealthCheck.IsNull() && !plan.HealthCheck.IsUnknown() {
+		var hc healthcheckResource
+		diags = plan.HealthCheck.As(ctx, &hc, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		input.HealthCheck = &api.HealthCheckInput{
+			Port: int(hc.Port.ValueInt64()),
+			Path: hc.Path.ValueString(),
+		}
 	}
-	input.HealthCheck = healthCheck
 
 	// Scaling
 	var scaling scalingResource
@@ -953,12 +1139,19 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Ports
-	portList, diags := buildPortsState(containerResult)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
+	if containerResult.Ports != nil {
+		ports := make([]attr.Value, len(containerResult.Ports))
+		for i, p := range containerResult.Ports {
+			ports[i] = types.StringValue(p)
+		}
+
+		portList, diags := types.ListValue(types.StringType, ports)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Ports = portList
 	}
-	plan.Ports = portList
 
 	// Mounts
 	if containerResult.Mounts != nil {
@@ -970,15 +1163,25 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Mounts = mountList
 	}
 
-	ingressesList, d := buildIngressesFromApi(containerResult)
+	ingresses, d := buildIngressesFromApi(containerResult)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	plan.Ingresses = ingressesList
+	plan.Ingresses = ingresses
 
 	// Health check
-	plan.HealthCheck = buildHealthCheckState(containerResult)
+	if containerResult.HealthCheck != nil {
+		hc := types.ObjectValueMust(map[string]attr.Type{
+			"port": types.Int64Type,
+			"path": types.StringType,
+		},
+			map[string]attr.Value{
+				"port": types.Int64Value(int64(containerResult.HealthCheck.Port)),
+				"path": types.StringValue(containerResult.HealthCheck.Path),
+			})
+		plan.HealthCheck = hc
+	}
 
 	// Scaling
 	autoInputType := types.ObjectType{
@@ -1117,11 +1320,16 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 }
 
 func (r *containerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	namespace, name, err := parseContainerImportID(req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid import ID", err.Error())
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			"Expected import ID in the format \"<namespace>/<container_name>\", got: "+req.ID,
+		)
 		return
 	}
+	namespace := parts[0]
+	name := parts[1]
 
 	// Fetch the container from your API
 	client := api.NewClient()
@@ -1134,14 +1342,59 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 
-	// Use common function to build basic state
-	stateValues, diags := buildContainerImportState(ctx, container, namespace, name)
+	// Environment Variables (import)
+	envTF := types.SetNull(envVarObjectType())
+	if container.EnvironmentVariables != nil {
+		setVal, _ := buildEnvSetFromAPI(ctx, container.EnvironmentVariables, nil, types.SetNull(envVarObjectType()), secretMaskOnly)
+		envTF = setVal
+	}
+
+	// Ports
+	ports := make([]attr.Value, len(container.Ports))
+	for i, p := range container.Ports {
+		ports[i] = types.StringValue(p)
+	}
+
+	portList, diags := types.ListValue(types.StringType, ports)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Build scaling state (not included in common function since starter containers don't have scaling)
+	// Mounts
+	mountTF := types.ListNull(MountsObjectType())
+	if container.Mounts != nil {
+		mountList, d := buildMountsFromApi(container.Mounts)
+		resp.Diagnostics.Append(d...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		mountTF = mountList
+	}
+
+	// Ingresses
+	ingressesTF, _ := buildIngressesFromApi(container)
+
+	// Health Check
+	var healthTF types.Object
+	if container.HealthCheck != nil {
+		healthTF = types.ObjectValueMust(
+			map[string]attr.Type{
+				"port": types.Int64Type,
+				"path": types.StringType,
+			},
+			map[string]attr.Value{
+				"port": types.Int64Value(int64(container.HealthCheck.Port)),
+				"path": types.StringValue(container.HealthCheck.Path),
+			},
+		)
+	} else {
+		healthTF = types.ObjectNull(map[string]attr.Type{
+			"port": types.Int64Type,
+			"path": types.StringType,
+		})
+	}
+
 	autoInputType := types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"minimal_replicas": types.Int64Type,
@@ -1223,32 +1476,21 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		)
 	}
 
-	// Create state using common values and add scaling + timeouts
 	state := containerResource{
-		ID:                   stateValues["id"].(types.String),
-		Name:                 stateValues["name"].(types.String),
-		Namespace:            stateValues["namespace"].(types.String),
-		Image:                stateValues["image"].(types.String),
-		Registry:             stateValues["registry"].(types.String),
+		ID:                   types.StringValue(container.Name),
+		Name:                 types.StringValue(container.Name),
+		Namespace:            types.StringValue(namespace),
+		Image:                types.StringValue(container.Image),
+		Registry:             processRegistryName(container),
 		Resources:            types.StringValue(string(container.Resources)),
-		EnvironmentVariables: stateValues["environment_variables"].(types.Set),
-		Ports:                stateValues["ports"].(types.List),
-		Ingresses:            stateValues["ingresses"].(types.List),
-		Mounts:               stateValues["mounts"].(types.List),
-		HealthCheck:          stateValues["health_check"].(types.Object),
-		Status:               stateValues["status"].(types.String),
-		LastUpdated:          stateValues["last_updated"].(types.String),
+		EnvironmentVariables: envTF,
+		Ports:                portList,
+		Ingresses:            ingressesTF,
+		Mounts:               mountTF,
+		HealthCheck:          healthTF,
+		Status:               types.StringValue(container.State),
+		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
 	}
-
-	// Add scaling (specific to regular containers)
-	if obj, ok := scalingObj.(types.Object); ok {
-		state.Scaling = obj
-	} else {
-		resp.Diagnostics.AddError("Error importing container", "Failed to build scaling object")
-		return
-	}
-
-	// Add timeouts
 	state.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
@@ -1262,6 +1504,13 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 				"delete": types.StringValue("30s"),
 			},
 		),
+	}
+
+	if obj, ok := scalingObj.(types.Object); ok {
+		state.Scaling = obj
+	} else {
+		resp.Diagnostics.AddError("Error importing container", "Could not import container: "+err.Error())
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
