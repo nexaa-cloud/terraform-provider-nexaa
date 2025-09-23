@@ -31,7 +31,37 @@ resource "nexaa_namespace" "namespace" {
 ```
 
 ## Container
-Now we can deploy a container, a container is an application which runs in an encapsulated environment. You can specify the amount of resources needed for your container.
+Now we can deploy a container, a container is an application which runs in an encapsulated environment. 
+There is is two types of containers you can create: starter or default. 
+
+### Starter
+A starter container is a container with predefined resources and replicas, for a fixed price per month. You cannot change the resources or scaling of a starter container. By default, the container has no persistent storage,
+so all the data which has been saved in your container will be gone after an update.
+```terraform
+
+resource "nexaa_starter_container" "starter_container" {
+  depends_on = [
+    nexaa_namespace.namespace
+  ]
+  name      = "starter-container"
+  namespace = nexaa_namespace.namespace.name
+  image     = "nginx:latest"
+  
+  ports = ["80:80"]
+
+  ingresses = [
+    {
+      domain_name = "example.com" # domain_nane is optional if left empty we will provide one
+      port        = 80
+      tls         = true
+      allow_list  = ["0.0.0.0/0"]
+    }
+  ]
+}
+```
+
+### Default
+You can specify the amount of resources needed for your container.
 This is a data source called `nexaa_container_resources`, where you can specify your cpu and memory. By default, the container has no persistent storage,
 so all the data which has been saved in your container will be gone after an update.
 ```terraform

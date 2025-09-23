@@ -1,29 +1,22 @@
 ---
-page_title: "nexaa_container Resource - Nexaa"
+page_title: "nexaa_starter_container Resource - Nexaa"
 subcategory: ""
 description: |-
-  Container resource representing a container that will be deployed on nexaa.
+  Starter container resource representing a starter container that will be deployed on nexaa.
 ---
 
-# nexaa_container (Resource)
+# nexaa_starter_container (Resource)
 
-Container resource representing a container that will be deployed on nexaa.
+Starter container resource representing a starter container that will be deployed on nexaa.
 
 ## Example Usage
 
 ```terraform
-data "nexaa_container_resources" "container_resource" {
-  cpu    = 0.25
-  memory = 0.5
-}
-
-resource "nexaa_container" "container" {
-  name      = "tf-container"
+resource "nexaa_starter_container" "starter-container" {
+  name      = "tf-starter-container"
   namespace = "terraform"
   image     = "nginx:latest"
   registry  = "gitlab"
-
-  resources = data.nexaa_container_resources.container_resource.id
 
   ports = ["8000:8000", "80:80"]
 
@@ -65,27 +58,6 @@ resource "nexaa_container" "container" {
     port = 80
     path = "/storage/health"
   }
-
-  scaling = {
-    type = "auto"
-
-    #manual_input = 1
-    auto_input = {
-      minimal_replicas = 1
-      maximal_replicas = 3
-
-      triggers = [
-        {
-          type      = "CPU"
-          threshold = 70
-        },
-        {
-          type      = "MEMORY"
-          threshold = 80
-        }
-      ]
-    }
-  }
 }
 ```
 
@@ -97,8 +69,6 @@ resource "nexaa_container" "container" {
 - `image` (String) The image use to run the container
 - `name` (String) Name of the container
 - `namespace` (String) Name of the namespace that the container will belong to
-- `resources` (String) The resources used for running the container, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory
-- `scaling` (Attributes) Used to specify or automaticaly scale the amount of replicas running (see [below for nested schema](#nestedatt--scaling))
 
 ### Optional
 
@@ -113,43 +83,8 @@ resource "nexaa_container" "container" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the private registry
+- `last_updated` (String) Timestamp of the last Terraform update of the starter container
 - `status` (String) The status of the container
-
-<a id="nestedatt--scaling"></a>
-### Nested Schema for `scaling`
-
-Required:
-
-- `type` (String) The type of scaling you want, auto or manual
-
-Optional:
-
-- `auto_input` (Attributes) The input for the autoscaling (see [below for nested schema](#nestedatt--scaling--auto_input))
-- `manual_input` (Number) The input for manual scaling, equal to the amount of running replicas you want
-
-<a id="nestedatt--scaling--auto_input"></a>
-### Nested Schema for `scaling.auto_input`
-
-Required:
-
-- `maximal_replicas` (Number) The maximum amount of replicas you want to scale to
-- `minimal_replicas` (Number) The minimal amount of replicas you want
-
-Optional:
-
-- `triggers` (Attributes List) Used as condition as to when the container needs to add a replica, you can have 2 triggers, one for each type (see [below for nested schema](#nestedatt--scaling--auto_input--triggers))
-
-<a id="nestedatt--scaling--auto_input--triggers"></a>
-### Nested Schema for `scaling.auto_input.triggers`
-
-Required:
-
-- `threshold` (Number) The amount percentage wise needed to add another replica
-- `type` (String) The type of metric used for specifying what the triggers monitors, is either MEMORY or CPU
-
-
-
 
 <a id="nestedatt--environment_variables"></a>
 ### Nested Schema for `environment_variables`
@@ -213,5 +148,5 @@ The [` + "`" + `terraform import` + "`" + ` command](https://developer.hashicorp
 
 ```shell
 #!/bin/bash
-terraform import nexaa_container "namespace/container_name"
+terraform import nexaa_starter_container "namespace/container_name"
 ```

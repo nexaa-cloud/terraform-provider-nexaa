@@ -30,16 +30,18 @@ resource "nexaa_registry" "registry" {
   verify    = false
 }
 
+data "nexaa_container_resources" "container_resource" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container" "container" {
   name      = "tf-container2"
   namespace = nexaa_namespace.namespace.name
   image     = "nginx:latest"
   registry  = null
 
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
+  resources = data.nexaa_container_resources.container_resource.id
 
   ports = ["8000:8000", "80:80", "8008:8008"]
 
@@ -101,6 +103,54 @@ resource "nexaa_container" "container" {
         }
       ]
     }
+  }
+}
+
+resource "nexaa_starter_container" "starter-container" {
+  name      = "tf-starter-container"
+  namespace = nexaa_namespace.namespace.name
+  image     = "nginx:latest"
+  registry  = null
+
+  ports = ["8000:8000", "80:80", "8008:8008"]
+
+  environment_variables = [
+    {
+      name   = "ENV"
+      value  = "production"
+      secret = false
+    },
+    {
+      name   = "Variable"
+      value  = "finish"
+      secret = false
+    },
+    {
+      name   = "API_KEY"
+      value  = "supersecret"
+      secret = true
+    },
+  ]
+
+  ingresses = [
+    {
+      domain_name = null
+      port        = 8008
+      tls         = true
+      allow_list  = ["0.0.0.0/0"]
+    }
+  ]
+
+  mounts = [
+    {
+      path   = "/storage/mount1"
+      volume = "storage"
+    }
+  ]
+
+  health_check = {
+    port = 80
+    path = "/storage/health"
   }
 }
 
