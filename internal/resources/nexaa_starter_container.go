@@ -43,6 +43,8 @@ type starterContainerResource struct {
 	Namespace            types.String   `tfsdk:"namespace"`
 	Image                types.String   `tfsdk:"image"`
 	Registry             types.String   `tfsdk:"registry"`
+	Command              types.List     `tfsdk:"command"`
+	Entrypoint           types.List     `tfsdk:"entrypoint"`
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
@@ -102,6 +104,18 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 			"registry": schema.StringAttribute{
 				Optional:    true,
 				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
+			},
+			"command": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				Description: "Command to run. When the field is omitted, the default command of the image will be used. The command will be passed to the entrypoint as arguments. Environment variables can be used in the command by using the syntax $(ENVIRONMENT_VARIABLE).",
+			},
+			"entrypoint": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				Description: "Entrypoint of the container. This field will overwrite the default entrypoint of the image. When the field is omitted, the default entrypoint of the image will be used. Entry point is the first command executed when the container starts. It will receive the command as arguments.",
 			},
 			"ports": schema.ListAttribute{
 				ElementType: types.StringType,
@@ -251,6 +265,28 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		Resources: api.ContainerResourcesCpu250Ram500,
 	}
 
+	// Command
+	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
+		var command []string
+		diags := plan.Command.ElementsAs(ctx, &command, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Command = command
+	}
+
+	// Entrypoint
+	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
+		var entrypoint []string
+		diags := plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Entrypoint = entrypoint
+	}
+
 	// Use common functions to build input
 	ports, diags := buildPortsInput(ctx, plan.Ports)
 	resp.Diagnostics.Append(diags...)
@@ -333,6 +369,38 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 
 	plan.Registry = processRegistryName(containerResult)
 
+	// Command
+	if containerResult.Command != nil && len(containerResult.Command) > 0 {
+		commandValues := make([]attr.Value, len(containerResult.Command))
+		for i, cmd := range containerResult.Command {
+			commandValues[i] = types.StringValue(cmd)
+		}
+		commandList, diags := types.ListValue(types.StringType, commandValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Command = commandList
+	} else {
+		plan.Command = types.ListNull(types.StringType)
+	}
+
+	// Entrypoint
+	if containerResult.Entrypoint != nil && len(containerResult.Entrypoint) > 0 {
+		entrypointValues := make([]attr.Value, len(containerResult.Entrypoint))
+		for i, ep := range containerResult.Entrypoint {
+			entrypointValues[i] = types.StringValue(ep)
+		}
+		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Entrypoint = entrypointList
+	} else {
+		plan.Entrypoint = types.ListNull(types.StringType)
+	}
+
 	// Environment variables (state population)
 	if containerResult.EnvironmentVariables != nil {
 		setVal, d := buildEnvSetFromAPI(ctx, containerResult.EnvironmentVariables, input.EnvironmentVariables, types.SetNull(envVarObjectType()), secretUseProvided)
@@ -406,6 +474,38 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 
 	state.Registry = processRegistryName(container)
 
+	// Command
+	if container.Command != nil && len(container.Command) > 0 {
+		commandValues := make([]attr.Value, len(container.Command))
+		for i, cmd := range container.Command {
+			commandValues[i] = types.StringValue(cmd)
+		}
+		commandList, diags := types.ListValue(types.StringType, commandValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Command = commandList
+	} else {
+		state.Command = types.ListNull(types.StringType)
+	}
+
+	// Entrypoint
+	if container.Entrypoint != nil && len(container.Entrypoint) > 0 {
+		entrypointValues := make([]attr.Value, len(container.Entrypoint))
+		for i, ep := range container.Entrypoint {
+			entrypointValues[i] = types.StringValue(ep)
+		}
+		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Entrypoint = entrypointList
+	} else {
+		state.Entrypoint = types.ListNull(types.StringType)
+	}
+
 	// Environment variables (refresh state)
 	if container.EnvironmentVariables != nil {
 		setVal, d := buildEnvSetFromAPI(ctx, container.EnvironmentVariables, nil, state.EnvironmentVariables, secretPreservePrev)
@@ -470,6 +570,28 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
+	}
+
+	// Command
+	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
+		var command []string
+		diags := plan.Command.ElementsAs(ctx, &command, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Command = command
+	}
+
+	// Entrypoint
+	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
+		var entrypoint []string
+		diags := plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Entrypoint = entrypoint
 	}
 
 	// Use common functions for input building
@@ -540,6 +662,7 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating starter container", "Could not reach a running state: "+err.Error())
+		return
 	}
 
 	// modify containerResult
@@ -552,6 +675,7 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating starter container", "Could not reach a running state: "+err.Error())
+		return
 	}
 
 	containerResult, err = client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString())
@@ -567,6 +691,38 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	plan.Image = types.StringValue(containerResult.Image)
 
 	plan.Registry = processRegistryName(containerResult)
+
+	// Command
+	if containerResult.Command != nil && len(containerResult.Command) > 0 {
+		commandValues := make([]attr.Value, len(containerResult.Command))
+		for i, cmd := range containerResult.Command {
+			commandValues[i] = types.StringValue(cmd)
+		}
+		commandList, diags := types.ListValue(types.StringType, commandValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Command = commandList
+	} else {
+		plan.Command = types.ListNull(types.StringType)
+	}
+
+	// Entrypoint
+	if containerResult.Entrypoint != nil && len(containerResult.Entrypoint) > 0 {
+		entrypointValues := make([]attr.Value, len(containerResult.Entrypoint))
+		for i, ep := range containerResult.Entrypoint {
+			entrypointValues[i] = types.StringValue(ep)
+		}
+		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		plan.Entrypoint = entrypointList
+	} else {
+		plan.Entrypoint = types.ListNull(types.StringType)
+	}
 
 	// Environment variables (update state)
 	if containerResult.EnvironmentVariables != nil {
@@ -640,7 +796,8 @@ func (r *starterContainerResource) Delete(ctx context.Context, req resource.Dele
 	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting starter container", "Could not reach a running plan: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting starter container", "Could not reach a running state: "+err.Error())
+		return
 	}
 
 	_, err = client.ContainerDelete(plan.Namespace.ValueString(), plan.Name.ValueString())
@@ -701,6 +858,8 @@ func (r *starterContainerResource) ImportState(ctx context.Context, req resource
 		Namespace:            stateAttrs["namespace"].(types.String),
 		Image:                stateAttrs["image"].(types.String),
 		Registry:             stateAttrs["registry"].(types.String),
+		Command:              stateAttrs["command"].(types.List),
+		Entrypoint:           stateAttrs["entrypoint"].(types.List),
 		EnvironmentVariables: stateAttrs["environment_variables"].(types.Set),
 		Ports:                stateAttrs["ports"].(types.List),
 		Ingresses:            stateAttrs["ingresses"].(types.List),

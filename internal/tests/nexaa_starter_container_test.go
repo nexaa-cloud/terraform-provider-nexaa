@@ -23,6 +23,9 @@ resource "nexaa_starter_container" "starter_container" {
   image     = "nginx:latest"
   registry  = null
 
+  command = ["nginx", "-g", "daemon off;"]
+  entrypoint = ["/docker-entrypoint.sh"]
+
   ports = ["80:80"]
 
   environment_variables = [
@@ -61,6 +64,9 @@ resource "nexaa_starter_container" "starter_container" {
   namespace = nexaa_namespace.ns.name
   image     = "nginx:alpine"
   registry  = %q
+
+  command = ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+  entrypoint = ["/docker-entrypoint.sh"]
 
   ports = ["80:80", "%d:%d"]
 
@@ -120,6 +126,12 @@ func TestAcc_StarterContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "name", containerName),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "image", "nginx:latest"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "command.#", "3"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "command.0", "nginx"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "command.1", "-g"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "command.2", "daemon off;"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "entrypoint.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "entrypoint.0", "/docker-entrypoint.sh"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "ports.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "ingresses.#", "1"),
