@@ -9,6 +9,9 @@ resource "nexaa_container" "container" {
   image     = "nginx:latest"
   registry  = "gitlab"
 
+  command    = ["nginx", "-g", "daemon off;"]
+  entrypoint = ["/docker-entrypoint.sh"]
+
   resources = data.nexaa_container_resources.container_resource.id
 
   ports = ["8000:8000", "80:80"]

@@ -1,5 +1,5 @@
 ---
-page_title: "nexaa_container Resource - Nexaa"
+page_title: "nexaa_container Resource - nexaa"
 subcategory: ""
 description: |-
   Container resource representing a container that will be deployed on nexaa.
@@ -22,6 +22,9 @@ resource "nexaa_container" "container" {
   namespace = "terraform"
   image     = "nginx:latest"
   registry  = "gitlab"
+
+  command    = ["nginx", "-g", "daemon off;"]
+  entrypoint = ["/docker-entrypoint.sh"]
 
   resources = data.nexaa_container_resources.container_resource.id
 
@@ -102,6 +105,8 @@ resource "nexaa_container" "container" {
 
 ### Optional
 
+- `command` (List of String) Command to run. When the field is omitted, the default command of the image will be used. The command will be passed to the entrypoint as arguments. Environment variables can be used in the command by using the syntax $(ENVIRONMENT_VARIABLE).
+- `entrypoint` (List of String) Entrypoint of the container. This field will overwrite the default entrypoint of the image. When the field is omitted, the default entrypoint of the image will be used. Entry point is the first command executed when the container starts. It will receive the command as arguments.
 - `environment_variables` (Attributes Set) Environment variables used in the container; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
@@ -209,7 +214,7 @@ Optional:
 
 Import is supported using the following syntax:
 
-The [` + "`" + `terraform import` + "`" + ` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/bin/bash

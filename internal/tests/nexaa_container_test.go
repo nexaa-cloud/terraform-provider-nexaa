@@ -18,6 +18,11 @@ func containerConfig(namespaceName, containerName, registryName, registryUsernam
 		givenNamespace(namespaceName, "") +
 		givenRegistry(registryName, registryUsername, registryPassword) +
 		fmt.Sprintf(`
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container" "container" {
   depends_on = [nexaa_registry.registry]
   name      = %q
@@ -25,10 +30,10 @@ resource "nexaa_container" "container" {
   image     = "nginx:latest"
   registry  = null
 
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
+  command = ["nginx", "-g", "daemon off;"]
+  entrypoint = ["/docker-entrypoint.sh"]
+
+  resources = data.nexaa_container_resources.small.id
 
   ports = ["80:80"]
 
@@ -81,6 +86,11 @@ func containerUpdateConfig(namespaceName, containerName, registryName, registryU
 		givenNamespace(namespaceName, "") +
 		givenRegistry(registryName, registryUsername, registryPassword) +
 		fmt.Sprintf(`
+data "nexaa_container_resources" "medium" {
+  cpu    = 0.5
+  memory = 1.0
+}
+
 resource "nexaa_container" "container" {
   depends_on = [nexaa_registry.registry]
   name      = %q
@@ -88,10 +98,10 @@ resource "nexaa_container" "container" {
   image     = "nginx:alpine"
   registry  = %q
 
-  resources = {
-    cpu = 0.5
-    ram = 1.0
-  }
+  command = ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+  entrypoint = ["/docker-entrypoint.sh"]
+
+  resources = data.nexaa_container_resources.medium.id
 
   ports = ["80:80", "%d:%d"]
 
@@ -131,9 +141,7 @@ resource "nexaa_container" "container" {
 }
 
 func TestAcc_ContainerResource_basic(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-	}
+	testAccPreCheck(t)
 
 	// Generate random test data
 	namespaceName := generateTestNamespace()
@@ -162,8 +170,13 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "name", containerName),
 					resource.TestCheckResourceAttr("nexaa_container.container", "namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "resources.cpu", "0.25"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "resources.ram", "0.5"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.#", "3"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.0", "nginx"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.1", "-g"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.2", "daemon off;"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.0", "/docker-entrypoint.sh"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
@@ -197,8 +210,15 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:alpine"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "registry", registryName),
-					resource.TestCheckResourceAttr("nexaa_container.container", "resources.cpu", "0.5"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "resources.ram", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.#", "5"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.0", "nginx"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.1", "-g"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.2", "daemon off;"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.3", "-c"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "command.4", "/etc/nginx/nginx.conf"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.0", "/docker-entrypoint.sh"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "resources", "CPU_500_RAM_1000"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "2"),
 					checkEnvironmentVariablesSet(map[string]string{envVar1: envValue1, envVar2: envValue2}),
@@ -260,6 +280,11 @@ func checkEnvironmentVariablesSet(expected map[string]string) resource.TestCheck
 
 func minimalContainerConfig(namespaceName, containerName string) string {
 	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -267,10 +292,7 @@ resource "nexaa_container" "container" {
   image     = "nginx:latest"
   registry  = null
 
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
+  resources = data.nexaa_container_resources.small.id
 
   scaling = {
     type = "manual"
@@ -321,6 +343,11 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 
 func minimalContainerWithIngressConfig(namespaceName, containerName string) string {
 	return givenProvider() + givenNamespace(namespaceName, "") + fmt.Sprintf(`
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -328,10 +355,7 @@ resource "nexaa_container" "container" {
   image     = "nginx:latest"
   registry  = null
 
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
+  resources = data.nexaa_container_resources.small.id
 
   ports = ["80:80"]
 
@@ -404,6 +428,11 @@ func minimalContainerWithDomainNameConfig(namespaceName, containerName string, d
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
 		fmt.Sprintf(`
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container" "container" {
   depends_on = [nexaa_namespace.ns]
   name      = %q
@@ -411,10 +440,7 @@ resource "nexaa_container" "container" {
   image     = "nginx:latest"
   registry  = null
 
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
+  resources = data.nexaa_container_resources.small.id
 
   ports = ["80:80"]
 

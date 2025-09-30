@@ -317,12 +317,44 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 	// Health Check
 	healthTF := buildHealthCheckState(container)
 
+	// Command
+	commandTF := types.ListNull(types.StringType)
+	if container.Command != nil && len(container.Command) > 0 {
+		commandValues := make([]attr.Value, len(container.Command))
+		for i, cmd := range container.Command {
+			commandValues[i] = types.StringValue(cmd)
+		}
+		commandList, d := types.ListValue(types.StringType, commandValues)
+		diags.Append(d...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		commandTF = commandList
+	}
+
+	// Entrypoint
+	entrypointTF := types.ListNull(types.StringType)
+	if container.Entrypoint != nil && len(container.Entrypoint) > 0 {
+		entrypointValues := make([]attr.Value, len(container.Entrypoint))
+		for i, ep := range container.Entrypoint {
+			entrypointValues[i] = types.StringValue(ep)
+		}
+		entrypointList, d := types.ListValue(types.StringType, entrypointValues)
+		diags.Append(d...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		entrypointTF = entrypointList
+	}
+
 	return map[string]attr.Value{
 		"id":                    types.StringValue(container.Name),
 		"name":                  types.StringValue(container.Name),
 		"namespace":             types.StringValue(namespace),
 		"image":                 types.StringValue(container.Image),
 		"registry":              processRegistryName(container),
+		"command":               commandTF,
+		"entrypoint":            entrypointTF,
 		"environment_variables": envTF,
 		"ports":                 portList,
 		"ingresses":             ingressesTF,
