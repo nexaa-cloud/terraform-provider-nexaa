@@ -191,30 +191,20 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Command
-	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
-		var command []string
-		diags = plan.Command.ElementsAs(ctx, &command, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		input.Command = command
-	} else {
-		input.Command = make([]string, 0)
+	command, diags := buildCommandInput(ctx, plan.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	input.Command = command
 
 	// Entrypoint
-	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
-		var entrypoint []string
-		diags = plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		input.Entrypoint = entrypoint
-	} else {
-		input.Entrypoint = make([]string, 0)
+	entrypoint, diags := buildEntrypointInput(ctx, plan.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	input.Entrypoint = entrypoint
 
 	// Mounts
 	if !plan.Mounts.IsNull() && !plan.Mounts.IsUnknown() {
@@ -297,32 +287,17 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Command
-	if containerJobResult.Command != nil {
-		commands := make([]attr.Value, len(containerJobResult.Command))
-		for i, c := range containerJobResult.Command {
-			commands[i] = types.StringValue(c)
-		}
-
-		commandList, diags := types.ListValue(types.StringType, commands)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Command = commandList
+	plan.Command, diags = buildCommandState(containerJobResult.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if containerJobResult.Entrypoint != nil {
-		entrypoints := make([]attr.Value, len(containerJobResult.Entrypoint))
-		for i, c := range containerJobResult.Entrypoint {
-			entrypoints[i] = types.StringValue(c)
-		}
-
-		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Entrypoint = entrypointList
+	// Entrypoint
+	plan.Entrypoint, diags = buildEntrypointState(containerJobResult.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Mounts
@@ -387,32 +362,17 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	// Command
-	if containerJob.Command != nil {
-		commands := make([]attr.Value, len(containerJob.Command))
-		for i, c := range containerJob.Command {
-			commands[i] = types.StringValue(c)
-		}
-
-		commandList, diags := types.ListValue(types.StringType, commands)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Command = commandList
+	state.Command, diags = buildCommandState(containerJob.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if containerJob.Entrypoint != nil {
-		entrypoints := make([]attr.Value, len(containerJob.Entrypoint))
-		for i, c := range containerJob.Entrypoint {
-			entrypoints[i] = types.StringValue(c)
-		}
-
-		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Entrypoint = entrypointList
+	// Entrypoint
+	state.Entrypoint, diags = buildEntrypointState(containerJob.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Mounts
@@ -456,24 +416,22 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Command
-	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
-		var command []string
-		diags = plan.Command.ElementsAs(ctx, &command, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	command, shouldUpdateCmd, diags := buildCommandUpdateInput(ctx, plan.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateCmd {
 		input.Command = command
 	}
 
 	// Entrypoint
-	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
-		var entrypoint []string
-		diags = plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	entrypoint, shouldUpdateEp, diags := buildEntrypointUpdateInput(ctx, plan.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateEp {
 		input.Entrypoint = entrypoint
 	}
 
@@ -590,33 +548,17 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Command
-	if containerJobResult.Command != nil {
-		commands := make([]attr.Value, len(containerJobResult.Command))
-		for i, c := range containerJobResult.Command {
-			commands[i] = types.StringValue(c)
-		}
-
-		commandList, diags := types.ListValue(types.StringType, commands)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Command = commandList
+	plan.Command, diags = buildCommandState(containerJobResult.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	// Command
-	if containerJobResult.Entrypoint != nil {
-		entrypoints := make([]attr.Value, len(containerJobResult.Entrypoint))
-		for i, c := range containerJobResult.Entrypoint {
-			entrypoints[i] = types.StringValue(c)
-		}
-
-		entrypointList, diags := types.ListValue(types.StringType, entrypoints)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Entrypoint = entrypointList
+	// Entrypoint
+	plan.Entrypoint, diags = buildEntrypointState(containerJobResult.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Mounts
@@ -703,23 +645,14 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 	}
 
 	// Command
-	commands := make([]attr.Value, len(containerJob.Command))
-	for i, c := range containerJob.Command {
-		commands[i] = types.StringValue(c)
-	}
-
-	commandList, diags := types.ListValue(types.StringType, commands)
+	commandList, diags := buildCommandState(containerJob.Command)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	entrypoints := make([]attr.Value, len(containerJob.Entrypoint))
-	for i, c := range containerJob.Entrypoint {
-		entrypoints[i] = types.StringValue(c)
-	}
-
-	entrypointList, diags := types.ListValue(types.StringType, entrypoints)
+	// Entrypoint
+	entrypointList, diags := buildEntrypointState(containerJob.Entrypoint)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return

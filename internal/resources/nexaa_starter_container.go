@@ -265,25 +265,23 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		Resources: api.ContainerResourcesCpu250Ram500,
 	}
 
-	// Command
-	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
-		var command []string
-		diags := plan.Command.ElementsAs(ctx, &command, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	// Command - only set if provided
+	command, shouldUpdateCmd, diags := buildCommandUpdateInput(ctx, plan.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateCmd {
 		input.Command = command
 	}
 
-	// Entrypoint
-	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
-		var entrypoint []string
-		diags := plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	// Entrypoint - only set if provided
+	entrypoint, shouldUpdateEp, diags := buildEntrypointUpdateInput(ctx, plan.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateEp {
 		input.Entrypoint = entrypoint
 	}
 
@@ -370,35 +368,17 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	plan.Registry = processRegistryName(containerResult)
 
 	// Command
-	if containerResult.Command != nil && len(containerResult.Command) > 0 {
-		commandValues := make([]attr.Value, len(containerResult.Command))
-		for i, cmd := range containerResult.Command {
-			commandValues[i] = types.StringValue(cmd)
-		}
-		commandList, diags := types.ListValue(types.StringType, commandValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Command = commandList
-	} else {
-		plan.Command = types.ListNull(types.StringType)
+	plan.Command, diags = buildCommandState(containerResult.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Entrypoint
-	if containerResult.Entrypoint != nil && len(containerResult.Entrypoint) > 0 {
-		entrypointValues := make([]attr.Value, len(containerResult.Entrypoint))
-		for i, ep := range containerResult.Entrypoint {
-			entrypointValues[i] = types.StringValue(ep)
-		}
-		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Entrypoint = entrypointList
-	} else {
-		plan.Entrypoint = types.ListNull(types.StringType)
+	plan.Entrypoint, diags = buildEntrypointState(containerResult.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Environment variables (state population)
@@ -475,35 +455,17 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 	state.Registry = processRegistryName(container)
 
 	// Command
-	if container.Command != nil && len(container.Command) > 0 {
-		commandValues := make([]attr.Value, len(container.Command))
-		for i, cmd := range container.Command {
-			commandValues[i] = types.StringValue(cmd)
-		}
-		commandList, diags := types.ListValue(types.StringType, commandValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Command = commandList
-	} else {
-		state.Command = types.ListNull(types.StringType)
+	state.Command, diags = buildCommandState(container.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Entrypoint
-	if container.Entrypoint != nil && len(container.Entrypoint) > 0 {
-		entrypointValues := make([]attr.Value, len(container.Entrypoint))
-		for i, ep := range container.Entrypoint {
-			entrypointValues[i] = types.StringValue(ep)
-		}
-		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.Entrypoint = entrypointList
-	} else {
-		state.Entrypoint = types.ListNull(types.StringType)
+	state.Entrypoint, diags = buildEntrypointState(container.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Environment variables (refresh state)
@@ -572,25 +534,23 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 		Registry:  plan.Registry.ValueStringPointer(),
 	}
 
-	// Command
-	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
-		var command []string
-		diags := plan.Command.ElementsAs(ctx, &command, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	// Command - only set if provided (following CLI modify behavior)
+	command, shouldUpdateCmd, diags := buildCommandUpdateInput(ctx, plan.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateCmd {
 		input.Command = command
 	}
 
-	// Entrypoint
-	if !plan.Entrypoint.IsNull() && !plan.Entrypoint.IsUnknown() {
-		var entrypoint []string
-		diags := plan.Entrypoint.ElementsAs(ctx, &entrypoint, false)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+	// Entrypoint - only set if provided (following CLI modify behavior)
+	entrypoint, shouldUpdateEp, diags := buildEntrypointUpdateInput(ctx, plan.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if shouldUpdateEp {
 		input.Entrypoint = entrypoint
 	}
 
@@ -693,35 +653,17 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	plan.Registry = processRegistryName(containerResult)
 
 	// Command
-	if containerResult.Command != nil && len(containerResult.Command) > 0 {
-		commandValues := make([]attr.Value, len(containerResult.Command))
-		for i, cmd := range containerResult.Command {
-			commandValues[i] = types.StringValue(cmd)
-		}
-		commandList, diags := types.ListValue(types.StringType, commandValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Command = commandList
-	} else {
-		plan.Command = types.ListNull(types.StringType)
+	plan.Command, diags = buildCommandState(containerResult.Command)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Entrypoint
-	if containerResult.Entrypoint != nil && len(containerResult.Entrypoint) > 0 {
-		entrypointValues := make([]attr.Value, len(containerResult.Entrypoint))
-		for i, ep := range containerResult.Entrypoint {
-			entrypointValues[i] = types.StringValue(ep)
-		}
-		entrypointList, diags := types.ListValue(types.StringType, entrypointValues)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		plan.Entrypoint = entrypointList
-	} else {
-		plan.Entrypoint = types.ListNull(types.StringType)
+	plan.Entrypoint, diags = buildEntrypointState(containerResult.Entrypoint)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	// Environment variables (update state)

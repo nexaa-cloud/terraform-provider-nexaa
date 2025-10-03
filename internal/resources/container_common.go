@@ -19,6 +19,80 @@ import (
 
 // Common container input building functions
 
+// buildCommandInput extracts command from Terraform plan/state into a string slice for API input.
+// Returns an empty slice if command is null/unknown (for Create operations).
+func buildCommandInput(ctx context.Context, command types.List) ([]string, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if !command.IsNull() && !command.IsUnknown() {
+		var commandSlice []string
+		diags = command.ElementsAs(ctx, &commandSlice, false)
+		if diags.HasError() {
+			return nil, diags
+		}
+		return commandSlice, diags
+	}
+
+	// Return empty slice for null/unknown (used in Create operations)
+	return make([]string, 0), diags
+}
+
+// buildCommandUpdateInput extracts command from Terraform plan for Update operations.
+// Returns the command slice and a boolean indicating whether to update (true) or skip (false).
+// Follows container job logic: updates if not null/unknown, regardless of length.
+func buildCommandUpdateInput(ctx context.Context, command types.List) ([]string, bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if !command.IsNull() && !command.IsUnknown() {
+		var commandSlice []string
+		diags = command.ElementsAs(ctx, &commandSlice, false)
+		if diags.HasError() {
+			return nil, false, diags
+		}
+		return commandSlice, true, diags
+	}
+
+	// Return false for null/unknown (don't update)
+	return nil, false, diags
+}
+
+// buildEntrypointInput extracts entrypoint from Terraform plan/state into a string slice for API input.
+// Returns an empty slice if entrypoint is null/unknown (for Create operations).
+func buildEntrypointInput(ctx context.Context, entrypoint types.List) ([]string, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if !entrypoint.IsNull() && !entrypoint.IsUnknown() {
+		var entrypointSlice []string
+		diags = entrypoint.ElementsAs(ctx, &entrypointSlice, false)
+		if diags.HasError() {
+			return nil, diags
+		}
+		return entrypointSlice, diags
+	}
+
+	// Return empty slice for null/unknown (used in Create operations)
+	return make([]string, 0), diags
+}
+
+// buildEntrypointUpdateInput extracts entrypoint from Terraform plan for Update operations.
+// Returns the entrypoint slice and a boolean indicating whether to update (true) or skip (false).
+// Follows container job logic: updates if not null/unknown, regardless of length.
+func buildEntrypointUpdateInput(ctx context.Context, entrypoint types.List) ([]string, bool, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if !entrypoint.IsNull() && !entrypoint.IsUnknown() {
+		var entrypointSlice []string
+		diags = entrypoint.ElementsAs(ctx, &entrypointSlice, false)
+		if diags.HasError() {
+			return nil, false, diags
+		}
+		return entrypointSlice, true, diags
+	}
+
+	// Return false for null/unknown (don't update)
+	return nil, false, diags
+}
+
 func buildPortsInput(ctx context.Context, ports types.List) ([]string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -125,6 +199,42 @@ func buildHealthCheckInput(ctx context.Context, healthCheck types.Object) (*api.
 }
 
 // Common container state building functions
+
+// buildCommandState converts API command result into Terraform state.
+// Returns null list if command is nil or empty.
+func buildCommandState(command []string) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if command != nil && len(command) > 0 {
+		commandValues := make([]attr.Value, len(command))
+		for i, cmd := range command {
+			commandValues[i] = types.StringValue(cmd)
+		}
+		commandList, d := types.ListValue(types.StringType, commandValues)
+		diags.Append(d...)
+		return commandList, diags
+	}
+
+	return types.ListNull(types.StringType), diags
+}
+
+// buildEntrypointState converts API entrypoint result into Terraform state.
+// Returns null list if entrypoint is nil or empty.
+func buildEntrypointState(entrypoint []string) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if entrypoint != nil && len(entrypoint) > 0 {
+		entrypointValues := make([]attr.Value, len(entrypoint))
+		for i, ep := range entrypoint {
+			entrypointValues[i] = types.StringValue(ep)
+		}
+		entrypointList, d := types.ListValue(types.StringType, entrypointValues)
+		diags.Append(d...)
+		return entrypointList, diags
+	}
+
+	return types.ListNull(types.StringType), diags
+}
 
 func buildPortsState(containerResult api.ContainerResult) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
