@@ -135,6 +135,11 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
+	if volume == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	state = translateApiToVolumeResource(state, *volume)
 
 	diags = resp.State.Set(ctx, &state)

@@ -330,7 +330,7 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 	client := api.NewClient()
 	containerJob, err := client.ContainerJobByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error reading container job", "Could not find container job: "+err.Error())
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
