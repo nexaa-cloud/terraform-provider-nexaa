@@ -9,10 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -57,49 +55,18 @@ func (d *messageQueuePlansDataSource) Schema(_ context.Context, _ datasource.Sch
 			"cpu": schema.Int64Attribute{
 				MarkdownDescription: "Number of CPU cores required",
 				Required:            true,
-				Validators: []validator.Int64{
-					int64validator.OneOf(
-						1,
-						2,
-						4,
-						8,
-					),
-				},
 			},
 			"memory": schema.Int64Attribute{
 				MarkdownDescription: "Memory in GB required",
 				Required:            true,
-				Validators: []validator.Int64{
-					int64validator.OneOf(
-						2,
-						4,
-						8,
-						16,
-						32,
-					),
-				},
 			},
 			"storage": schema.Int64Attribute{
 				MarkdownDescription: "Storage in GB required",
 				Required:            true,
-				Validators: []validator.Int64{
-					int64validator.OneOf(
-						10,
-						20,
-						40,
-						80,
-					),
-				},
 			},
 			"replicas": schema.Int64Attribute{
 				MarkdownDescription: "Number of replicas required",
 				Required:            true,
-				Validators: []validator.Int64{
-					int64validator.OneOf(
-						1,
-						3,
-					),
-				},
 			},
 		},
 	}
