@@ -1,0 +1,47 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+## Example Usage
+
+{{ tffile (printf "examples/resources/%s/basic.tf" .Name)}}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+terraform import nexaa_message_queue.queue "namespace/queue_name"
+```
+
+## Plan Selection
+
+Message queue plans define the resources allocated to your queue (CPU, memory, storage, replicas).
+
+Use the `nexaa_message_queue_plans` data source to find a plan matching your requirements:
+
+```hcl
+data "nexaa_message_queue_plans" "plan" {
+  cpu      = 1
+  memory   = 2
+  storage  = 10
+  replicas = 1
+}
+
+resource "nexaa_message_queue" "queue" {
+  namespace = "my-namespace"
+  name      = "my-queue"
+  plan      = data.nexaa_message_queue_plans.plan.id
+  type      = "RabbitMQ"
+  version   = "3.13"
+}
+```
