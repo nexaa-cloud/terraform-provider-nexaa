@@ -150,6 +150,11 @@ func generateTestCloudDatabaseClusterDatabaseName() string {
 	return generateResourceName("db")
 }
 
+// generateTestMessageQueueName generates a random message queue name for tests.
+func generateTestMessageQueueName() string {
+	return generateResourceName("tf-queue")
+}
+
 func givenProvider() string {
 	return fmt.Sprintf(
 		`provider "nexaa" {
@@ -312,4 +317,30 @@ func givenCloudDatabaseClusterUser(userName string) string {
 		]
 	}
 `, userName)
+}
+
+func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string) string {
+	if name == "" {
+		name = generateTestMessageQueueName()
+	}
+
+	data := fmt.Sprintf(`
+data "nexaa_message_queue_plans" "plan" {
+  cpu      = %q
+  memory   = %q
+  storage  = %q
+  replicas = %q
+}
+`, cpu, memory, storage, replicas)
+
+	return data + fmt.Sprintf(`
+resource "nexaa_message_queue" "queue" {
+  depends_on = [nexaa_namespace.ns]
+  namespace = nexaa_namespace.ns.name
+  name      = %q
+  plan      = data.nexaa_message_queue_plans.plan.id
+  type      = %q
+  version   = %q
+}
+`, name, queueType, version)
 }

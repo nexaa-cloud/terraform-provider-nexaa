@@ -172,3 +172,19 @@ resource "nexaa_clouddatabasecluster" "database" {
   }
 }
 
+# Message Queue example
+data "nexaa_message_queue_plans" "queue_plan" {
+  cpu      = 1
+  memory   = 2
+  storage  = 10
+  replicas = 1
+}
+
+resource "nexaa_message_queue" "queue" {
+  namespace = nexaa_namespace.namespace.name
+  name      = "my-rabbitmq-queue"
+  plan      = data.nexaa_message_queue_plans.queue_plan.id
+  type      = "RabbitMQ"
+  version   = "3.13"
+}
+
