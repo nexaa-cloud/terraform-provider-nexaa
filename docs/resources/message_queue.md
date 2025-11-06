@@ -92,6 +92,10 @@ output "queue_state" {
 - `type` (String) The type of message queue (e.g., 'RabbitMQ')
 - `version` (String) The version of the message queue software
 
+### Optional
+
+- `allowlist` (List of String) List of IP addresses allowed to access the message queue
+
 ### Read-Only
 
 - `id` (String) Identifier of the message queue in the format 'namespace/name'
@@ -127,5 +131,9 @@ resource "nexaa_message_queue" "queue" {
   plan      = data.nexaa_message_queue_plans.plan.id
   type      = "RabbitMQ"
   version   = "3.13"
+  allowlist = [
+    "192.168.1.1",
+    "0.0.0.0/0"
+  ]
 }
 ```
