@@ -186,5 +186,10 @@ resource "nexaa_message_queue" "queue" {
   plan      = data.nexaa_message_queue_plans.queue_plan.id
   type      = "RabbitMQ"
   version   = "3.13"
+
+  allowlist = [
+    "0.0.0.0",
+    "127.0.0.1"
+  ]
 }
 

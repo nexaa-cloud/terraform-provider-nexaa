@@ -38,6 +38,7 @@ type messageQueueResource struct {
 	State       types.String `tfsdk:"state"`
 	Locked      types.Bool   `tfsdk:"locked"`
 	LastUpdated types.String `tfsdk:"last_updated"`
+	Allowlist   types.List   `tfsdk:"allowlist"`
 }
 
 // Metadata returns the resource type name.
@@ -86,6 +87,11 @@ func (r *messageQueueResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description: "Timestamp of the last Terraform update of the message queue",
 				Computed:    true,
 			},
+			"allowlist": schema.ListAttribute{
+				Description: "List of IP addresses allowed to access the message queue",
+				ElementType: types.StringType,
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -99,6 +105,24 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Convert allowlist from Terraform types.List to []AllowListInput
+	var allowList []api.AllowListInput
+	if !plan.Allowlist.IsNull() && !plan.Allowlist.IsUnknown() {
+		var allowlistIPs []string
+		diags = plan.Allowlist.ElementsAs(ctx, &allowlistIPs, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		for _, ip := range allowlistIPs {
+			allowList = append(allowList, api.AllowListInput{
+				Ip:    ip,
+				State: api.StatePresent,
+			})
+		}
+	}
+
 	input := api.MessageQueueCreateInput{
 		Name:      plan.Name.ValueString(),
 		Namespace: plan.Namespace.ValueString(),
@@ -107,6 +131,7 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 			Type:    plan.Type.ValueString(),
 			Version: plan.Version.ValueString(),
 		},
+		AllowList: allowList,
 	}
 
 	client := api.NewClient()

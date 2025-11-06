@@ -341,6 +341,10 @@ resource "nexaa_message_queue" "queue" {
   plan      = data.nexaa_message_queue_plans.plan.id
   type      = %q
   version   = %q
+  allowlist = [
+	"127.0.0.1",
+	"192.168.1.1"
+  ]
 }
 `, name, queueType, version)
 }

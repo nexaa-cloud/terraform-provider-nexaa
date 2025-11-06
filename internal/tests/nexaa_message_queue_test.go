@@ -37,6 +37,9 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "state"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "locked"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "last_updated"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.#", "2"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.0", "127.0.0.1"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.1", "192.168.1.1"),
 				),
 			},
 
@@ -46,7 +49,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 				ImportState:             true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, queueName),
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"last_updated", "plan", "type", "version"},
+				ImportStateVerifyIgnore: []string{"last_updated", "plan", "type", "version", "allowlist"},
 			},
 		},
 	})
