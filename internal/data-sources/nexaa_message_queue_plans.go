@@ -31,11 +31,11 @@ type messageQueuePlansDataSource struct {
 
 // messageQueuePlansDataSourceModel is the data source implementation.
 type messageQueuePlansDataSourceModel struct {
-	Id       types.String `tfsdk:"id"`
-	Replicas types.Int64  `tfsdk:"replicas"`
-	Cpu      types.Int64  `tfsdk:"cpu"`
-	Memory   types.Int64  `tfsdk:"memory"`
-	Storage  types.Int64  `tfsdk:"storage"`
+	Id       types.String  `tfsdk:"id"`
+	Replicas types.Int64   `tfsdk:"replicas"`
+	Cpu      types.Float64 `tfsdk:"cpu"`
+	Memory   types.Float64 `tfsdk:"memory"`
+	Storage  types.Float64 `tfsdk:"storage"`
 }
 
 // Metadata returns the data source type name.
@@ -52,15 +52,15 @@ func (d *messageQueuePlansDataSource) Schema(_ context.Context, _ datasource.Sch
 				MarkdownDescription: "Plan identifier",
 				Computed:            true,
 			},
-			"cpu": schema.Int64Attribute{
+			"cpu": schema.Float64Attribute{
 				MarkdownDescription: "Number of CPU cores required",
 				Required:            true,
 			},
-			"memory": schema.Int64Attribute{
+			"memory": schema.Float64Attribute{
 				MarkdownDescription: "Memory in GB required",
 				Required:            true,
 			},
-			"storage": schema.Int64Attribute{
+			"storage": schema.Float64Attribute{
 				MarkdownDescription: "Storage in GB required",
 				Required:            true,
 			},
@@ -105,9 +105,9 @@ func (d *messageQueuePlansDataSource) Read(ctx context.Context, req datasource.R
 	plan, err := getMessageQueuePlan(
 		plans,
 		data.Replicas.ValueInt64(),
-		data.Cpu.ValueInt64(),
-		data.Memory.ValueInt64(),
-		data.Storage.ValueInt64(),
+		data.Cpu.ValueFloat64(),
+		data.Memory.ValueFloat64(),
+		data.Storage.ValueFloat64(),
 	)
 
 	if err != nil {
@@ -120,7 +120,7 @@ func (d *messageQueuePlansDataSource) Read(ctx context.Context, req datasource.R
 	resp.Diagnostics.Append(diags...)
 }
 
-func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu int64, Memory int64, Storage int64) (messageQueuePlansDataSourceModel, error) {
+func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu float64, Memory float64, Storage float64) (messageQueuePlansDataSourceModel, error) {
 	var planId string
 
 	for _, plan := range plans {
@@ -128,15 +128,15 @@ func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu
 			continue
 		}
 
-		if plan.Cpu != int(Cpu) {
+		if plan.Cpu != Cpu {
 			continue
 		}
 
-		if int(plan.Memory) != int(Memory) {
+		if plan.Memory != Memory {
 			continue
 		}
 
-		if plan.Storage != int(Storage) {
+		if plan.Storage != Storage {
 			continue
 		}
 
@@ -149,7 +149,7 @@ func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu
 		sb.WriteString("No plan found for the given parameters. These are the available plans:\n")
 		sb.WriteString("ID\tNAME\tCPU\tRAM (GB)\tSTORAGE (GB)\tREPLICAS\tGROUP\n")
 		for _, plan := range plans {
-			sb.WriteString(fmt.Sprintf("%q\t%q\t%d\t%.1f\t%d\t%d\t%q\n",
+			sb.WriteString(fmt.Sprintf("%q\t%q\t%.1f\t%.1f\t%.1f\t%d\t%q\n",
 				plan.Id, plan.Name, plan.Cpu, plan.Memory, plan.Storage, plan.Replicas, plan.Group))
 		}
 
@@ -158,9 +158,9 @@ func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu
 
 	return messageQueuePlansDataSourceModel{
 		Id:       types.StringValue(planId),
-		Cpu:      types.Int64Value(Cpu),
-		Memory:   types.Int64Value(Memory),
-		Storage:  types.Int64Value(Storage),
+		Cpu:      types.Float64Value(Cpu),
+		Memory:   types.Float64Value(Memory),
+		Storage:  types.Float64Value(Storage),
 		Replicas: types.Int64Value(Replicas),
 	}, nil
 }
