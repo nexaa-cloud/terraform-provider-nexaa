@@ -88,7 +88,7 @@ func (r *messageQueueResource) Schema(_ context.Context, _ resource.SchemaReques
 				Computed:    true,
 			},
 			"allowlist": schema.ListAttribute{
-				Description: "List of IP addresses allowed to access the message queue",
+				Description: "List of IP addresses allowed to access the message queue (defaults: '0.0.0.0/0' and '::/0')",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
@@ -121,6 +121,16 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 				State: api.StatePresent,
 			})
 		}
+	} else {
+		var allowListDefaults []api.AllowListInput
+		allowListDefaults = append(allowListDefaults, api.AllowListInput{
+			Ip:    "0.0.0.0/0",
+			State: api.StatePresent,
+		}, api.AllowListInput{
+			Ip:    "::/0",
+			State: api.StatePresent,
+		})
+		allowList = allowListDefaults
 	}
 
 	input := api.MessageQueueCreateInput{
@@ -270,7 +280,7 @@ func (r *messageQueueResource) Delete(ctx context.Context, req resource.DeleteRe
 		}
 
 		if queue.State == "created" {
-			deleteInput := api.ResourceNameInput{
+			deleteInput := api.MessageQueueResourceInput{
 				Name:      state.Name.ValueString(),
 				Namespace: state.Namespace.ValueString(),
 			}

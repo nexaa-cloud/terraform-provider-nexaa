@@ -94,7 +94,7 @@ output "queue_state" {
 
 ### Optional
 
-- `allowlist` (List of String) List of IP addresses allowed to access the message queue
+- `allowlist` (List of String) List of IP addresses allowed to access the message queue (defaults: '0.0.0.0/0' and '::/0')
 
 ### Read-Only
 
