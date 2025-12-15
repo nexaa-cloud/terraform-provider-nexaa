@@ -279,7 +279,7 @@ func (r *messageQueueResource) Delete(ctx context.Context, req resource.DeleteRe
 			return
 		}
 
-		if queue.State == "created" {
+		if !queue.Locked {
 			deleteInput := api.MessageQueueResourceInput{
 				Name:      state.Name.ValueString(),
 				Namespace: state.Namespace.ValueString(),
@@ -295,7 +295,7 @@ func (r *messageQueueResource) Delete(ctx context.Context, req resource.DeleteRe
 			}
 			return
 		}
-		if queue.State == "failed" && queue.Locked {
+		if queue.Locked {
 			resp.Diagnostics.AddError(
 				"Error deleting message queue",
 				fmt.Sprintf("Failed to delete message queue %q, the message queue is locked and could not be deleted", state.Name.ValueString()),
