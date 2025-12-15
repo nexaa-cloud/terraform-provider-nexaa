@@ -49,6 +49,7 @@ func generateTestNamespace() string {
 }
 
 func TestAcc_Namespace_basic(t *testing.T) {
+	testAccPreCheck(t)
 	user, pass := os.Getenv("NEXAA_USERNAME"), os.Getenv("NEXAA_PASSWORD")
 	namespaceName := generateTestNamespace()
 

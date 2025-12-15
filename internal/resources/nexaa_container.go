@@ -429,6 +429,12 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
+	// Validate scaling configuration
+	if err := validateScalingConfig(scaling); err != nil {
+		resp.Diagnostics.AddError("Invalid scaling configuration", err.Error())
+		return
+	}
+
 	switch scaling.Type.ValueString() {
 	case "auto":
 		if !scaling.AutoInput.IsNull() && !scaling.AutoInput.IsUnknown() {
@@ -640,11 +646,22 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
+	// Set state
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Name,
+		Namespace: plan.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -826,6 +843,19 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      state.Name,
+		Namespace: state.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -930,6 +960,12 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	diags = plan.Scaling.As(ctx, &scaling, basetypes.ObjectAsOptions{})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate scaling configuration
+	if err := validateScalingConfig(scaling); err != nil {
+		resp.Diagnostics.AddError("Invalid scaling configuration", err.Error())
 		return
 	}
 
@@ -1175,6 +1211,16 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Name,
+		Namespace: plan.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -1372,4 +1418,29 @@ func processRegistryName(containerResult api.ContainerResult) types.String {
 		return types.StringValue(containerResult.PrivateRegistry.Name)
 	}
 	return types.StringNull()
+}
+
+// validateScalingConfig validates that only the appropriate scaling input is set based on the type
+func validateScalingConfig(scaling scalingResource) error {
+	scalingType := scaling.Type.ValueString()
+	hasManualInput := !scaling.Manualinput.IsNull() && !scaling.Manualinput.IsUnknown()
+	hasAutoInput := !scaling.AutoInput.IsNull() && !scaling.AutoInput.IsUnknown()
+
+	if scalingType == "manual" && hasAutoInput {
+		return fmt.Errorf("when scaling type is 'manual', auto_input must not be set")
+	}
+
+	if scalingType == "auto" && hasManualInput {
+		return fmt.Errorf("when scaling type is 'auto', manual_input must not be set")
+	}
+
+	if scalingType == "manual" && !hasManualInput {
+		return fmt.Errorf("when scaling type is 'manual', manual_input is required")
+	}
+
+	if scalingType == "auto" && !hasAutoInput {
+		return fmt.Errorf("when scaling type is 'auto', auto_input is required")
+	}
+
+	return nil
 }

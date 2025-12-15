@@ -427,6 +427,16 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Name,
+		Namespace: plan.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -511,6 +521,19 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      state.Name,
+		Namespace: state.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -712,6 +735,16 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Set identity data (required for ResourceWithIdentity)
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Name,
+		Namespace: plan.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
