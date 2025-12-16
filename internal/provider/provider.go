@@ -156,6 +156,7 @@ func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resourc
 		resources.NewCloudDatabaseClusterResource,
 		resources.NewCloudDatabaseClusterDatabaseResource,
 		resources.NewDatabaseUserResource,
+		resources.NewMessageQueueResource,
 	}
 }
 
@@ -167,6 +168,7 @@ func (p *NexaaProvider) DataSources(ctx context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		data_sources.NewCloudDatabaseClusterPlans,
 		data_sources.NewContainerResources,
+		data_sources.NewMessageQueuePlans,
 	}
 }
 
