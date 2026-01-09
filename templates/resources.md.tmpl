@@ -12,7 +12,16 @@ description: |-
 {{ if .HasExample -}}
 ## Example Usage
 
-{{tffile .ExampleFile }}
+### Configure the provider
+To use this provider we need to add a bit of configuration to authenticate.
+{{ tffile (printf "examples/provider/provider.tf")}}
+
+### Create a namespace
+We need a namespace where the {{ .Name }} will be deployed:
+{{ tffile (printf "examples/resources/nexaa_namespace/resource.tf")}}
+
+### Create the {{ .Name }} resource
+{{ tffile (printf "examples/resources/%s/resource.tf" .Name)}}
 {{- end }}
 
 {{ .SchemaMarkdown | trimspace }}

@@ -1,5 +1,5 @@
 ---
-page_title: "nexaa_message_queue Resource - nexaa"
+page_title: "nexaa_message_queue Resource - Nexaa"
 subcategory: ""
 description: |-
   Message Queue resource representing a managed message queue (e.g., RabbitMQ) on Nexaa.
@@ -11,48 +11,34 @@ Message Queue resource representing a managed message queue (e.g., RabbitMQ) on 
 
 ## Example Usage
 
+### Configure the provider
+To use this provider we need to add a bit of configuration to authenticate.
 ```terraform
 terraform {
-  required_version = ">= 1.0"
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa"
+      source = "nexaa-cloud/nexaa/nexaa"
     }
   }
 }
 
-variable "nexaa_username" {
-  description = "Username for Nexaa authentication"
-  type        = string
-  sensitive   = true
-}
-
-variable "nexaa_password" {
-  description = "Password for Nexaa authentication"
-  type        = string
-  sensitive   = true
-}
-
-variable "namespace" {
-  description = "Namespace name"
-  type        = string
-}
-
-variable "queue_name" {
-  description = "Message queue name"
-  type        = string
-}
-
 provider "nexaa" {
-  username = var.nexaa_username
-  password = var.nexaa_password
+  username = "user@example.com"
+  password = "password"
 }
+```
 
-resource "nexaa_namespace" "example" {
-  name        = var.namespace
-  description = "Example namespace for message queue"
+### Create a namespace
+We need a namespace where the nexaa_message_queue will be deployed:
+```terraform
+resource "nexaa_namespace" "test" {
+  name        = "terraform-test"
+  description = "This is a description"
 }
+```
 
+### Create the nexaa_message_queue resource
+```terraform
 # Find a plan matching the desired resources
 data "nexaa_message_queue_plans" "plan" {
   cpu      = 1
@@ -63,21 +49,11 @@ data "nexaa_message_queue_plans" "plan" {
 
 # Create a RabbitMQ message queue
 resource "nexaa_message_queue" "queue" {
-  namespace = nexaa_namespace.example.name
-  name      = var.queue_name
+  namespace = "terraform-test"
+  name      = "tf-queue"
   plan      = data.nexaa_message_queue_plans.plan.id
   type      = "RabbitMQ"
   version   = "3.13"
-}
-
-output "queue_id" {
-  description = "The ID of the message queue"
-  value       = nexaa_message_queue.queue.id
-}
-
-output "queue_state" {
-  description = "The current state of the message queue"
-  value       = nexaa_message_queue.queue.state
 }
 ```
 
@@ -102,38 +78,3 @@ output "queue_state" {
 - `last_updated` (String) Timestamp of the last Terraform update of the message queue
 - `locked` (Boolean) If the message queue is locked it can't be deleted
 - `state` (String) The current state of the message queue
-
-## Import
-
-Import is supported using the following syntax:
-
-```shell
-terraform import nexaa_message_queue.queue "namespace/queue_name"
-```
-
-## Plan Selection
-
-Message queue plans define the resources allocated to your queue (CPU, memory, storage, replicas).
-
-Use the `nexaa_message_queue_plans` data source to find a plan matching your requirements:
-
-```hcl
-data "nexaa_message_queue_plans" "plan" {
-  cpu      = 1
-  memory   = 2
-  storage  = 10
-  replicas = 1
-}
-
-resource "nexaa_message_queue" "queue" {
-  namespace = "my-namespace"
-  name      = "my-queue"
-  plan      = data.nexaa_message_queue_plans.plan.id
-  type      = "RabbitMQ"
-  version   = "3.13"
-  allowlist = [
-    "192.168.1.1",
-    "0.0.0.0/0"
-  ]
-}
-```

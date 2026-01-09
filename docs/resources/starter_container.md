@@ -1,5 +1,5 @@
 ---
-page_title: "nexaa_starter_container Resource - nexaa"
+page_title: "nexaa_starter_container Resource - Nexaa"
 subcategory: ""
 description: |-
   Starter container resource representing a starter container that will be deployed on nexaa.
@@ -11,18 +11,53 @@ Starter container resource representing a starter container that will be deploye
 
 ## Example Usage
 
+### Configure the provider
+To use this provider we need to add a bit of configuration to authenticate.
+```terraform
+terraform {
+  required_providers {
+    nexaa = {
+      source = "nexaa-cloud/nexaa/nexaa"
+    }
+  }
+}
+
+provider "nexaa" {
+  username = "user@example.com"
+  password = "password"
+}
+```
+
+### Create a namespace
+We need a namespace where the nexaa_starter_container will be deployed:
+```terraform
+resource "nexaa_namespace" "test" {
+  name        = "terraform-test"
+  description = "This is a description"
+}
+```
+
+### Create the nexaa_starter_container resource
 ```terraform
 resource "nexaa_starter_container" "starter-container" {
+  depends_on = [
+    nexaa_namespace.test,
+  ]
+
+  ## Define your name, namespace, image and (if required) add registry credentials
   name      = "tf-starter-container"
-  namespace = "terraform"
+  namespace = "terraform-test"
   image     = "nginx:latest"
-  registry  = "gitlab"
+  registry  = null
 
-  command    = ["nginx", "-g", "daemon off;"]
-  entrypoint = ["/docker-entrypoint.sh"]
+  ## With command and entrypoint you can override the startup behaviour of your container
+  #command    = ["nginx", "-g", "daemon off;"]
+  #entrypoint = ["/docker-entrypoint.sh"]
 
-  ports = ["8000:8000", "80:80"]
+  ports = ["80:80"]
 
+  ## Adding environment variables to your container
+  ## When setting it as secret, it will be encrypted
   environment_variables = [
     {
       name   = "ENV"
@@ -41,25 +76,28 @@ resource "nexaa_starter_container" "starter-container" {
     }
   ]
 
+  ## When you want to expose your container to the internet you can add an ingress
   ingresses = [
     {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allow_list  = ["0.0.0.0/0", "::/0"]
     }
   ]
 
-  mounts = [
-    {
-      path   = "/storage/mount"
-      volume = "storage"
-    }
-  ]
+  ## When using volumes you can mount the volume on a specific path
+  #mounts = [
+  #  {
+  #    path   = "/storage/mount"
+  #    volume = "storage"
+  #  }
+  #]
 
+  # The health check will check your container if the application is still responding as it should
   health_check = {
     port = 80
-    path = "/storage/health"
+    path = "/"
   }
 }
 ```
@@ -149,7 +187,7 @@ Optional:
 
 Import is supported using the following syntax:
 
-The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+The [` + "`" + `terraform import` + "`" + ` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 #!/bin/bash

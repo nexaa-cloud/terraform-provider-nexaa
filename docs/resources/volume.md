@@ -11,6 +11,33 @@ description: |-
 
 ## Example Usage
 
+### Configure the provider
+To use this provider we need to add a bit of configuration to authenticate.
+```terraform
+terraform {
+  required_providers {
+    nexaa = {
+      source = "nexaa-cloud/nexaa/nexaa"
+    }
+  }
+}
+
+provider "nexaa" {
+  username = "user@example.com"
+  password = "password"
+}
+```
+
+### Create a namespace
+We need a namespace where the nexaa_volume will be deployed:
+```terraform
+resource "nexaa_namespace" "test" {
+  name        = "terraform-test"
+  description = "This is a description"
+}
+```
+
+### Create the nexaa_volume resource
 ```terraform
 resource "nexaa_volume" "volume-test" {
   namespace = "terraform-test"

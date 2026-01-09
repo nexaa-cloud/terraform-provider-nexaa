@@ -1,5 +1,5 @@
 ---
-page_title: "nexaa_registry Resource - Nexaa"
+page_title: "nexaa_registry Resource - nexaa"
 subcategory: ""
 description: |-
   
@@ -10,10 +10,38 @@ description: |-
 
 
 ## Example Usage
+We need to configure the provider
+```terraform
+terraform {
+  required_providers {
+    nexaa = {
+      source = "nexaa-cloud/nexaa/nexaa"
+    }
+  }
+}
 
+provider "nexaa" {
+  username = "user@example.com"
+  password = "password"
+}
+```
+
+We need a namespace where the registry will be deployed:
+```terraform
+resource "nexaa_namespace" "test" {
+  name        = "terraform-test"
+  description = "This is a description"
+}
+```
+
+Then we can create a nexaa_registry resource
 ```terraform
 resource "nexaa_registry" "registry" {
-  namespace = "namespace"
+  ## We need a namespace before we can create a container. Therefor create a dependancy on the namespace
+  depends_on = [
+    nexaa_namespace.test,
+  ]
+  namespace = "terraform-test"
   name      = "example"
   source    = "registry.gitlab.com"
   username  = "user"
@@ -43,3 +71,14 @@ resource "nexaa_registry" "registry" {
 - `last_updated` (String) Timestamp of the last Terraform update of the private registry
 - `locked` (Boolean) If the registry is locked it can't be deleted
 - `status` (String) The status of the registry
+
+## Import
+
+Import existing resources is supported.
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
+```shell
+#!/bin/bash
+terraform import nexaa_container "namespace/container_name"
+```

@@ -1,5 +1,5 @@
 ---
-page_title: "nexaa_namespace Resource - Nexaa"
+page_title: "nexaa_namespace Resource - nexaa"
 subcategory: ""
 description: |-
   
@@ -10,7 +10,23 @@ description: |-
 
 
 ## Example Usage
+We need to configure the provider
+```terraform
+terraform {
+  required_providers {
+    nexaa = {
+      source = "nexaa-cloud/nexaa/nexaa"
+    }
+  }
+}
 
+provider "nexaa" {
+  username = "user@example.com"
+  password = "password"
+}
+```
+
+Then we can create a nexaa_namespace resource
 ```terraform
 resource "nexaa_namespace" "test" {
   name        = "terraform-test"
@@ -41,3 +57,4 @@ resource "nexaa_namespace" "test" {
 Optional:
 
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+

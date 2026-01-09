@@ -14,6 +14,7 @@ Once you're logged in, take a moment to familiarize yourself with the Nexaa port
 - **Containers**: Deploy both Containers and Container jobs
 - **Volumes**: Manage persistent storage for your applications
 - **Cloud Databases**: Launch managed MySQL and PostgreSQL clusters in your cloud environment—without the operational overhead [[2]](https://docs.nexaa.io/cloud-databases/introduction/).
+- **Message Queueus**: Launch managed RabbitMQ clusters in your cloud environment-without the operational overhead [[3]](https://docs.nexaa.io/message-queues/introduction/).
 
 ## 3. Provision Services with Infrastructure as Code
 
@@ -29,7 +30,7 @@ Nexaa officially supports OpenTofu and Terraform. This provides you with the fol
 Visit the [Terraform documentation](https://docs.nexaa.io/automation/terraform/?utm_source=terraform) to learn how to:
 - Install and configure the Nexaa Terraform provider
 - Create your first resources using OpenTofu / Terraform
-- Manage containers, Cloud Databases, and other Nexaa services declaratively
+- Manage containers, Cloud Databases, Message Queues, and other Nexaa services declaratively
 
 ## Next Steps
 

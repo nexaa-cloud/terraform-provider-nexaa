@@ -77,7 +77,6 @@ can be 1 up to 3 replicas per cluster. This means that your data will be replica
 After successfully creation of a cloud database cluster, we can create databases inside it. You must provide a name for your database and optionally a description for it. 
 You are not charged per database inside your cluster, so feel free experimenting with up to the limits of your selected database cluster engine.
 
-
 ### Links
 - Configuring [Database](../resources/cloud_database_cluster_database.md) on our cloud database clusters
 
@@ -88,6 +87,14 @@ You can change this whenever you want, you can also add a user to multiple datab
 ### Links
 - Configuring [User](../resources/cloud_database_cluster_user.md) on our cloud database clusters
 
+## Message Queue (nexaa_message_queue)
+We provide Message Queue instances which is more than a (single) queue. It is a whole cluster. You can specify how many replicas you want
+can be 1 or 3 replicas per cluster. This means that your data will be high available (depending on the configuration of your queues).
+To learn more about this you can read on our [documentation page][docs_message_queues]].
+
+### Links
+- Learn more about [Message Queues][docs_message_queues] in our documentation.
+- Configuring [Message_Queues](../resources/message_queue.md)
 
 ## What's next
 - Documentation about our platform [Nexaa documentation][docs]
@@ -101,3 +108,4 @@ Visit the [Nexaa documentation][docs] for detailed guides and tutorials on speci
 [docs_volumes]: https://docs.nexaa.io/serverless-containers/persistent-storage/?utm_source=terraform
 [docs_registry]: https://docs.nexaa.io/serverless-containers/registries/?utm_source=terraform
 [docs_cloud_database_cluster]: https://docs.nexaa.io/cloud-databases/introduction/?utm_source=terraform
+[docs_message_queues]: https://docs.nexaa.io/message-queues/introduction/?utm_source=terraform

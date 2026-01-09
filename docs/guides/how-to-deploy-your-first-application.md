@@ -109,8 +109,28 @@ resource "nexaa_cloud_database_cluster_user" "user" {
 
 ```
 
+### Message Queue?
+If your application uses a message queue to transfer messages you can make use of our message queue. You will get a instance where you can manage your own queues completely.
+```terraform
+data "nexaa_message_queue_plans" "plan" {
+  cpu      = 1
+  memory   = 2
+  storage  = 10
+  replicas = 1
+}
+
+resource "nexaa_message_queue" "queue" {
+  depends_on = [nexaa_namespace.project]
+  namespace  = nexaa_namespace.example.name
+  name       = var.queue_name
+  plan       = data.nexaa_message_queue_plans.plan.id
+  type       = "RabbitMQ"
+  version    = "3.13"
+}
+```
+
 ### Registry
-If your image on a private registry, you will nee to add a registry. This provides us a way to pull your image, so we can run it.
+If your image on a private registry, you will need to add a registry. This provides us a way to pull your image, so we can run it.
 
 ```terraform
 variable "registry_password" {
@@ -255,6 +275,13 @@ data "nexaa_container_resources" "container_resource" {
   memory = 0.5
 }
 
+data "nexaa_message_queue_plans" "plan" {
+  cpu      = 1
+  memory   = 2
+  storage  = 10
+  replicas = 1
+}
+
 # ===================================================================
 # Resources
 # ===================================================================
@@ -310,6 +337,15 @@ resource "nexaa_cloud_database_cluster_user" "user" {
       state         = "present",
     }
   ]
+}
+
+resource "nexaa_message_queue" "queue" {
+  depends_on = [nexaa_namespace.project]
+  namespace  = nexaa_namespace.project.name
+  name       = my_queue
+  plan       = data.nexaa_message_queue_plans.plan.id
+  type       = "RabbitMQ"
+  version    = "3.13"
 }
 
 resource "nexaa_container" "container" {

@@ -1,5 +1,5 @@
 ---
-page_title: "{{.Name}} {{.Type}} - {{.ProviderName}}"
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName | title}}"
 subcategory: ""
 description: |-
 {{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
@@ -9,28 +9,53 @@ description: |-
 
 {{ .Description | trimspace }}
 
+{{ if .HasExample -}}
 ## Example Usage
 
-{{ tffile (printf "examples/resources/%s/basic.tf" .Name)}}
+### Configure the provider
+To use this provider we need to add a bit of configuration to authenticate.
+{{ tffile (printf "examples/provider/provider.tf")}}
 
-### Variables file (variables.tfvars)
-{{ tffile (printf "examples/resources/%s/basic.tfvars" .Name)}}
+### Create a namespace
+We need a namespace where the {{ .Name }} will be deployed:
+{{ tffile (printf "examples/resources/nexaa_namespace/resource.tf")}}
+
+### Create a database cluster
+We need a namespace where the {{ .Name }} will be deployed:
+{{ tffile (printf "examples/resources/nexaa_cloud_database_cluster/resource.tf")}}
+
+### Create a database in your database cluster
+We need a namespace where the {{ .Name }} will be deployed:
+{{ tffile (printf "examples/resources/nexaa_cloud_database_cluster_database/resource.tf")}}
+
+### Create the {{ .Name }} resource
+{{ tffile (printf "examples/resources/%s/resource.tf" .Name)}}
+{{- end }}
 
 {{ .SchemaMarkdown | trimspace }}
+{{- if or .HasImport .HasImportIDConfig .HasImportIdentityConfig }}
 
 ## Import
 
 Import is supported using the following syntax:
+{{- end }}
+{{- if .HasImportIdentityConfig }}
 
-```shell
-terraform import nexaa_cloud_database_cluster_user.user project/cluster/user/test
-```
+In Terraform v1.12.0 and later, the [` + "`" + `import` + "`" + ` block](https://developer.hashicorp.com/terraform/language/import) can be used with the ` + "`" + `identity` + "`" + ` attribute, for example:
 
-## More examples
+{{tffile .ImportIdentityConfigFile }}
 
-### Complete Cloud Database Cluster User
-This cloud database cluster user has read_write permissions to the created database.
-{{ tffile (printf "examples/resources/%s/complete.tf" .Name)}}
+{{ .IdentitySchemaMarkdown | trimspace }}
+{{- end }}
+{{- if .HasImportIDConfig }}
 
+In Terraform v1.5.0 and later, the [` + "`" + `import` + "`" + ` block](https://developer.hashicorp.com/terraform/language/import) can be used with the ` + "`" + `id` + "`" + ` attribute, for example:
 
-{{ tffile (printf "examples/resources/%s/complete.tfvars" .Name)}}
+{{tffile .ImportIDConfigFile }}
+{{- end }}
+{{- if .HasImport }}
+
+The [` + "`" + `terraform import` + "`" + ` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
+{{codefile "shell" .ImportFile }}
+{{- end }}

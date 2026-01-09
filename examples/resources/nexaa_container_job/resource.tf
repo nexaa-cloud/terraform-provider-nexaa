@@ -1,19 +1,26 @@
-resource "nexaa_starter_container" "starter-container" {
+resource "nexaa_container_job" "containerjob" {
+  ## We need a namespace before we can create a container. Therefor create a dependancy on the namespace
   depends_on = [
     nexaa_namespace.test,
   ]
 
   ## Define your name, namespace, image and (if required) add registry credentials
-  name      = "tf-starter-container"
+  name      = "tf-containerjob"
   namespace = "terraform-test"
-  image     = "nginx:latest"
+  image     = "busybox:1.28"
   registry  = null
 
-  ## With command and entrypoint you can override the startup behaviour of your container
-  #command    = ["nginx", "-g", "daemon off;"]
-  #entrypoint = ["/docker-entrypoint.sh"]
+  ## Set your cron schedule in crontab format
+  schedule_cron_expression = "0 * * * *" # Every hour
 
-  ports = ["80:80"]
+  ## With command and entrypoint you can override the startup behaviour of your container
+  command = ["/bin/sh", "-c", "date; echo Hello World"]
+  # entrypoint = ["/docker-entrypoint.sh"]
+
+  resources = {
+    cpu = 0.25
+    ram = 0.5
+  }
 
   ## Adding environment variables to your container
   ## When setting it as secret, it will be encrypted
@@ -35,27 +42,12 @@ resource "nexaa_starter_container" "starter-container" {
     }
   ]
 
-  ## When you want to expose your container to the internet you can add an ingress
-  ingresses = [
-    {
-      domain_name = null
-      port        = 80
-      tls         = true
-      allow_list  = ["0.0.0.0/0", "::/0"]
-    }
-  ]
-
   ## When using volumes you can mount the volume on a specific path
-  #mounts = [
-  #  {
-  #    path   = "/storage/mount"
-  #    volume = "storage"
-  #  }
-  #]
+  # mounts = [
+  #   {
+  #     path   = "/storage/mount"
+  #     volume = nexaa_volume.volume.name
+  #   }
+  # ]
 
-  # The health check will check your container if the application is still responding as it should
-  health_check = {
-    port = 80
-    path = "/"
-  }
 }
