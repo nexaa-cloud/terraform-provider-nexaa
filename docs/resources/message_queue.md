@@ -49,6 +49,10 @@ data "nexaa_message_queue_plans" "plan" {
 
 # Create a RabbitMQ message queue
 resource "nexaa_message_queue" "queue" {
+  ## We need a namespace before we can create a container. Therefor create a dependancy on the namespace
+  depends_on = [
+    nexaa_namespace.test,
+  ]
   namespace = "terraform-test"
   name      = "tf-queue"
   plan      = data.nexaa_message_queue_plans.plan.id
