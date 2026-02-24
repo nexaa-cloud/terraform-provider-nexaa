@@ -8,7 +8,7 @@ require (
 	github.com/go-faker/faker/v4 v4.7.0
 	github.com/hashicorp/terraform-plugin-framework v1.17.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.7.0
-	github.com/hashicorp/terraform-plugin-go v0.29.0
+	github.com/hashicorp/terraform-plugin-go v0.30.0
 	github.com/hashicorp/terraform-plugin-log v0.10.0
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
 	github.com/joho/godotenv v1.5.1
@@ -18,7 +18,7 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	google.golang.org/grpc v1.77.0 // indirect
+	google.golang.org/grpc v1.79.1 // indirect
 )
 
 require (
