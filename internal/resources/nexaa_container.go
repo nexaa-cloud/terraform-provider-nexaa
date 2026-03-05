@@ -1104,6 +1104,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Mounts = mountList
 	}
 
+	// Ingresses
 	ingressesList, d := buildIngressesFromApi(containerResult)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {

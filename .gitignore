@@ -26,6 +26,8 @@ website/node_modules
 *.test
 *.iml
 
+terraform-test/
+
 website/vendor
 ./auth.json
 examples/*/auth.json

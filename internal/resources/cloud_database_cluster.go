@@ -4,18 +4,28 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResource, cluster api.CloudDatabaseClusterResult) cloudDatabaseClusterResource {
+func translateApiToCloudDatabaseClusterResource(ctx context.Context, plan cloudDatabaseClusterResource, cluster api.CloudDatabaseClusterResult) (cloudDatabaseClusterResource, diag.Diagnostics) {
+	//return nil if no external connection is defined which causes a nill pointer reference
+	externalConnection, diags := buildExternalConnectionFromApi(ctx, cluster.GetExternalConnection().ExternalConnectionResult)
+	if diags.HasError() {
+		return cloudDatabaseClusterResource{}, diags
+	}
+
+
+
 	namespace := cluster.GetNamespace()
 	plan.ID = types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName()))
 	plan.Cluster = ClusterRef{
@@ -28,10 +38,11 @@ func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResourc
 		Type:    types.StringValue(cluster.Spec.GetType()),
 		Version: types.StringValue(cluster.Spec.GetVersion()),
 	}
+	plan.ExternalConnection = externalConnection
 	plan.State = types.StringValue(cluster.GetState())
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 
-	return plan
+	return plan, nil
 }
 
 func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUserResource, cluster ClusterRef, user api.CloudDatabaseClusterUserResult) cloudDatabaseClusterUserResource {

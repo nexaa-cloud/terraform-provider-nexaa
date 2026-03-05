@@ -151,14 +151,7 @@ func buildIngressesInput(ctx context.Context, ingresses types.List) ([]api.Ingre
 	var ingressInputs []api.IngressInput
 	for _, ing := range ingressesData {
 		if !ing.Port.IsNull() {
-			allowList := []string{}
-			if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
-				var rawAllowList []types.String
-				_ = ing.AllowList.ElementsAs(ctx, &rawAllowList, false)
-				for _, ip := range rawAllowList {
-					allowList = append(allowList, ip.ValueString())
-				}
-			}
+			allowList := toStringArray(ctx, ing.AllowList)
 			var domainPtr *string
 			if !ing.DomainName.IsNull() && !ing.DomainName.IsUnknown() {
 				domain := ing.DomainName.ValueString()

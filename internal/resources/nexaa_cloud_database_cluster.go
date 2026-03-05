@@ -26,21 +26,21 @@ func NewCloudDatabaseClusterResource() resource.Resource {
 }
 
 type cloudDatabaseClusterResource struct {
-	ID                 types.String                                   `tfsdk:"id"`
-	Cluster            ClusterRef                                     `tfsdk:"cluster"`
-	Spec               Spec                                           `tfsdk:"spec"`
-	Plan               types.String                                   `tfsdk:"plan"`
-	Hostname           types.String                                   `tfsdk:"hostname"`
-	ExternalConnection cloudDatabaseClusterExternalConnectionResource `tfsdk:"external_connection"`
-	State              types.String                                   `tfsdk:"state"`
-	LastUpdated        types.String                                   `tfsdk:"last_updated"`
-	Timeouts           timeouts.Value                                 `tfsdk:"timeouts"`
+	ID                 types.String  	`tfsdk:"id"`
+	Cluster            ClusterRef    	`tfsdk:"cluster"`
+	Spec               Spec          	`tfsdk:"spec"`
+	Plan               types.String  	`tfsdk:"plan"`
+	Hostname           types.String  	`tfsdk:"hostname"`
+	ExternalConnection types.Object  	`tfsdk:"external_connection"`
+	State              types.String  	`tfsdk:"state"`
+	LastUpdated        types.String  	`tfsdk:"last_updated"`
+	Timeouts           timeouts.Value	`tfsdk:"timeouts"`
 }
 
 type cloudDatabaseClusterExternalConnectionResource struct {
-	Ipv6  types.String                                        `tfsdk:"ipv6"`
-	Ipv4  types.String                                        `tfsdk:"ipv4"`
-	Ports cloudDatabaseClusterExternalConnectionPortsResource `tfsdk:"ports"`
+	Ipv6  types.String	`tfsdk:"ipv6"`
+	Ipv4  types.String	`tfsdk:"ipv4"`
+	Ports types.Object	`tfsdk:"ports"`
 }
 
 type cloudDatabaseClusterExternalConnectionPortsResource struct {
@@ -124,6 +124,7 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
 				Create: true,
+				Update: true,
 				Delete: true,
 			}),
 		},
@@ -151,25 +152,6 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 
 	client := api.NewClient()
 
-	var externalConnection = api.ExternalConnectionInput{}
-
-	if !plan.ExternalConnection.Ports.Allowlist.IsNull() && !plan.ExternalConnection.Ports.Allowlist.IsUnknown() {
-		externalConnection.SharedIp = true
-		externalConnection.State = api.StatePresent
-
-		var portInput api.ExternalConnectionPortInput
-		portInput.ExternalPort = nil
-		portInput.AllowList = []api.AllowListInput{}
-		for _, allowlist := range plan.ExternalConnection.Ports.Allowlist.Elements() {
-			var allowlistInput api.AllowListInput
-			allowlistInput.Ip = allowlist.String()
-			portInput.AllowList = append(portInput.AllowList, allowlistInput)
-		}
-		externalConnection.Ports = append(externalConnection.Ports, portInput)
-	} else {
-		externalConnection.State = api.StateAbsent
-	}
-
 	input := api.CloudDatabaseClusterCreateInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -177,7 +159,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			Type:    plan.Spec.Type.ValueString(),
 			Version: plan.Spec.Version.ValueString(),
 		},
-		ExternalConnection: &externalConnection,
+		ExternalConnection: buildExternalConnectionInput(ctx, plan),
 		Plan:               plan.Plan.ValueString(),
 		Databases:          []api.DatabaseInput{},
 		Users:              []api.DatabaseUserInput{},
@@ -211,7 +193,11 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -239,15 +225,21 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
 				"create": types.StringType,
+				"update": types.StringType,
 				"delete": types.StringType,
 			},
 			map[string]attr.Value{
 				"create": types.StringValue("2m"),
+				"update": types.StringValue("2m"),
 				"delete": types.StringValue("2m"),
 			},
 		),
@@ -257,14 +249,74 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 
 }
 
-// Omitting is not supported for this resource. So we write the current state back unchanged.
+// Omitting is not fully supported for this resource. So we write the current state back unchanged and only change the external connection.
 func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// No in-place updates supported; preserve current plan.
 	var plan cloudDatabaseClusterResource
+	diags := req.Plan.Get(ctx, &plan)
+	var state cloudDatabaseClusterResource
+	diags = req.State.Get(ctx, &state)
 
-	// Read current plan and write it back unchanged
-	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(diags...)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 2*time.Minute)
+
+	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
+	client := api.NewClient()
+
+	//Set up the modify input
+	
+
+	input := api.CloudDatabaseClusterModifyInput{
+		Name:      plan.Cluster.Name.ValueString(),
+		Namespace: plan.Cluster.Namespace.ValueString(),
+		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, state),
+	}
+
+	_, err := client.CloudDatabaseClusterModify(input)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating cluster",
+			"Could not update cluster: "+err.Error(),
+		)
+		return
+	}
+
+	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating cluster", "Could not reach a unlocked state: "+err.Error())
+		return
+	}
+
+	cluster, err := client.CloudDatabaseClusterGet(api.CloudDatabaseClusterResourceInput{
+		Name:      plan.Cluster.Name.ValueString(),
+		Namespace: plan.Cluster.Namespace.ValueString(),
+	})
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading cluster after update",
+			err.Error(),
+		)
+		return
+	}
+	
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
@@ -272,16 +324,19 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
 				"create": types.StringType,
+				"update": types.StringType,
 				"delete": types.StringType,
 			},
 			map[string]attr.Value{
 				"create": types.StringValue("2m"),
+				"update": types.StringValue("2m"),
 				"delete": types.StringValue("2m"),
 			},
 		),
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -350,15 +405,21 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 	}
 
 	var plan cloudDatabaseClusterResource
-	plan = translateApiToCloudDatabaseClusterResource(plan, cluster)
+	plan, diags := translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
 				"create": types.StringType,
+				"update": types.StringType,
 				"delete": types.StringType,
 			},
 			map[string]attr.Value{
 				"create": types.StringValue("2m"),
+				"update": types.StringValue("2m"),
 				"delete": types.StringValue("2m"),
 			},
 		),
