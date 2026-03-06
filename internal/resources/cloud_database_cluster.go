@@ -14,18 +14,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-func translateApiToCloudDatabaseClusterResource(ctx context.Context, plan cloudDatabaseClusterResource, cluster api.CloudDatabaseClusterResult) (cloudDatabaseClusterResource, diag.Diagnostics) {
-	//return nil if no external connection is defined which causes a nill pointer reference
-	externalConnection, diags := buildExternalConnectionFromApi(ctx, cluster.GetExternalConnection().ExternalConnectionResult)
-	if diags.HasError() {
-		return cloudDatabaseClusterResource{}, diags
-	}
-
-
-
+func translateApiToCloudDatabaseClusterResource(ctx context.Context, cluster api.CloudDatabaseClusterResult, timeout timeouts.Value) (cloudDatabaseClusterResource, diag.Diagnostics) {
+	plan := cloudDatabaseClusterResource{}
+	
 	namespace := cluster.GetNamespace()
 	plan.ID = types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName()))
 	plan.Cluster = ClusterRef{
@@ -38,9 +33,21 @@ func translateApiToCloudDatabaseClusterResource(ctx context.Context, plan cloudD
 		Type:    types.StringValue(cluster.Spec.GetType()),
 		Version: types.StringValue(cluster.Spec.GetVersion()),
 	}
-	plan.ExternalConnection = externalConnection
+
 	plan.State = types.StringValue(cluster.GetState())
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+	plan.Timeouts = timeout
+
+	if cluster.GetExternalConnection() == nil {
+		plan.ExternalConnection = types.ObjectNull(ExternalConnectionObjectAttributeTypes())
+		return plan, nil
+	}
+	externalConnection, diags := buildExternalConnectionFromApi(ctx, cluster.GetExternalConnection().ExternalConnectionResult)
+	if diags.HasError() {
+		return plan, diags
+	}
+
+	plan.ExternalConnection = externalConnection
 
 	return plan, nil
 }

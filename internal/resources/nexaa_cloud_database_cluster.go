@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -19,6 +20,7 @@ import (
 var (
 	_ resource.Resource                = &cloudDatabaseClusterResource{}
 	_ resource.ResourceWithImportState = &cloudDatabaseClusterResource{}
+	_ resource.ResourceWithIdentity    = &cloudDatabaseClusterResource{}
 )
 
 func NewCloudDatabaseClusterResource() resource.Resource {
@@ -34,7 +36,7 @@ type cloudDatabaseClusterResource struct {
 	ExternalConnection types.Object  	`tfsdk:"external_connection"`
 	State              types.String  	`tfsdk:"state"`
 	LastUpdated        types.String  	`tfsdk:"last_updated"`
-	Timeouts           timeouts.Value	`tfsdk:"timeouts"`
+	Timeouts           timeouts.Value 	`tfsdk:"timeouts"`
 }
 
 type cloudDatabaseClusterExternalConnectionResource struct {
@@ -52,7 +54,22 @@ func (r *cloudDatabaseClusterResource) Metadata(_ context.Context, req resource.
 	resp.TypeName = req.ProviderTypeName + "_cloud_database_cluster"
 }
 
-func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *cloudDatabaseClusterResource) IdentitySchema(ctx context.Context, request resource.IdentitySchemaRequest, response *resource.IdentitySchemaResponse) {
+	response.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"name": identityschema.StringAttribute{
+				Description:       "The name of the cloud database cluster.",
+				RequiredForImport: true,
+			},
+			"namespace": identityschema.StringAttribute{
+				Description:       "The namespace where the cloud database cluster belongs to.",
+				RequiredForImport: true,
+			},
+		},
+	}
+}
+
+func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Cloud Database Cluster resource representing a managed database cluster on Nexaa.",
 		Attributes: map[string]schema.Attribute{
@@ -93,14 +110,12 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 					"ports": schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
 							"external_port": schema.Int64Attribute{
-								Optional:    true,
 								Computed:    true,
 								Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
 							},
 							"allowlist": schema.ListAttribute{
 								ElementType: types.StringType,
 								Optional:    true,
-								Computed:    true,
 								Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format.",
 							},
 						},
@@ -109,7 +124,6 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 					},
 				},
 				Optional:    true,
-				Required:    false,
 				Description: "An external connection that can used to connect to a cloud database cluster",
 			},
 			"state": schema.StringAttribute{
@@ -122,7 +136,7 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 			},
 		},
 		Blocks: map[string]schema.Block{
-			"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
 				Delete: true,
@@ -159,7 +173,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			Type:    plan.Spec.Type.ValueString(),
 			Version: plan.Spec.Version.ValueString(),
 		},
-		ExternalConnection: buildExternalConnectionInput(ctx, plan),
+		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, nil),
 		Plan:               plan.Plan.ValueString(),
 		Databases:          []api.DatabaseInput{},
 		Users:              []api.DatabaseUserInput{},
@@ -193,22 +207,38 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, cluster, plan.Timeouts)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
 	}
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	//Set identity
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Cluster.Name,
+		Namespace: plan.Cluster.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+
 	var plan cloudDatabaseClusterResource
 	diags := req.State.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+
 
 	client := api.NewClient()
 	input := api.CloudDatabaseClusterResourceInput{
@@ -225,28 +255,27 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, cluster, plan.Timeouts)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
 	}
-	plan.Timeouts = timeouts.Value{
-		Object: types.ObjectValueMust(
-			map[string]attr.Type{
-				"create": types.StringType,
-				"update": types.StringType,
-				"delete": types.StringType,
-			},
-			map[string]attr.Value{
-				"create": types.StringValue("2m"),
-				"update": types.StringValue("2m"),
-				"delete": types.StringValue("2m"),
-			},
-		),
-	}
+
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
+	//Set identity
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Cluster.Name,
+		Namespace: plan.Cluster.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 // Omitting is not fully supported for this resource. So we write the current state back unchanged and only change the external connection.
@@ -282,7 +311,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	input := api.CloudDatabaseClusterModifyInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
-		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, state),
+		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, &state),
 	}
 
 	_, err := client.CloudDatabaseClusterModify(input)
@@ -314,29 +343,27 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		return
 	}
 	
-	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
+	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, cluster, plan.Timeouts)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
 	}
 
-	plan.Timeouts = timeouts.Value{
-		Object: types.ObjectValueMust(
-			map[string]attr.Type{
-				"create": types.StringType,
-				"update": types.StringType,
-				"delete": types.StringType,
-			},
-			map[string]attr.Value{
-				"create": types.StringValue("2m"),
-				"update": types.StringValue("2m"),
-				"delete": types.StringValue("2m"),
-			},
-		),
-	}
-
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+		return
+	}
+	
+	//Set identity
+	identity := struct {
+		Name      types.String `tfsdk:"name"`
+		Namespace types.String `tfsdk:"namespace"`
+	}{
+		Name:      plan.Cluster.Name,
+		Namespace: plan.Cluster.Namespace,
+	}
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, identity)...)
 }
 
 func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -405,11 +432,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 	}
 
 	var plan cloudDatabaseClusterResource
-	plan, diags := translateApiToCloudDatabaseClusterResource(ctx, plan, cluster)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
-	}
+
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
@@ -425,5 +448,12 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 		),
 	}
 
+	plan, diags := translateApiToCloudDatabaseClusterResource(ctx, cluster, plan.Timeouts)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+
 }

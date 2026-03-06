@@ -328,21 +328,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	// Create containerResult
 	client := api.NewClient()
 
-	// Log the request for debugging
-	tflog.Debug(ctx, "Creating starter container", map[string]interface{}{
-		"namespace":    input.Namespace,
-		"name":         input.Name,
-		"image":        input.Image,
-		"registry":     input.Registry,
-		"type":         input.Type,
-		"resources":    input.Resources,
-		"ports":        input.Ports,
-		"mounts":       input.Mounts,
-		"ingresses":    input.Ingresses,
-		"env_vars":     input.EnvironmentVariables,
-		"health_check": input.HealthCheck,
-	})
-
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
 		tflog.Error(ctx, "Failed to create starter container", map[string]interface{}{
@@ -352,11 +337,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		resp.Diagnostics.AddError("Error creating starter container", "Could not create starter container: "+err.Error())
 		return
 	}
-
-	tflog.Debug(ctx, "Successfully created starter container", map[string]interface{}{
-		"container_name":  containerResult.Name,
-		"container_state": containerResult.State,
-	})
 
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)

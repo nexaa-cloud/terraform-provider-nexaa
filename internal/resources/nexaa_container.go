@@ -317,7 +317,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the private registry",
+				Description: "Timestamp of the last Terraform update of the container",
 				Computed:    true,
 			},
 		},
@@ -725,7 +725,6 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	state.Ports = portList
-
 	// Mounts
 	if container.Mounts != nil {
 		mountList, d := buildMountsFromApi(container.Mounts)
@@ -1014,7 +1013,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
 
 	resp.Diagnostics.Append(diags...)
 
@@ -1022,7 +1021,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
 	client := api.NewClient()

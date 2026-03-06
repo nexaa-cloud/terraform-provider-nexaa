@@ -28,55 +28,7 @@ func ExternalConnectionPortsObjectAttributeTypes() map[string]attr.Type {
 	}
 }
 
-
-	
-	//Check if external Connection is defined
-	//Check if ports is defined
-	//Check if allowlist is defined
-
-func buildExternalConnectionInput(ctx context.Context, plan cloudDatabaseClusterResource) *api.ExternalConnectionInput {
-	var externalConnectionInputs api.ExternalConnectionInput
-
-	if plan.ExternalConnection.IsNull() {
-		return &api.ExternalConnectionInput{}
-	}
-	if plan.ExternalConnection.IsUnknown() {
-		return &api.ExternalConnectionInput{}
-	}
-
-	var externalConnectionData cloudDatabaseClusterExternalConnectionResource
-	diags := plan.ExternalConnection.As(ctx, &externalConnectionData, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return nil
-	}
-
-	var externalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
-	diags= externalConnectionData.Ports.As(ctx, &externalConnectionPortsData, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return nil
-	}
-
-	var allowlist []api.AllowListInput
-	for _, allowlistItem := range toStringArray(ctx, externalConnectionPortsData.Allowlist) {
-		allowlist = append(allowlist, api.AllowListInput{
-			Ip:	allowlistItem,
-			State: api.StatePresent,
-		})
-	}
-
-	var ports api.ExternalConnectionPortInput
-	ports.ExternalPort = nil
-	ports.State = api.StatePresent
-	ports.AllowList = allowlist
-
-	externalConnectionInputs.SharedIp = true
-	externalConnectionInputs.State = api.StatePresent
-	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
-	
-	return &externalConnectionInputs
-}
-
-func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseClusterResource, state cloudDatabaseClusterResource) *api.ExternalConnectionInput {
+func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseClusterResource, state *cloudDatabaseClusterResource) *api.ExternalConnectionInput {
 	var externalConnectionInputs api.ExternalConnectionInput
 
 	if plan.ExternalConnection.IsNull() {
@@ -117,43 +69,50 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 	}
 
 	var oldExternalConnectionData cloudDatabaseClusterExternalConnectionResource
-	diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return nil
-	}
-
 	var oldExternalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
-	diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return nil
-	}
-
 	var allowlist []api.AllowListInput
-	newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
-	oldAllowlist := toStringArray(ctx, oldExternalConnectionPortsData.Allowlist)
-	plannedIps := map[string]struct{}{}
+	if !externalConnectionPortsData.ExternalPort.IsNull() {
+		if !state.ExternalConnection.IsNull() {
+			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
+			if diags.HasError() {
+				return nil
+			}
 
-	for _, newIp := range newAllowlist {
-		plannedIps[newIp] = struct{}{}
-		allowlist = append(allowlist, api.AllowListInput{
-			Ip:	newIp,
-			State: api.StatePresent,
-		})
-	}
+			diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
+			if diags.HasError() {
+				return nil
+			}
 
-	for _, oldIp := range oldAllowlist {
-		if _, exists := plannedIps[oldIp]; !exists {
+			externalport := int(oldExternalConnectionPortsData.ExternalPort.ValueInt64())
+			ports.ExternalPort = &externalport
+		}
+
+		newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
+		oldAllowlist := toStringArray(ctx, oldExternalConnectionPortsData.Allowlist)
+		plannedIps := map[string]struct{}{}
+
+		for _, newIp := range newAllowlist {
+			plannedIps[newIp] = struct{}{}
 			allowlist = append(allowlist, api.AllowListInput{
-				Ip:	oldIp,
-				State: api.StateAbsent,
+				Ip:	newIp,
+				State: api.StatePresent,
 			})
 		}
+
+		for _, oldIp := range oldAllowlist {
+			if _, exists := plannedIps[oldIp]; !exists {
+				allowlist = append(allowlist, api.AllowListInput{
+					Ip:	oldIp,
+					State: api.StateAbsent,
+				})
+			}
+		}
+	}
+	if externalConnectionPortsData.ExternalPort.IsNull() {
+		oldExternalConnectionPortsData = cloudDatabaseClusterExternalConnectionPortsResource{}
 	}
 
-	externalport := int(oldExternalConnectionPortsData.ExternalPort.ValueInt64())
-
 	ports.AllowList = allowlist
-	ports.ExternalPort = &externalport
 	ports.State = api.StatePresent
 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
 	externalConnectionInputs.SharedIp = true
@@ -189,26 +148,6 @@ func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnec
 		})
 	
 	return externalConnectionObj, nil
-	
-	// var plan cloudDatabaseClusterExternalConnectionPortsResource
-	// connObject := conn[0]
-	// plan.ExternalPort = types.Int64Value(int64(connObject.GetExternalPort()))
-
-	// 	allowListElems := make([]attr.Value, len(connObject.AllowList))
-	// 	for i, a := range connObject.AllowList {
-	// 		allowListElems[i] = types.StringValue(a)
-	// 	}
-	// 	allowList, diags := types.ListValue(
-	// 		types.StringType,
-	// 		allowListElems,
-	// 	)
-	// 	if diags.HasError() {
-	// 		return cloudDatabaseClusterExternalConnectionPortsResource{}, diags
-	// 	}
-	
-	// plan.Allowlist = allowList
-
-	// return plan, nil
 }
 
 
