@@ -76,6 +76,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 
 ### Optional
 
+- `external_connection` (Attributes) An external connection that can used to connect to a cloud database cluster (see [below for nested schema](#nestedatt--external_connection))
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
@@ -103,6 +104,31 @@ Required:
 - `version` (String)
 
 
+<a id="nestedatt--external_connection"></a>
+### Nested Schema for `external_connection`
+
+Optional:
+
+- `ports` (Attributes) Used to define the connection parts of the external connection (see [below for nested schema](#nestedatt--external_connection--ports))
+
+Read-Only:
+
+- `ipv4` (String) The ipv4 address that can be used in combination with the external port to connect to your cluster
+- `ipv6` (String) The ipv6 address that can be used in combination with the external port to connect to your cluster
+
+<a id="nestedatt--external_connection--ports"></a>
+### Nested Schema for `external_connection.ports`
+
+Optional:
+
+- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.
+
+Read-Only:
+
+- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster
+
+
+
 <a id="nestedblock--timeouts"></a>
 ### Nested Schema for `timeouts`
 
@@ -110,3 +136,4 @@ Optional:
 
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+- `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).

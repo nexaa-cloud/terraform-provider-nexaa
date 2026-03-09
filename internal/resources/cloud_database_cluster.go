@@ -10,17 +10,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
 func translateApiToCloudDatabaseClusterResource(ctx context.Context, cluster api.CloudDatabaseClusterResult, timeout timeouts.Value) (cloudDatabaseClusterResource, diag.Diagnostics) {
 	plan := cloudDatabaseClusterResource{}
-	
+
 	namespace := cluster.GetNamespace()
 	plan.ID = types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName()))
 	plan.Cluster = ClusterRef{

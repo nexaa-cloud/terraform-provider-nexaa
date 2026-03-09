@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
@@ -29,16 +30,28 @@ func NewMessageQueueResource() resource.Resource {
 
 // messageQueueResource is the resource implementation.
 type messageQueueResource struct {
-	ID          types.String `tfsdk:"id"`
-	Namespace   types.String `tfsdk:"namespace"`
-	Name        types.String `tfsdk:"name"`
-	Plan        types.String `tfsdk:"plan"`
-	Type        types.String `tfsdk:"type"`
-	Version     types.String `tfsdk:"version"`
-	State       types.String `tfsdk:"state"`
-	Locked      types.Bool   `tfsdk:"locked"`
-	LastUpdated types.String `tfsdk:"last_updated"`
-	Allowlist   types.List   `tfsdk:"allowlist"`
+	ID          		types.String `tfsdk:"id"`
+	Namespace   		types.String `tfsdk:"namespace"`
+	Name        		types.String `tfsdk:"name"`
+	Plan        		types.String `tfsdk:"plan"`
+	Type        		types.String `tfsdk:"type"`
+	Version     		types.String `tfsdk:"version"`
+	ExternalConnection	types.Object `tfsdk:"external_connection"`
+	State       		types.String `tfsdk:"state"`
+	Locked      		types.Bool   `tfsdk:"locked"`
+	LastUpdated 		types.String `tfsdk:"last_updated"`
+	Allowlist   		types.List   `tfsdk:"allowlist"`
+}
+
+type messageQueueExternalConnectionResource struct {
+	Ipv6  types.String `tfsdk:"ipv6"`
+	Ipv4  types.String `tfsdk:"ipv4"`
+	Ports types.Object `tfsdk:"ports"`
+}
+
+type messageQueueExternalConnectionPortsResource struct {
+	ExternalPort types.Int64 `tfsdk:"external_port"`
+	Allowlist    types.List  `tfsdk:"allowlist"`
 }
 
 // Metadata returns the resource type name.
@@ -74,6 +87,35 @@ func (r *messageQueueResource) Schema(_ context.Context, _ resource.SchemaReques
 			"version": schema.StringAttribute{
 				Description: "The version of the message queue software",
 				Required:    true,
+			},
+			"external_connection": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ipv4": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your queue",
+					},
+					"ipv6": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your queue",
+					},
+					"ports": schema.SingleNestedAttribute{
+						Attributes: map[string]schema.Attribute{
+							"external_port": schema.Int64Attribute{
+								Computed:    true,
+								Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your queue",
+							},
+							"allowlist": schema.ListAttribute{
+								ElementType: types.StringType,
+								Optional:    true,
+								Description: "A list with the IP's that can access the message queue through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the message queue can be accessed from any IP address.",
+							},
+						},
+						Optional:    true,
+						Description: "Used to define the connection parts of the external connection",
+					},
+				},
+				Optional:    true,
+				Description: "An external connection that can used to connect to a message queue",
 			},
 			"state": schema.StringAttribute{
 				Description: "The current state of the message queue",
@@ -137,6 +179,7 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		Name:      plan.Name.ValueString(),
 		Namespace: plan.Namespace.ValueString(),
 		Plan:      plan.Plan.ValueString(),
+		ExternalConnection: buildExternalConnectionUpdateInputMQ(ctx, plan, nil),
 		Spec: api.MessageQueueSpecInput{
 			Type:    plan.Type.ValueString(),
 			Version: plan.Version.ValueString(),
@@ -172,6 +215,13 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	externalConnection, diags := buildExternalConnectionFromApi(ctx, queue.GetExternalConnection().ExternalConnectionResult)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	plan.ExternalConnection = externalConnection
 	plan.ID = types.StringValue(fmt.Sprintf("%s/%s", plan.Namespace.ValueString(), queue.Name))
 	plan.Namespace = types.StringValue(queue.Namespace.Name)
 	plan.Name = types.StringValue(queue.Name)
@@ -214,6 +264,13 @@ func (r *messageQueueResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
+	externalConnection, diags := buildExternalConnectionFromApi(ctx, queue.GetExternalConnection().ExternalConnectionResult)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
+
+	state.ExternalConnection = externalConnection
 	state.ID = types.StringValue(fmt.Sprintf("%s/%s", queue.Namespace.Name, queue.Name))
 	state.Namespace = types.StringValue(queue.Namespace.Name)
 	state.Name = types.StringValue(queue.Name)
@@ -229,10 +286,87 @@ func (r *messageQueueResource) Read(ctx context.Context, req resource.ReadReques
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.AddError(
-		"You can't update a message queue",
-		"You can't change a message queue. You can only create and delete a message queue",
-	)
+	var plan messageQueueResource
+	var state messageQueueResource
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	client := api.NewClient()
+
+	externalConnection := buildExternalConnectionUpdateInputMQ(ctx, plan, &state)
+
+	tflog.Debug(ctx, fmt.Sprintf("External connection before update: %v", externalConnection))
+
+	input := api.MessageQueueModifyInput{
+		Name:      plan.Name.ValueString(),
+		Namespace: plan.Namespace.ValueString(),
+		AllowList: []api.AllowListInput{},
+		ExternalConnection: externalConnection,
+	}
+
+	_, err := client.MessageQueueModify(input)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating message queue",
+			fmt.Sprintf("Failed to update message queue %q: %s", state.Name.ValueString(), err.Error()),
+		)
+		return
+	}
+
+	err = waitForUnlocked(ctx, messageQueueLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for message queue to unlock",
+			fmt.Sprintf("Failed to wait for message queue %q to unlock: %s", state.Name.ValueString(), err.Error()),
+		)
+		return
+	}
+
+	queue, err := client.MessageQueueGet(api.MessageQueueResourceInput{
+		Name:      plan.Name.ValueString(),
+		Namespace: plan.Namespace.ValueString(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error fetching updated message queue",
+			err.Error(),
+		)
+		return
+	}
+
+	if queue.GetExternalConnection() == nil {
+		plan.ExternalConnection = types.ObjectNull(ExternalConnectionObjectAttributeTypes())
+	} else {
+		externalConnection, diags := buildExternalConnectionFromApi(ctx, queue.GetExternalConnection().ExternalConnectionResult)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+
+		plan.ExternalConnection = externalConnection
+	}
+
+	plan.ID = types.StringValue(fmt.Sprintf("%s/%s", queue.Namespace.Name, queue.Name))
+	plan.Namespace = types.StringValue(queue.Namespace.Name)
+	plan.Name = types.StringValue(queue.Name)
+	plan.State = types.StringValue(queue.State)
+	plan.Locked = types.BoolValue(queue.Locked)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.

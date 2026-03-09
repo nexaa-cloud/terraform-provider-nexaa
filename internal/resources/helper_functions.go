@@ -1,7 +1,11 @@
+// Copyright IBM Corp. 2021, 2026
+// SPDX-License-Identifier: MPL-2.0
+
 package resources
 
 import (
 	"context"
+	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -21,5 +25,8 @@ func toStringArray(ctx context.Context, listInput types.List) []string {
 	for _, element := range rawList {
 		result = append(result, element.ValueString())
 	}
+
+	sort.Strings(result)
+
 	return result
 }

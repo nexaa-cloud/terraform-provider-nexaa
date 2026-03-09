@@ -156,13 +156,13 @@ resource "nexaa_container" "container" {
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
 - `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
 - `ports` (List of String) The ports used to expose for traffic, format as from:to
-- `registry` (String) The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry
+- `registry` (String) The registry used to be able to access images that are saved in a private environment, fill in null to use a public registry
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the private registry
+- `last_updated` (String) Timestamp of the last Terraform update of the container
 - `status` (String) The status of the container
 
 <a id="nestedatt--scaling"></a>

@@ -10,10 +10,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func cloudDatabaseClusterDatabaseConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string, databaseName string, databaseDescription string) string {
+func cloudDatabaseClusterDatabaseConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string, databaseName string, databaseDescription string, allowlist []string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas) +
+		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas, allowlist) +
 		givenCloudDatabaseClusterDatabase(databaseName, databaseDescription)
 }
 
@@ -32,7 +32,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, ""),
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "cluster.namespace", namespaceName),
@@ -52,7 +52,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, ""),
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "last_updated"),

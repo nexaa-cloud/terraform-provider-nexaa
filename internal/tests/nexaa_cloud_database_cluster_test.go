@@ -10,11 +10,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func cloudDatabaseClusterConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
+func cloudDatabaseClusterConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string, allowlist []string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas)
-
+		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas, allowlist)
 }
 
 func TestAccCloudDatabaseClusterResource(t *testing.T) {
@@ -31,13 +30,17 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.type", "PostgreSQL"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "16.4"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "id"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv4"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv6"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.#", "1"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports[0].external_port"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "last_updated"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "plan"),
 				),
@@ -52,7 +55,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1"),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),

@@ -28,21 +28,21 @@ func NewCloudDatabaseClusterResource() resource.Resource {
 }
 
 type cloudDatabaseClusterResource struct {
-	ID                 types.String  	`tfsdk:"id"`
-	Cluster            ClusterRef    	`tfsdk:"cluster"`
-	Spec               Spec          	`tfsdk:"spec"`
-	Plan               types.String  	`tfsdk:"plan"`
-	Hostname           types.String  	`tfsdk:"hostname"`
-	ExternalConnection types.Object  	`tfsdk:"external_connection"`
-	State              types.String  	`tfsdk:"state"`
-	LastUpdated        types.String  	`tfsdk:"last_updated"`
-	Timeouts           timeouts.Value 	`tfsdk:"timeouts"`
+	ID                 types.String   `tfsdk:"id"`
+	Cluster            ClusterRef     `tfsdk:"cluster"`
+	Spec               Spec           `tfsdk:"spec"`
+	Plan               types.String   `tfsdk:"plan"`
+	Hostname           types.String   `tfsdk:"hostname"`
+	ExternalConnection types.Object   `tfsdk:"external_connection"`
+	State              types.String   `tfsdk:"state"`
+	LastUpdated        types.String   `tfsdk:"last_updated"`
+	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 }
 
 type cloudDatabaseClusterExternalConnectionResource struct {
-	Ipv6  types.String	`tfsdk:"ipv6"`
-	Ipv4  types.String	`tfsdk:"ipv4"`
-	Ports types.Object	`tfsdk:"ports"`
+	Ipv6  types.String `tfsdk:"ipv6"`
+	Ipv4  types.String `tfsdk:"ipv4"`
+	Ports types.Object `tfsdk:"ports"`
 }
 
 type cloudDatabaseClusterExternalConnectionPortsResource struct {
@@ -116,7 +116,7 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 							"allowlist": schema.ListAttribute{
 								ElementType: types.StringType,
 								Optional:    true,
-								Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format.",
+								Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
 							},
 						},
 						Optional:    true,
@@ -238,8 +238,6 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-
-
 	client := api.NewClient()
 	input := api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
@@ -306,11 +304,10 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	client := api.NewClient()
 
 	//Set up the modify input
-	
 
 	input := api.CloudDatabaseClusterModifyInput{
-		Name:      plan.Cluster.Name.ValueString(),
-		Namespace: plan.Cluster.Namespace.ValueString(),
+		Name:               plan.Cluster.Name.ValueString(),
+		Namespace:          plan.Cluster.Namespace.ValueString(),
 		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, &state),
 	}
 
@@ -342,7 +339,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		)
 		return
 	}
-	
+
 	plan, diags = translateApiToCloudDatabaseClusterResource(ctx, cluster, plan.Timeouts)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
@@ -351,10 +348,10 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
+	if resp.Diagnostics.HasError() {
 		return
 	}
-	
+
 	//Set identity
 	identity := struct {
 		Name      types.String `tfsdk:"name"`

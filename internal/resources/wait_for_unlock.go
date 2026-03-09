@@ -74,6 +74,23 @@ func cloudDatabaseClusterLocked() fetchResourceLocked {
 	}
 }
 
+func messageQueueLocked() fetchResourceLocked {
+	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+		resource, err := client.MessageQueueGet(
+			api.MessageQueueResourceInput{
+				Namespace: namespace,
+				Name:      resourceName,
+			},
+		)
+
+		if err != nil {
+			return false, err
+		}
+
+		return resource.Locked, nil
+	}
+}
+
 func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client api.Client, namespace string, resourceName string) error {
 	const (
 		initialDelay = 2 * time.Second

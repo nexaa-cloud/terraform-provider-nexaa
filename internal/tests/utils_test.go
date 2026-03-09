@@ -248,7 +248,7 @@ resource "nexaa_container_job" "job" {
 `, name, image, command, entrypoint, schedule)
 }
 
-func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
+func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string, allowlist []string) string {
 	data := fmt.Sprintf(`
 data "nexaa_cloud_database_cluster_plans" "plan" {
   cpu      = %q
@@ -273,13 +273,20 @@ resource "nexaa_cloud_database_cluster" "cluster-database" {
 
   plan = data.nexaa_cloud_database_cluster_plans.plan.id
 
+  external_connection = {
+    ports = {
+        allowlist = %q
+    }
+  }
+
   timeouts {
 	create = "2m"
+	update = "2m"
 	delete = "2m"
   }
 }
 
-`, name, dbType, version)
+`, name, dbType, version, allowlist)
 }
 
 func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) string {
