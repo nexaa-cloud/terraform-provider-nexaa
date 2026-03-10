@@ -10,6 +10,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+func messageQueueConfig(namespaceName string, queueName string, mqType string, version string, cpu string, memory string, storage string, replicas string, allowlist []string) string {
+	return givenProvider() +
+		givenNamespace(namespaceName, "") +
+		givenMessageQueue(queueName, mqType, version, cpu, memory, storage, replicas, allowlist)
+}
+
 func TestAcc_MessageQueueResource_basic(t *testing.T) {
 	testAccPreCheck(t)
 
@@ -24,9 +30,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// 1) Create & Read
 			{
-				Config: givenProvider() +
-					givenNamespace(namespaceName, "") +
-					givenMessageQueue(queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1","192.168.1.2"}),
+				Config: messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1","192.168.1.2"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "id"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
@@ -51,16 +55,14 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_message_queue.queue",
 				ImportState:             true,
-				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, queueName),
 				ImportStateVerify:       true,
+				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, queueName),
 				ImportStateVerifyIgnore: []string{"last_updated", "plan", "type", "version", "allowlist"},
 			},
 
 			// 3) Update & Read
 			{
-				Config: givenProvider() +
-					givenNamespace(namespaceName, "") +
-					givenMessageQueue(queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1"}),
+				Config: messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "name", queueName),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),

@@ -7,7 +7,9 @@ import (
 	"context"
 	"sort"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
 func toStringArray(ctx context.Context, listInput types.List) []string {
@@ -29,4 +31,44 @@ func toStringArray(ctx context.Context, listInput types.List) []string {
 	sort.Strings(result)
 
 	return result
+}
+
+func toTypesStringList(ctx context.Context, stringArray []string) (types.List, diag.Diagnostics) {
+	list, diags := types.ListValueFrom(ctx, types.StringType, stringArray)
+	if diags.HasError() {
+		return types.ListNull(types.StringType), diags
+	}
+
+	return list, nil
+}
+
+func buildAllowlistInput(ctx context.Context, oldAllowlist *types.List, newAllowlist types.List) []api.AllowListInput {
+	newAllowlistArray := toStringArray(ctx, newAllowlist)
+	var oldAllowlistArray []string
+
+	if oldAllowlist != nil && !oldAllowlist.IsNull() && !oldAllowlist.IsUnknown() {
+		oldAllowlistArray = toStringArray(ctx, *oldAllowlist)
+
+	}
+
+	var allowlist []api.AllowListInput
+	plannedList := map[string]struct{}{}
+	for _, ip := range newAllowlistArray {
+		plannedList[ip] = struct{}{}
+		allowlist = append(allowlist, api.AllowListInput{
+			Ip: ip,
+			State: api.StatePresent,
+		})
+	}
+
+	for _, ip := range oldAllowlistArray {
+		if _, exists := plannedList[ip]; !exists {
+			allowlist = append(allowlist, api.AllowListInput{
+				Ip: ip,
+				State: api.StateAbsent,
+			})
+		}
+	}
+	
+	return allowlist
 }

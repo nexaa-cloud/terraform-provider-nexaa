@@ -54,6 +54,12 @@ resource "nexaa_message_queue" "queue" {
   plan      = data.nexaa_message_queue_plans.plan.id
   type      = "RabbitMQ"
   version   = "3.13"
+  allowlist = ["192.168.1.1"]
+  external_connection = {
+    ports = {
+      allowlist = ["192.168.1.20", "192.168.1.50"]
+    }
+  }
 }
 
 output "queue_id" {

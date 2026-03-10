@@ -5,13 +5,11 @@ package resources
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
@@ -37,9 +35,6 @@ func ExternalConnectionPortsObjectAttributeTypes() map[string]attr.Type {
 func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseClusterResource, state *cloudDatabaseClusterResource) *api.ExternalConnectionInput {
 	var externalConnectionInputs api.ExternalConnectionInput
 
-	tflog.Debug(ctx, fmt.Sprintf("Plan: %v", plan))
-	tflog.Debug(ctx, fmt.Sprintf("State: %v", state))
-
 	if plan.ExternalConnection.IsNull() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
@@ -90,7 +85,6 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 	
 	var oldExternalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
 	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
-		tflog.Debug(ctx, fmt.Sprintf("Old External Connection Ports Data: %v", oldExternalConnectionData.Ports))
 		diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
 		if diags.HasError() {
 			return nil
@@ -101,28 +95,8 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 	}
 
 	var allowlist []api.AllowListInput
-	tflog.Debug(ctx, fmt.Sprintf("External Connection Data: %v", oldExternalConnectionPortsData))
 	if !oldExternalConnectionPortsData.ExternalPort.IsNull() && !oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
-		newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
-		oldAllowlist := toStringArray(ctx, oldExternalConnectionPortsData.Allowlist)
-		plannedIps := map[string]struct{}{}
-
-		for _, newIp := range newAllowlist {
-			plannedIps[newIp] = struct{}{}
-			allowlist = append(allowlist, api.AllowListInput{
-				Ip:    newIp,
-				State: api.StatePresent,
-			})
-		}
-
-		for _, oldIp := range oldAllowlist {
-			if _, exists := plannedIps[oldIp]; !exists {
-				allowlist = append(allowlist, api.AllowListInput{
-					Ip:    oldIp,
-					State: api.StateAbsent,
-				})
-			}
-		}
+		allowlist = buildAllowlistInput(ctx, &oldExternalConnectionPortsData.Allowlist, externalConnectionPortsData.Allowlist)
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsNull() {
 		// Create ports object with correct allowlist and empty port
@@ -135,8 +109,6 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 				State: api.StatePresent,
 			})
 		}
-		tflog.Debug(ctx, fmt.Sprintf("Allowlist for creating: %v", allowlist))
-		ports.AllowList = allowlist
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
 		// Create ports object with correct allowlist and empty port
@@ -149,8 +121,6 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 				State: api.StatePresent,
 			})
 		}
-		tflog.Debug(ctx, fmt.Sprintf("Allowlist for creating: %v", allowlist))
-		ports.AllowList = allowlist
 	}	
 
 	ports.AllowList = allowlist
@@ -164,16 +134,10 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 
 func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnectionResult) (types.Object, diag.Diagnostics) {
 
-	allowlist, diags := types.ListValueFrom(
-		ctx,
-		types.StringType,
-		conn.GetPorts()[0].GetAllowList(),
-	)
+	allowlist, diags := toTypesStringList(ctx, conn.GetPorts()[0].GetAllowList())
 	if diags.HasError() {
 		return types.ObjectNull(ExternalConnectionObjectAttributeTypes()), diags
 	}
-
-	tflog.Debug(ctx, fmt.Sprintf("Allowlist: %v", allowlist))
 
 	ports := types.ObjectValueMust(
 		ExternalConnectionPortsObjectAttributeTypes(),
@@ -196,9 +160,6 @@ func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnec
 func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueueResource, state *messageQueueResource) *api.ExternalConnectionInput {
 	var externalConnectionInputs api.ExternalConnectionInput
 
-	tflog.Debug(ctx, fmt.Sprintf("Plan: %v", plan))
-	tflog.Debug(ctx, fmt.Sprintf("State: %v", state))
-
 	if plan.ExternalConnection.IsNull() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
@@ -210,14 +171,14 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 		return &externalConnectionInputs
 	}
 
-	var externalConnectionData cloudDatabaseClusterExternalConnectionResource
+	var externalConnectionData messageQueueExternalConnectionResource
 	diags := plan.ExternalConnection.As(ctx, &externalConnectionData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
 		return nil
 	}
 
 
-	var oldExternalConnectionData cloudDatabaseClusterExternalConnectionResource
+	var oldExternalConnectionData messageQueueExternalConnectionResource
 	if state != nil {
 		if !state.ExternalConnection.IsNull()  && !state.ExternalConnection.IsUnknown() {
 			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
@@ -241,15 +202,14 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 		return &externalConnectionInputs
 	}
 
-	var externalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
+	var externalConnectionPortsData messageQueueExternalConnectionPortsResource
 	diags = externalConnectionData.Ports.As(ctx, &externalConnectionPortsData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
 		return nil
 	}
 	
-	var oldExternalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
+	var oldExternalConnectionPortsData messageQueueExternalConnectionPortsResource
 	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
-		tflog.Debug(ctx, fmt.Sprintf("Old External Connection Ports Data: %v", oldExternalConnectionData.Ports))
 		diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
 		if diags.HasError() {
 			return nil
@@ -260,28 +220,8 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 	}
 
 	var allowlist []api.AllowListInput
-	tflog.Debug(ctx, fmt.Sprintf("External Connection Data: %v", oldExternalConnectionPortsData))
 	if !oldExternalConnectionPortsData.ExternalPort.IsNull() && !oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
-		newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
-		oldAllowlist := toStringArray(ctx, oldExternalConnectionPortsData.Allowlist)
-		plannedIps := map[string]struct{}{}
-
-		for _, newIp := range newAllowlist {
-			plannedIps[newIp] = struct{}{}
-			allowlist = append(allowlist, api.AllowListInput{
-				Ip:    newIp,
-				State: api.StatePresent,
-			})
-		}
-
-		for _, oldIp := range oldAllowlist {
-			if _, exists := plannedIps[oldIp]; !exists {
-				allowlist = append(allowlist, api.AllowListInput{
-					Ip:    oldIp,
-					State: api.StateAbsent,
-				})
-			}
-		}
+		allowlist = buildAllowlistInput(ctx, &oldExternalConnectionPortsData.Allowlist, externalConnectionPortsData.Allowlist)
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsNull() {
 		// Create ports object with correct allowlist and empty port
@@ -294,8 +234,6 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 				State: api.StatePresent,
 			})
 		}
-		tflog.Debug(ctx, fmt.Sprintf("Allowlist for creating: %v", allowlist))
-		ports.AllowList = allowlist
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
 		// Create ports object with correct allowlist and empty port
@@ -308,8 +246,6 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 				State: api.StatePresent,
 			})
 		}
-		tflog.Debug(ctx, fmt.Sprintf("Allowlist for creating: %v", allowlist))
-		ports.AllowList = allowlist
 	}	
 
 	ports.AllowList = allowlist
