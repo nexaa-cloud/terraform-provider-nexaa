@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-faker/faker/v4"
@@ -326,10 +327,12 @@ func givenCloudDatabaseClusterUser(userName string) string {
 `, userName)
 }
 
-func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string) string {
+func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string, externalConnAllowlist []string) string {
 	if name == "" {
 		name = generateTestMessageQueueName()
 	}
+
+	allowlistFormatted := `["` + strings.Join(externalConnAllowlist, `", "`) + `"]`
 
 	data := fmt.Sprintf(`
 data "nexaa_message_queue_plans" "plan" {
@@ -339,6 +342,7 @@ data "nexaa_message_queue_plans" "plan" {
   replicas = %q
 }
 `, cpu, memory, storage, replicas)
+
 
 	return data + fmt.Sprintf(`
 resource "nexaa_message_queue" "queue" {
@@ -352,6 +356,11 @@ resource "nexaa_message_queue" "queue" {
 	"127.0.0.1",
 	"192.168.1.1"
   ]
+  external_connection = {
+    ports = {
+		allowlist = %s
+	}
+  }
 }
-`, name, queueType, version)
+`, name, queueType, version, allowlistFormatted)
 }

@@ -26,7 +26,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 			{
 				Config: givenProvider() +
 					givenNamespace(namespaceName, "") +
-					givenMessageQueue(queueName, "RabbitMQ", "3.13", "1", "2", "10", "1"),
+					givenMessageQueue(queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1","192.168.1.2"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "id"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
@@ -40,6 +40,10 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.0", "127.0.0.1"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.1", "192.168.1.1"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ipv4"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ipv6"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.#", "2"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ports.external_port"),
 				),
 			},
 
@@ -51,6 +55,19 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated", "plan", "type", "version", "allowlist"},
 			},
+
+			// 3) Update & Read
+			{
+				Config: givenProvider() +
+					givenNamespace(namespaceName, "") +
+					givenMessageQueue(queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1"}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "name", queueName),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue","external_connection.ports.allowlist.#", "1"),
+				),
+			},
+			// 4) Delete is automatically tested by TestCase
 		},
 	})
 }
