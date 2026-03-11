@@ -24,6 +24,7 @@ func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQu
 	plan.Plan = types.StringValue(queue.Plan.GetId()) 
 	plan.State = types.StringValue(queue.GetState())
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.Locked = types.BoolValue(queue.GetLocked())
 	plan.Timeouts = timeout
 
 	allowlist, diags := toTypesStringList(ctx, queue.Ingress.GetAllowList())
