@@ -64,18 +64,20 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 	}
 
 	var ports api.ExternalConnectionPortInput
-	if externalConnectionData.Ports.IsNull() {
-		ports.State = api.StateAbsent
-		ports.AllowList = []api.AllowListInput{}
-		ports.ExternalPort = nil
-		return &externalConnectionInputs
-	}
-	if externalConnectionData.Ports.IsUnknown() {
-		ports.State = api.StateAbsent
-		ports.AllowList = []api.AllowListInput{}
-		ports.ExternalPort = nil
-		return &externalConnectionInputs
-	}
+	// if externalConnectionData.Ports.IsNull() {
+	// 	ports.State = api.StateAbsent
+	// 	ports.AllowList = []api.AllowListInput{}
+	// 	ports.ExternalPort = nil
+		
+	// 	externalConnectionInputs.State = api.StateAbsent
+	// 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
+	// 	return &externalConnectionInputs		//returns is problem
+	// }
+	// if externalConnectionData.Ports.IsUnknown() {
+	// 	externalConnectionInputs.State = api.StateAbsent
+	// 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
+	// 	return &externalConnectionInputs
+	// }
 
 	var externalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
 	diags = externalConnectionData.Ports.As(ctx, &externalConnectionPortsData, basetypes.ObjectAsOptions{})

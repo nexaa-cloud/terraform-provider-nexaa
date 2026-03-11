@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -122,6 +123,9 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 								PlanModifiers: []planmodifier.List{
 									listplanmodifier.UseStateForUnknown(),
 								},
+								Validators: []validator.List{
+									noEmptyAllowlistValidator{},
+								},
 							},
 						},
 						Optional:    true,
@@ -156,6 +160,9 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
                 ),
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.List{
+					noEmptyAllowlistValidator{},
 				},
 			},
 		},

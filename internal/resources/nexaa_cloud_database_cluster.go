@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -118,8 +119,8 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 							},
 							"allowlist": schema.ListAttribute{
 								ElementType: types.StringType,
-								Optional:   true,
-								Computed:   true,
+								Optional:    true,
+								Computed:    true,
 								Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
 								Default: listdefault.StaticValue(
 									types.ListValueMust(types.StringType, []attr.Value{
@@ -130,9 +131,12 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 								PlanModifiers: []planmodifier.List{
 									listplanmodifier.UseStateForUnknown(),
 								},
+								Validators: []validator.List{
+									noEmptyAllowlistValidator{},
+								},
 							},
 						},
-						Optional:    true,
+						Required:    true,
 						Description: "Used to define the connection parts of the external connection",
 					},
 				},
