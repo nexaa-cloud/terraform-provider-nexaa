@@ -417,6 +417,9 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 	// Ingresses
 	ingressesTF, _ := buildIngressesFromApi(container)
 
+	// External Connection
+	externalConnectionTF, _ := buildExternalConnectionWithPortsListFromApi(ctx, container.GetExternalConnection())
+
 	// Health Check
 	healthTF := buildHealthCheckState(container)
 
@@ -461,6 +464,7 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 		"environment_variables": envTF,
 		"ports":                 portList,
 		"ingresses":             ingressesTF,
+		"external_connection":   externalConnectionTF,
 		"mounts":                mountTF,
 		"health_check":          healthTF,
 		"status":                types.StringValue(container.State),

@@ -202,7 +202,7 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		Name:      plan.Name.ValueString(),
 		Namespace: plan.Namespace.ValueString(),
 		Plan:      plan.Plan.ValueString(),
-		ExternalConnection: buildExternalConnectionUpdateInputMQ(ctx, plan, nil),
+		ExternalConnection: buildExternalConnectionInputMQ(ctx, plan, nil),
 		Spec: api.MessageQueueSpecInput{
 			Type:    plan.Type.ValueString(),
 			Version: plan.Version.ValueString(),
@@ -328,7 +328,7 @@ func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRe
 		Name:      plan.Name.ValueString(),
 		Namespace: plan.Namespace.ValueString(),
 		AllowList: allowList,
-		ExternalConnection: buildExternalConnectionUpdateInputMQ(ctx, plan, &state),
+		ExternalConnection: buildExternalConnectionInputMQ(ctx, plan, &state),
 	}
 
 	_, err := client.MessageQueueModify(input)

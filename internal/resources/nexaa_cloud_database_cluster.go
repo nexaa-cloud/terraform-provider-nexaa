@@ -190,7 +190,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			Type:    plan.Spec.Type.ValueString(),
 			Version: plan.Spec.Version.ValueString(),
 		},
-		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, nil),
+		ExternalConnection: buildExternalConnectionInputCloudDb(ctx, plan, nil),
 		Plan:               plan.Plan.ValueString(),
 		Databases:          []api.DatabaseInput{},
 		Users:              []api.DatabaseUserInput{},
@@ -325,7 +325,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	input := api.CloudDatabaseClusterModifyInput{
 		Name:               plan.Cluster.Name.ValueString(),
 		Namespace:          plan.Cluster.Namespace.ValueString(),
-		ExternalConnection: buildExternalConnectionUpdateInput(ctx, plan, &state),
+		ExternalConnection: buildExternalConnectionInputCloudDb(ctx, plan, &state),
 	}
 
 	_, err := client.CloudDatabaseClusterModify(input)

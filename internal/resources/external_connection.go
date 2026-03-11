@@ -5,11 +5,13 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
@@ -25,6 +27,14 @@ func ExternalConnectionObjectAttributeTypes() map[string]attr.Type {
 	}
 }
 
+func ExternalConnectionWithPortsObjectAttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"ipv4":  types.StringType,
+		"ipv6":  types.StringType,
+		"ports": types.ListType{ElemType: types.ObjectType{AttrTypes: ExternalConnectionPortsContainerObjectAttributeTypes()}},
+	}
+}
+
 func ExternalConnectionPortsObjectAttributeTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"external_port": types.Int64Type,
@@ -32,7 +42,16 @@ func ExternalConnectionPortsObjectAttributeTypes() map[string]attr.Type {
 	}
 }
 
-func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseClusterResource, state *cloudDatabaseClusterResource) *api.ExternalConnectionInput {
+func ExternalConnectionPortsContainerObjectAttributeTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"external_port": types.Int64Type,
+		"internal_port": types.Int64Type,
+		"protocol":      types.StringType,
+		"allowlist":     types.ListType{ElemType: types.StringType},
+	}
+}
+
+func buildExternalConnectionInputCloudDb(ctx context.Context, plan cloudDatabaseClusterResource, state *cloudDatabaseClusterResource) *api.ExternalConnectionInput {
 	var externalConnectionInputs api.ExternalConnectionInput
 
 	if plan.ExternalConnection.IsNull() {
@@ -52,10 +71,9 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 		return nil
 	}
 
-
 	var oldExternalConnectionData cloudDatabaseClusterExternalConnectionResource
 	if state != nil {
-		if !state.ExternalConnection.IsNull()  && !state.ExternalConnection.IsUnknown() {
+		if !state.ExternalConnection.IsNull() && !state.ExternalConnection.IsUnknown() {
 			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
 			if diags.HasError() {
 				return nil
@@ -64,34 +82,19 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 	}
 
 	var ports api.ExternalConnectionPortInput
-	// if externalConnectionData.Ports.IsNull() {
-	// 	ports.State = api.StateAbsent
-	// 	ports.AllowList = []api.AllowListInput{}
-	// 	ports.ExternalPort = nil
-		
-	// 	externalConnectionInputs.State = api.StateAbsent
-	// 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
-	// 	return &externalConnectionInputs		//returns is problem
-	// }
-	// if externalConnectionData.Ports.IsUnknown() {
-	// 	externalConnectionInputs.State = api.StateAbsent
-	// 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
-	// 	return &externalConnectionInputs
-	// }
-
 	var externalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
 	diags = externalConnectionData.Ports.As(ctx, &externalConnectionPortsData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
 		return nil
 	}
-	
+
 	var oldExternalConnectionPortsData cloudDatabaseClusterExternalConnectionPortsResource
-	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	if !oldExternalConnectionData.Ports.IsNull() && !oldExternalConnectionData.Ports.IsUnknown() {
 		diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
 		if diags.HasError() {
 			return nil
 		}
-		
+
 		externalport := int(oldExternalConnectionPortsData.ExternalPort.ValueInt64())
 		ports.ExternalPort = &externalport
 	}
@@ -101,7 +104,7 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 		allowlist = buildAllowlistInput(ctx, &oldExternalConnectionPortsData.Allowlist, externalConnectionPortsData.Allowlist)
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsNull() {
-		// Create ports object with correct allowlist and empty port
+		// Create ports object with correct allowlist and empty port in case of a new external connection
 		ports.ExternalPort = nil
 
 		newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
@@ -113,7 +116,7 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 		}
 	}
 	if oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
-		// Create ports object with correct allowlist and empty port
+		// Create ports object with correct allowlist and empty port in case of a new external connection
 		ports.ExternalPort = nil
 
 		newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
@@ -123,7 +126,7 @@ func buildExternalConnectionUpdateInput(ctx context.Context, plan cloudDatabaseC
 				State: api.StatePresent,
 			})
 		}
-	}	
+	}
 
 	ports.AllowList = allowlist
 	ports.State = api.StatePresent
@@ -159,7 +162,54 @@ func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnec
 	return externalConnectionObj, nil
 }
 
-func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueueResource, state *messageQueueResource) *api.ExternalConnectionInput {
+func buildExternalConnectionWithPortsListFromApi(ctx context.Context, conn *api.ContainerResultExternalConnection) (types.Object, diag.Diagnostics) {
+	var ports []attr.Value
+	for _, port := range conn.GetPorts() {
+		allowlist, diags := toTypesStringList(ctx, port.GetAllowList())
+		if diags.HasError() {
+			//tflog.Debug(ctx, "Exited build form api")
+			return types.ObjectNull(ExternalConnectionWithPortsObjectAttributeTypes()), diags
+		}
+
+		internalPort := port.GetInternalPort()
+		var protocol string
+		p := port.GetProtocol()
+		switch p {
+		case api.ProtocolTcp:
+			protocol = "TCP"
+		case api.ProtocolUdp:
+			protocol = "UDP"
+		}
+
+		externalPortObj := types.ObjectValueMust(
+			ExternalConnectionPortsContainerObjectAttributeTypes(),
+			map[string]attr.Value{
+				"external_port": types.Int64Value(int64(port.GetExternalPort())),
+				"internal_port": types.Int64Value(int64(*internalPort)),
+				"protocol":      types.StringValue(protocol),
+				"allowlist":     allowlist,
+			})
+
+		ports = append(ports, externalPortObj)
+
+	}
+
+	portsList := types.ListValueMust(types.ObjectType{AttrTypes: ExternalConnectionPortsContainerObjectAttributeTypes()}, ports)
+
+	externalConnectionObj := types.ObjectValueMust(
+		ExternalConnectionWithPortsObjectAttributeTypes(),
+		map[string]attr.Value{
+			"ipv4":  types.StringValue(conn.GetIpv4()),
+			"ipv6":  types.StringValue(conn.GetIpv6()),
+			"ports": portsList,
+		})
+
+	
+	tflog.Debug(ctx, fmt.Sprintf("Built external connection object from API: %v", externalConnectionObj))
+	return externalConnectionObj, nil
+}
+
+func buildExternalConnectionInputMQ(ctx context.Context, plan messageQueueResource, state *messageQueueResource) *api.ExternalConnectionInput {
 	var externalConnectionInputs api.ExternalConnectionInput
 
 	if plan.ExternalConnection.IsNull() {
@@ -179,10 +229,9 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 		return nil
 	}
 
-
 	var oldExternalConnectionData messageQueueExternalConnectionResource
 	if state != nil {
-		if !state.ExternalConnection.IsNull()  && !state.ExternalConnection.IsUnknown() {
+		if !state.ExternalConnection.IsNull() && !state.ExternalConnection.IsUnknown() {
 			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
 			if diags.HasError() {
 				return nil
@@ -191,32 +240,19 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 	}
 
 	var ports api.ExternalConnectionPortInput
-	if externalConnectionData.Ports.IsNull() {
-		ports.State = api.StateAbsent
-		ports.AllowList = []api.AllowListInput{}
-		ports.ExternalPort = nil
-		return &externalConnectionInputs
-	}
-	if externalConnectionData.Ports.IsUnknown() {
-		ports.State = api.StateAbsent
-		ports.AllowList = []api.AllowListInput{}
-		ports.ExternalPort = nil
-		return &externalConnectionInputs
-	}
-
 	var externalConnectionPortsData messageQueueExternalConnectionPortsResource
 	diags = externalConnectionData.Ports.As(ctx, &externalConnectionPortsData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
 		return nil
 	}
-	
+
 	var oldExternalConnectionPortsData messageQueueExternalConnectionPortsResource
-	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	if !oldExternalConnectionData.Ports.IsNull() && !oldExternalConnectionData.Ports.IsUnknown() {
 		diags = oldExternalConnectionData.Ports.As(ctx, &oldExternalConnectionPortsData, basetypes.ObjectAsOptions{})
 		if diags.HasError() {
 			return nil
 		}
-		
+
 		externalport := int(oldExternalConnectionPortsData.ExternalPort.ValueInt64())
 		ports.ExternalPort = &externalport
 	}
@@ -248,7 +284,7 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 				State: api.StatePresent,
 			})
 		}
-	}	
+	}
 
 	ports.AllowList = allowlist
 	ports.State = api.StatePresent
@@ -257,4 +293,219 @@ func buildExternalConnectionUpdateInputMQ(ctx context.Context, plan messageQueue
 	externalConnectionInputs.State = api.StatePresent
 
 	return &externalConnectionInputs
+}
+
+func buildExternalConnectionInputContainer(ctx context.Context, plan containerResource, state *containerResource) (*api.ExternalConnectionInput, diag.Diagnostics) {
+	var externalConnectionInputs api.ExternalConnectionInput
+	var diags diag.Diagnostics
+
+	if plan.ExternalConnection.IsNull() {
+		externalConnectionInputs.State = api.StateAbsent
+		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
+		tflog.Info(ctx, "Pos 1")
+		return &externalConnectionInputs, nil
+	}
+	if plan.ExternalConnection.IsUnknown() {
+		externalConnectionInputs.State = api.StateAbsent
+		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
+		tflog.Info(ctx, "Pos 2")
+		return &externalConnectionInputs, nil
+	}
+
+	var externalConnectionData containerExternalConnectionResource
+	diags = plan.ExternalConnection.As(ctx, &externalConnectionData, basetypes.ObjectAsOptions{})
+	if diags.HasError() {
+		tflog.Info(ctx, "Pos 3")
+		return nil, diags
+	}
+
+	var oldExternalConnectionData containerExternalConnectionResource
+	if state != nil {
+		if !state.ExternalConnection.IsNull() && !state.ExternalConnection.IsUnknown() {
+			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
+			if diags.HasError() {
+				tflog.Info(ctx, "Pos 4")
+				return nil, diags
+			}
+		}
+	}
+
+	externalConnectionInputs.State = api.StatePresent
+	// State present
+
+	// Assign ports[]
+	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
+	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
+	if diags.HasError() {
+		tflog.Info(ctx, "Pos 5")
+		return nil, diags
+	}
+
+	// var oldExternalConnectionPortsData []containerExternalConnectionPortsResource
+	// oldPortsArray := map[string]containerExternalConnectionPortsResource{}
+	// if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	// 	diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
+	// 	if diags.HasError() {
+	// 		return nil
+	// 	}
+
+	for _, port := range externalConnectionPortsData {
+		var portInput api.ExternalConnectionPortInput
+
+		internalPort := int(port.InternalPort.ValueInt64())
+		portInput.InternalPort = &internalPort
+		switch port.Protocol.ValueString() {
+		case "TCP":
+			portInput.Protocol = api.ProtocolTcp
+		case "UDP":
+			portInput.Protocol = api.ProtocolUdp
+		}
+
+		allowlist := buildAllowlistInput(ctx, nil, port.Allowlist)
+		portInput.AllowList = allowlist
+		portInput.State = api.StatePresent
+
+		externalConnectionInputs.Ports = append(externalConnectionInputs.Ports, portInput)
+	}
+	// Assign internal port
+	// Assign protocol
+	// Assign allowlist
+
+	//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	// var ports []api.ExternalConnectionPortInput
+	// var externalConnectionPortsData []containerExternalConnectionPortsResource
+	// var allowlist []api.AllowListInput
+
+	// diags = externalConnectionData.Ports.ElementsAs(ctx, externalConnectionPortsData, true)
+	// if diags.HasError() {
+	// 	return nil
+	// }
+
+	// var oldExternalConnectionPortsData []containerExternalConnectionPortsResource
+	// oldPortsArray := map[string]containerExternalConnectionPortsResource{}
+	// if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	// 	diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
+	// 	if diags.HasError() {
+	// 		return nil
+	// 	}
+
+	// 	for _, port := range oldExternalConnectionPortsData {
+	// 		id := fmt.Sprintf("%v:%v", port.ExternalPort.ValueInt64(), port.Protocol.ValueString())
+	// 		oldPortsArray[id] = port
+	// 	}
+	// }
+
+	// // Opbouwen van ports[]
+	// var portInput api.ExternalConnectionPortInput
+	// for _, portObject := range externalConnectionPortsData {
+	// 	id := fmt.Sprintf("%v:%v", portObject.ExternalPort.ValueInt64(), portObject.Protocol.ValueString())
+
+	// 	internalPort := int(portObject.InternalPort.ValueInt64())
+	// 	portInput.InternalPort = &internalPort
+
+	// 	switch portObject.Protocol.ValueString() {
+	// 	case "TCP":
+	// 		portInput.Protocol = api.ProtocolTcp
+	// 	case "UDP":
+	// 		portInput.Protocol = api.ProtocolUdp
+	// 	}
+	// 	portInput.AllowList = buildAllowlistInput(ctx, nil, portObject.Allowlist)
+
+	// 	if _, exists := oldPortsArray[id]; !exists {
+	// 		portInput.State = api.
+	// 	}
+
+	// 	if _, exists := oldPortsArray[id]; exists {
+	// 		externalPort := int(oldPortsArray[id].ExternalPort.ValueInt64())
+	// 		portInput.ExternalPort = &externalPort
+
+	// 		oldAllowlist := oldPortsArray[id].Allowlist
+	// 		portInput.AllowList = buildAllowlistInput(ctx, &oldAllowlist, portObject.Allowlist)
+	// 	}
+
+	// 	ports = append(ports, portInput)
+	// }
+
+	// if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	// 	externalport := int(oldExternalConnectionPortsData.ExternalPort.ValueInt64())
+	// 	ports.ExternalPort = &externalport
+	// }
+
+	// if !oldExternalConnectionPortsData.ExternalPort.IsNull() && !oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
+	// 	allowlist = buildAllowlistInput(ctx, &oldExternalConnectionPortsData.Allowlist, externalConnectionPortsData.Allowlist)
+	// }
+	// if oldExternalConnectionPortsData.ExternalPort.IsNull() {
+	// 	// Create ports object with correct allowlist and empty port
+	// 	ports.ExternalPort = nil
+
+	// 	newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
+	// 	for _, newIp := range newAllowlist {
+	// 		allowlist = append(allowlist, api.AllowListInput{
+	// 			Ip:    newIp,
+	// 			State: api.StatePresent,
+	// 		})
+	// 	}
+	// }
+	// if oldExternalConnectionPortsData.ExternalPort.IsUnknown() {
+	// 	// Create ports object with correct allowlist and empty port
+	// 	ports.ExternalPort = nil
+
+	// 	newAllowlist := toStringArray(ctx, externalConnectionPortsData.Allowlist)
+	// 	for _, newIp := range newAllowlist {
+	// 		allowlist = append(allowlist, api.AllowListInput{
+	// 			Ip:    newIp,
+	// 			State: api.StatePresent,
+	// 		})
+	// 	}
+	// }
+
+	// externalConnectionInputs.Ports = ports
+	// externalConnectionInputs.SharedIp = true
+	// externalConnectionInputs.State = api.StatePresent
+	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
+
+	return &externalConnectionInputs, nil
 }

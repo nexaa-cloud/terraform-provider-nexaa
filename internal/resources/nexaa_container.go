@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -52,6 +53,7 @@ type containerResource struct {
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
+	ExternalConnection   types.Object   `tfsdk:"external_connection"`
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
 	Scaling              types.Object   `tfsdk:"scaling"`
@@ -76,6 +78,19 @@ type ingresResource struct {
 	Port       types.Int64  `tfsdk:"port"`
 	TLS        types.Bool   `tfsdk:"tls"`
 	AllowList  types.List   `tfsdk:"allow_list"`
+}
+
+type containerExternalConnectionResource struct {
+	Ipv6  types.String 	`tfsdk:"ipv6"`
+	Ipv4  types.String 	`tfsdk:"ipv4"`
+	Ports types.List 	`tfsdk:"ports"`
+}
+
+type containerExternalConnectionPortsResource struct {
+	ExternalPort types.Int64 	`tfsdk:"external_port"`
+	InternalPort types.Int64	`tfsdk:"internal_port"`
+	Protocol     types.String 	`tfsdk:"protocol"`
+	Allowlist    types.List  	`tfsdk:"allowlist"`
 }
 
 type healthcheckResource struct {
@@ -224,6 +239,61 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "Used to access the container from the internet",
+			},
+			"external_connection": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ipv4": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ipv6": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ports": schema.ListNestedAttribute{
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"external_port": schema.Int64Attribute{
+									Computed:    true,
+									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+								},
+								"internal_port": schema.Int64Attribute{
+									Required:    true,
+									Description: "The port that is used internally within the container",
+								},
+								"protocol": schema.StringAttribute{
+									Required:    true,
+									Description: "The protocol that is used for the external connection, must be either TCP or UDP",
+									Validators: []validator.String{
+										stringvalidator.OneOf("TCP", "UDP"),
+									},
+								},
+								"allowlist": schema.ListAttribute{
+									ElementType: types.StringType,
+									Optional:    true,
+									Computed:    true,
+									Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+									Default: listdefault.StaticValue(
+										types.ListValueMust(types.StringType, []attr.Value{
+											types.StringValue("0.0.0.0/0"),
+											types.StringValue("::/0"),
+										}),
+									),
+									PlanModifiers: []planmodifier.List{
+										listplanmodifier.UseStateForUnknown(),
+									},
+									Validators: []validator.List{
+										noEmptyAllowlistValidator{},
+									},
+								},
+							},
+						},
+						Required:    true,
+						Description: "Used to define the connection parts of the external connection",
+					},
+				},
+				Optional:    true,
+				Description: "An external connection that can used to connect to a cloud database cluster",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -402,6 +472,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	input.Ingresses = ingresses
+
+	// External connection
+	externalConnInput, diags := buildExternalConnectionInputContainer(ctx, plan, nil)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConnInput
 
 	// Environment variables (build API input from plan)
 	inputs, dEnv := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -743,6 +821,14 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	state.Ingresses = ingressesTF
+	
+	// External connection
+	externalConn, diags := buildExternalConnectionWithPortsListFromApi(ctx, container.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state.ExternalConnection = externalConn
 
 	// Health check
 	state.HealthCheck = buildHealthCheckState(container)
@@ -935,6 +1021,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 	input.Ingresses = ingresses
+
+	// External connection
+	externalConn, diags := buildExternalConnectionInputContainer(ctx, plan, &prev)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConn
 
 	// Environment variables (build API input from plan)
 	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -1381,6 +1475,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		EnvironmentVariables: stateValues["environment_variables"].(types.Set),
 		Ports:                stateValues["ports"].(types.List),
 		Ingresses:            stateValues["ingresses"].(types.List),
+		ExternalConnection:   stateValues["external_connection"].(types.Object),
 		Mounts:               stateValues["mounts"].(types.List),
 		HealthCheck:          stateValues["health_check"].(types.Object),
 		Status:               stateValues["status"].(types.String),
