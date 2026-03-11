@@ -26,14 +26,26 @@ func NewCloudDatabaseClusterResource() resource.Resource {
 }
 
 type cloudDatabaseClusterResource struct {
-	ID          types.String   `tfsdk:"id"`
-	Cluster     ClusterRef     `tfsdk:"cluster"`
-	Spec        Spec           `tfsdk:"spec"`
-	Plan        types.String   `tfsdk:"plan"`
-	Hostname    types.String   `tfsdk:"hostname"`
-	State       types.String   `tfsdk:"state"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
-	Timeouts    timeouts.Value `tfsdk:"timeouts"`
+	ID                 types.String                                   `tfsdk:"id"`
+	Cluster            ClusterRef                                     `tfsdk:"cluster"`
+	Spec               Spec                                           `tfsdk:"spec"`
+	Plan               types.String                                   `tfsdk:"plan"`
+	Hostname           types.String                                   `tfsdk:"hostname"`
+	ExternalConnection cloudDatabaseClusterExternalConnectionResource `tfsdk:"external_connection"`
+	State              types.String                                   `tfsdk:"state"`
+	LastUpdated        types.String                                   `tfsdk:"last_updated"`
+	Timeouts           timeouts.Value                                 `tfsdk:"timeouts"`
+}
+
+type cloudDatabaseClusterExternalConnectionResource struct {
+	Ipv6  types.String                                        `tfsdk:"ipv6"`
+	Ipv4  types.String                                        `tfsdk:"ipv4"`
+	Ports cloudDatabaseClusterExternalConnectionPortsResource `tfsdk:"ports"`
+}
+
+type cloudDatabaseClusterExternalConnectionPortsResource struct {
+	ExternalPort types.Int64 `tfsdk:"external_port"`
+	Allowlist    types.List  `tfsdk:"allowlist"`
 }
 
 func (r *cloudDatabaseClusterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -67,6 +79,38 @@ func (r *cloudDatabaseClusterResource) Schema(_ context.Context, _ resource.Sche
 			"hostname": schema.StringAttribute{
 				Computed:    true,
 				Description: "Hostname of the cloud database cluster",
+			},
+			"external_connection": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ipv4": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ipv6": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ports": schema.SingleNestedAttribute{
+						Attributes: map[string]schema.Attribute{
+							"external_port": schema.Int64Attribute{
+								Optional:    true,
+								Computed:    true,
+								Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+							},
+							"allowlist": schema.ListAttribute{
+								ElementType: types.StringType,
+								Optional:    true,
+								Computed:    true,
+								Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format.",
+							},
+						},
+						Optional:    true,
+						Description: "Used to define the connection parts of the external connection",
+					},
+				},
+				Optional:    true,
+				Required:    false,
+				Description: "An external connection that can used to connect to a cloud database cluster",
 			},
 			"state": schema.StringAttribute{
 				Description: "Current state of the cloud database cluster",
@@ -107,6 +151,25 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 
 	client := api.NewClient()
 
+	var externalConnection = api.ExternalConnectionInput{}
+
+	if !plan.ExternalConnection.Ports.Allowlist.IsNull() && !plan.ExternalConnection.Ports.Allowlist.IsUnknown() {
+		externalConnection.SharedIp = true
+		externalConnection.State = api.StatePresent
+
+		var portInput api.ExternalConnectionPortInput
+		portInput.ExternalPort = nil
+		portInput.AllowList = []api.AllowListInput{}
+		for _, allowlist := range plan.ExternalConnection.Ports.Allowlist.Elements() {
+			var allowlistInput api.AllowListInput
+			allowlistInput.Ip = allowlist.String()
+			portInput.AllowList = append(portInput.AllowList, allowlistInput)
+		}
+		externalConnection.Ports = append(externalConnection.Ports, portInput)
+	} else {
+		externalConnection.State = api.StateAbsent
+	}
+
 	input := api.CloudDatabaseClusterCreateInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -114,9 +177,10 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 			Type:    plan.Spec.Type.ValueString(),
 			Version: plan.Spec.Version.ValueString(),
 		},
-		Plan:      plan.Plan.ValueString(),
-		Databases: []api.DatabaseInput{},
-		Users:     []api.DatabaseUserInput{},
+		ExternalConnection: &externalConnection,
+		Plan:               plan.Plan.ValueString(),
+		Databases:          []api.DatabaseInput{},
+		Users:              []api.DatabaseUserInput{},
 	}
 
 	_, err := client.CloudDatabaseClusterCreate(input)

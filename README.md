@@ -55,13 +55,13 @@ go install .
 
 This will also install every dependency needed in the go.mod file of the provider. Part of the dependencies is the nexaa-CLI. You can also use a local version of the CLI. To do this you need to pull the cli from [github](https://github.com/nexaa-cloud/nexaa-cli).
 
-The project uses a `go.work` file that references the local CLI. You'll need to update the path in the `go.work` file to point to where you have the CLI repository located:
+The project uses a `go.work` file that references the local CLI. You'll need to create the file and update/fill in the path in the `go.work` file to point to where you have the CLI repository located:
 ```
 go 1.24.6
 
 use (
 	.
-	../tilaa-cli  # Update this path to where your local CLI is located
+	../nexaa-cli  # Update this path to where your local CLI is located
 	tools
 )
 ```

@@ -148,7 +148,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"registry": schema.StringAttribute{
 				Optional:    true,
-				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
+				Description: "The registry used to be able to access images that are saved in a private environment, fill in null to use a public registry",
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,

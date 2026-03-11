@@ -36,6 +36,8 @@ go.work
 go.work.sum
 CLAUDE.md
 
+terraform-test/
+
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
 !command/test-fixtures/**/.terraform/
