@@ -331,24 +331,34 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 	}
 
 	externalConnectionInputs.State = api.StatePresent
+	externalConnectionInputs.SharedIp = true
 	// State present
 
-	// Assign ports[]
+	var oldExternalConnectionPortsData []containerExternalConnectionPortsResource
+	oldPortsArray := map[string]containerExternalConnectionPortsResource{}
+	newPortsArray := map[string]containerExternalConnectionPortsResource{}
+	var ports []api.ExternalConnectionPortInput
+	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+		diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
+		if diags.HasError() {
+			return nil, diags
+		}
+
+		for _, port := range oldExternalConnectionPortsData {
+			tflog.Debug(ctx, fmt.Sprintf("Filling up look up table for old ports: %v", port))
+			id := fmt.Sprintf("%v:%v", port.InternalPort.ValueInt64(), port.Protocol.ValueString())
+			oldPortsArray[id] = port
+		}
+	}
+
+	
 	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
 	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
 	if diags.HasError() {
 		tflog.Info(ctx, "Pos 5")
 		return nil, diags
 	}
-
-	// var oldExternalConnectionPortsData []containerExternalConnectionPortsResource
-	// oldPortsArray := map[string]containerExternalConnectionPortsResource{}
-	// if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
-	// 	diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
-	// 	if diags.HasError() {
-	// 		return nil
-	// 	}
-
+	
 	for _, port := range externalConnectionPortsData {
 		var portInput api.ExternalConnectionPortInput
 
@@ -365,8 +375,42 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		portInput.AllowList = allowlist
 		portInput.State = api.StatePresent
 
-		externalConnectionInputs.Ports = append(externalConnectionInputs.Ports, portInput)
+		// Update allow list if port already exists, otherwise use the allowlist defined in the plan
+		id := fmt.Sprintf("%v:%v", port.InternalPort.ValueInt64(), port.Protocol.ValueString())
+		tflog.Debug(ctx, fmt.Sprintf("Processing port with id %v", id))
+		tflog.Debug(ctx, fmt.Sprintf("Check if old port exists: %v", oldPortsArray[id]))
+		if _, exists := oldPortsArray[id]; exists {
+			tflog.Debug(ctx, fmt.Sprintf("Port already exists so modify: %v", oldPortsArray[id]))
+			externalPort := int(oldPortsArray[id].ExternalPort.ValueInt64())
+			portInput.ExternalPort = &externalPort
+
+			oldAllowlist := oldPortsArray[id].Allowlist
+			portInput.AllowList = buildAllowlistInput(ctx, &oldAllowlist, port.Allowlist)
+		}
+
+		newPortsArray[id] = port
+		ports = append(ports, portInput)
+		
 	}
+
+	for id, port := range oldPortsArray {
+		if _, exists := newPortsArray[id]; !exists {
+			var portInput api.ExternalConnectionPortInput
+			internalPort := int(port.InternalPort.ValueInt64())
+			portInput.InternalPort = &internalPort
+			externalPort := int(port.ExternalPort.ValueInt64())
+			portInput.ExternalPort = &externalPort
+			switch port.Protocol.ValueString() {
+			case "TCP":
+				portInput.Protocol = api.ProtocolTcp
+			case "UDP":
+				portInput.Protocol = api.ProtocolUdp
+			}
+			portInput.State = api.StateAbsent
+			ports = append(ports, portInput)
+		}
+	}
+	externalConnectionInputs.Ports = ports
 	// Assign internal port
 	// Assign protocol
 	// Assign allowlist
@@ -505,6 +549,7 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 	// externalConnectionInputs.Ports = ports
 	// externalConnectionInputs.SharedIp = true
 	// externalConnectionInputs.State = api.StatePresent
+	
 	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
 
 	return &externalConnectionInputs, nil
