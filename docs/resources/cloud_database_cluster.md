@@ -62,6 +62,12 @@ resource "nexaa_cloud_database_cluster" "cluster" {
   }
 
   plan = data.nexaa_cloud_database_cluster_plans.plan.id
+
+  external_connection = {
+    ports = {
+      allowlist = ["192.168.1.1"]
+    }
+  }
 }
 ```
 
@@ -107,7 +113,7 @@ Required:
 <a id="nestedatt--external_connection"></a>
 ### Nested Schema for `external_connection`
 
-Optional:
+Required:
 
 - `ports` (Attributes) Used to define the connection parts of the external connection (see [below for nested schema](#nestedatt--external_connection--ports))
 

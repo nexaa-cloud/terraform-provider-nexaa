@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -77,7 +78,7 @@ type ingresResource struct {
 	DomainName types.String `tfsdk:"domain_name"`
 	Port       types.Int64  `tfsdk:"port"`
 	TLS        types.Bool   `tfsdk:"tls"`
-	AllowList  types.List   `tfsdk:"allow_list"`
+	AllowList  types.List   `tfsdk:"allowlist"`
 }
 
 type containerExternalConnectionResource struct {
@@ -228,7 +229,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 							Required:    true,
 							Description: "Boolean representing if you want TLS enabled or not",
 						},
-						"allow_list": schema.ListAttribute{
+						"allowlist": schema.ListAttribute{
 							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
@@ -629,6 +630,13 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
@@ -1126,12 +1134,16 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	tflog.Debug(ctx, fmt.Sprintf("Input send to the backend: %v", input))
+
 	// modify containerResult
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
 		return
 	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Container after modification: %v", containerResult))
 
 	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
@@ -1144,6 +1156,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
 		return
 	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Container after modification and get: %v", containerResult))
 
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)
@@ -1204,6 +1218,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	// External connection
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)

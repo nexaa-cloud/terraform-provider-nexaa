@@ -64,7 +64,7 @@ resource "nexaa_container" "container" {
 
   ## Exposing ports from the container.
   ## This is required when you want to communicate from outside the container to this container
-  ports = ["80:80"]
+  ports = ["80:80", "8080"]
 
   ## Adding environment variables to your container
   ## When setting it as secret, it will be encrypted
@@ -92,9 +92,18 @@ resource "nexaa_container" "container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0", "::/0"]
+      allowlist   = ["0.0.0.0/0", "::/0"]
     }
   ]
+
+  ## When you want to expose your container to the internet you can add an external connection
+  external_connection = {
+    ports = [{
+      internal_port = 8080
+      protocol      = "TCP"
+      allowlist     = ["192.168.1.1/32"]
+    }]
+  }
 
   ## When using volumes you can mount the volume on a specific path
   # mounts = [
@@ -152,6 +161,7 @@ resource "nexaa_container" "container" {
 - `command` (List of String) Command to run. When the field is omitted, the default command of the image will be used. The command will be passed to the entrypoint as arguments. Environment variables can be used in the command by using the syntax $(ENVIRONMENT_VARIABLE).
 - `entrypoint` (List of String) Entrypoint of the container. This field will overwrite the default entrypoint of the image. When the field is omitted, the default entrypoint of the image will be used. Entry point is the first command executed when the container starts. It will receive the command as arguments.
 - `environment_variables` (Attributes Set) Environment variables used in the container; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
+- `external_connection` (Attributes) An external connection that can used to connect to a cloud database cluster (see [below for nested schema](#nestedatt--external_connection))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
 - `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
@@ -213,6 +223,36 @@ Optional:
 - `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
 
 
+<a id="nestedatt--external_connection"></a>
+### Nested Schema for `external_connection`
+
+Required:
+
+- `ports` (Attributes List) Used to define the connection parts of the external connection (see [below for nested schema](#nestedatt--external_connection--ports))
+
+Read-Only:
+
+- `ipv4` (String) The ipv4 address that can be used in combination with the external port to connect to your cluster
+- `ipv6` (String) The ipv6 address that can be used in combination with the external port to connect to your cluster
+
+<a id="nestedatt--external_connection--ports"></a>
+### Nested Schema for `external_connection.ports`
+
+Required:
+
+- `internal_port` (Number) The port that is used internally within the container
+- `protocol` (String) The protocol that is used for the external connection, must be either TCP or UDP
+
+Optional:
+
+- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.
+
+Read-Only:
+
+- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster
+
+
+
 <a id="nestedatt--health_check"></a>
 ### Nested Schema for `health_check`
 
@@ -232,7 +272,7 @@ Required:
 
 Optional:
 
-- `allow_list` (List of String) A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone
+- `allowlist` (List of String) A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone
 - `domain_name` (String) The domain used for the ingress, defaults to https://{tenant}-{namespaceName}-{containerName}.container.tilaa.cloud
 
 

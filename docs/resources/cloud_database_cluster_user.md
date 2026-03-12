@@ -63,6 +63,12 @@ resource "nexaa_cloud_database_cluster" "cluster" {
   }
 
   plan = data.nexaa_cloud_database_cluster_plans.plan.id
+
+  external_connection = {
+    ports = {
+      allowlist = ["192.168.1.1"]
+    }
+  }
 }
 ```
 

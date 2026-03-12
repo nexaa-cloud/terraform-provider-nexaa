@@ -24,7 +24,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 
   external_connection = {
     ports = {
-        allowlist = ["192.168.1.1"]
+      allowlist = ["192.168.1.1"]
     }
   }
 }
