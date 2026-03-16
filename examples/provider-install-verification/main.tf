@@ -68,7 +68,7 @@ resource "nexaa_container" "container" {
       domain_name = null
       port        = 8008
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist   = ["0.0.0.0/0"]
     }
   ]
 
@@ -137,7 +137,7 @@ resource "nexaa_starter_container" "starter-container" {
       domain_name = null
       port        = 8008
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist   = ["0.0.0.0/0"]
     }
   ]
 

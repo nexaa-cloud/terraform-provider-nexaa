@@ -631,6 +631,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 	plan.Ingresses = ingressesList
 
+	// External connection
 	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -827,7 +828,6 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	state.Ingresses = ingressesTF
 	
 	// External connection
