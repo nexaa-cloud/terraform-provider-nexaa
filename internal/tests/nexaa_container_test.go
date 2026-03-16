@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package tests
@@ -50,7 +50,7 @@ resource "nexaa_container" "container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -123,7 +123,7 @@ resource "nexaa_container" "container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -225,7 +225,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.allow_list.0", "0.0.0.0/0"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.allowlist.0", "0.0.0.0/0"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", healthPath2),
@@ -363,7 +363,7 @@ resource "nexaa_container" "container" {
     {
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -449,7 +449,7 @@ resource "nexaa_container" "container" {
       domain_name = %q
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 

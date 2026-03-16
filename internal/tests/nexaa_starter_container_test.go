@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package tests
@@ -41,7 +41,7 @@ resource "nexaa_starter_container" "starter_container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -88,7 +88,7 @@ resource "nexaa_starter_container" "starter_container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -230,7 +230,7 @@ resource "nexaa_starter_container" "starter_container" {
     {
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 }
@@ -307,7 +307,7 @@ resource "nexaa_starter_container" "starter_container" {
       domain_name = %q
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 }

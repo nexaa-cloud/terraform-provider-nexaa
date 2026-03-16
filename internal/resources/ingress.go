@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
@@ -15,7 +15,7 @@ func IngressObjectAttributeTypes() map[string]attr.Type {
 		"domain_name": types.StringType,
 		"port":        types.Int64Type,
 		"tls":         types.BoolType,
-		"allow_list":  types.ListType{ElemType: types.StringType},
+		"allowlist":  types.ListType{ElemType: types.StringType},
 	}
 }
 
@@ -59,7 +59,7 @@ func buildIngressesFromApi(containerResult api.ContainerResult) (types.List, dia
 				"domain_name": ingDomain,
 				"port":        types.Int64Value(int64(ing.Port)),
 				"tls":         types.BoolValue(ing.EnableTLS),
-				"allow_list":  allowList,
+				"allowlist":  allowList,
 			})
 		ingressElems = append(ingressElems, ingressObj)
 	}

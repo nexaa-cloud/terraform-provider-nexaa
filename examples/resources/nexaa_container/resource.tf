@@ -23,7 +23,7 @@ resource "nexaa_container" "container" {
 
   ## Exposing ports from the container.
   ## This is required when you want to communicate from outside the container to this container
-  ports = ["80:80"]
+  ports = ["80:80", "8080"]
 
   ## Adding environment variables to your container
   ## When setting it as secret, it will be encrypted
@@ -51,9 +51,18 @@ resource "nexaa_container" "container" {
       domain_name = null
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0", "::/0"]
+      allowlist   = ["0.0.0.0/0", "::/0"]
     }
   ]
+
+  ## When you want to expose your container to the internet you can add an external connection
+  external_connection = {
+    ports = [{
+      internal_port = 8080
+      protocol      = "TCP"
+      allowlist     = ["192.168.1.1/32"]
+    }]
+  }
 
   ## When using volumes you can mount the volume on a specific path
   # mounts = [

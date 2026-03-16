@@ -1,21 +1,26 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResource, cluster api.CloudDatabaseClusterResult) cloudDatabaseClusterResource {
+func translateApiToCloudDatabaseClusterResource(ctx context.Context, cluster api.CloudDatabaseClusterResult, timeout timeouts.Value) (cloudDatabaseClusterResource, diag.Diagnostics) {
+	plan := cloudDatabaseClusterResource{}
+
 	namespace := cluster.GetNamespace()
 	plan.ID = types.StringValue(generateCloudDatabaseClusterId(namespace.GetName(), cluster.GetName()))
 	plan.Cluster = ClusterRef{
@@ -28,10 +33,23 @@ func translateApiToCloudDatabaseClusterResource(plan cloudDatabaseClusterResourc
 		Type:    types.StringValue(cluster.Spec.GetType()),
 		Version: types.StringValue(cluster.Spec.GetVersion()),
 	}
+
 	plan.State = types.StringValue(cluster.GetState())
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+	plan.Timeouts = timeout
 
-	return plan
+	if cluster.GetExternalConnection() == nil {
+		plan.ExternalConnection = types.ObjectNull(ExternalConnectionObjectAttributeTypes())
+		return plan, nil
+	}
+	externalConnection, diags := buildExternalConnectionFromApi(ctx, cluster.GetExternalConnection().ExternalConnectionResult)
+	if diags.HasError() {
+		return plan, diags
+	}
+
+	plan.ExternalConnection = externalConnection
+
+	return plan, nil
 }
 
 func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUserResource, cluster ClusterRef, user api.CloudDatabaseClusterUserResult) cloudDatabaseClusterUserResource {

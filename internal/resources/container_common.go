@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
@@ -151,14 +151,7 @@ func buildIngressesInput(ctx context.Context, ingresses types.List) ([]api.Ingre
 	var ingressInputs []api.IngressInput
 	for _, ing := range ingressesData {
 		if !ing.Port.IsNull() {
-			allowList := []string{}
-			if !ing.AllowList.IsNull() && !ing.AllowList.IsUnknown() {
-				var rawAllowList []types.String
-				_ = ing.AllowList.ElementsAs(ctx, &rawAllowList, false)
-				for _, ip := range rawAllowList {
-					allowList = append(allowList, ip.ValueString())
-				}
-			}
+			allowList := toStringArray(ctx, ing.AllowList)
 			var domainPtr *string
 			if !ing.DomainName.IsNull() && !ing.DomainName.IsUnknown() {
 				domain := ing.DomainName.ValueString()
@@ -424,6 +417,9 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 	// Ingresses
 	ingressesTF, _ := buildIngressesFromApi(container)
 
+	// External Connection
+	externalConnectionTF, _ := buildExternalConnectionWithPortsListFromApi(ctx, container.GetExternalConnection())
+
 	// Health Check
 	healthTF := buildHealthCheckState(container)
 
@@ -468,6 +464,7 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 		"environment_variables": envTF,
 		"ports":                 portList,
 		"ingresses":             ingressesTF,
+		"external_connection":   externalConnectionTF,
 		"mounts":                mountTF,
 		"health_check":          healthTF,
 		"status":                types.StringValue(container.State),

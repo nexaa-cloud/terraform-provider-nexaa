@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
@@ -12,9 +12,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -52,6 +54,7 @@ type containerResource struct {
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
+	ExternalConnection   types.Object   `tfsdk:"external_connection"`
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
 	Scaling              types.Object   `tfsdk:"scaling"`
@@ -75,7 +78,20 @@ type ingresResource struct {
 	DomainName types.String `tfsdk:"domain_name"`
 	Port       types.Int64  `tfsdk:"port"`
 	TLS        types.Bool   `tfsdk:"tls"`
-	AllowList  types.List   `tfsdk:"allow_list"`
+	AllowList  types.List   `tfsdk:"allowlist"`
+}
+
+type containerExternalConnectionResource struct {
+	Ipv6  types.String 	`tfsdk:"ipv6"`
+	Ipv4  types.String 	`tfsdk:"ipv4"`
+	Ports types.List 	`tfsdk:"ports"`
+}
+
+type containerExternalConnectionPortsResource struct {
+	ExternalPort types.Int64 	`tfsdk:"external_port"`
+	InternalPort types.Int64	`tfsdk:"internal_port"`
+	Protocol     types.String 	`tfsdk:"protocol"`
+	Allowlist    types.List  	`tfsdk:"allowlist"`
 }
 
 type healthcheckResource struct {
@@ -148,7 +164,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"registry": schema.StringAttribute{
 				Optional:    true,
-				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
+				Description: "The registry used to be able to access images that are saved in a private environment, fill in null to use a public registry",
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,
@@ -213,7 +229,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 							Required:    true,
 							Description: "Boolean representing if you want TLS enabled or not",
 						},
-						"allow_list": schema.ListAttribute{
+						"allowlist": schema.ListAttribute{
 							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
@@ -224,6 +240,61 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "Used to access the container from the internet",
+			},
+			"external_connection": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ipv4": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ipv6": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ports": schema.ListNestedAttribute{
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"external_port": schema.Int64Attribute{
+									Computed:    true,
+									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+								},
+								"internal_port": schema.Int64Attribute{
+									Required:    true,
+									Description: "The port that is used internally within the container",
+								},
+								"protocol": schema.StringAttribute{
+									Required:    true,
+									Description: "The protocol that is used for the external connection, must be either TCP or UDP",
+									Validators: []validator.String{
+										stringvalidator.OneOf("TCP", "UDP"),
+									},
+								},
+								"allowlist": schema.ListAttribute{
+									ElementType: types.StringType,
+									Optional:    true,
+									Computed:    true,
+									Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+									Default: listdefault.StaticValue(
+										types.ListValueMust(types.StringType, []attr.Value{
+											types.StringValue("0.0.0.0/0"),
+											types.StringValue("::/0"),
+										}),
+									),
+									PlanModifiers: []planmodifier.List{
+										listplanmodifier.UseStateForUnknown(),
+									},
+									Validators: []validator.List{
+										noEmptyAllowlistValidator{},
+									},
+								},
+							},
+						},
+						Required:    true,
+						Description: "Used to define the connection parts of the external connection",
+					},
+				},
+				Optional:    true,
+				Description: "An external connection that can used to connect to a cloud database cluster",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -317,7 +388,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the private registry",
+				Description: "Timestamp of the last Terraform update of the container",
 				Computed:    true,
 			},
 		},
@@ -402,6 +473,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	input.Ingresses = ingresses
+
+	// External connection
+	externalConnInput, diags := buildExternalConnectionInputContainer(ctx, plan, nil)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConnInput
 
 	// Environment variables (build API input from plan)
 	inputs, dEnv := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -551,6 +630,14 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	// External connection
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
@@ -725,7 +812,6 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	state.Ports = portList
-
 	// Mounts
 	if container.Mounts != nil {
 		mountList, d := buildMountsFromApi(container.Mounts)
@@ -742,8 +828,15 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	state.Ingresses = ingressesTF
+	
+	// External connection
+	externalConn, diags := buildExternalConnectionWithPortsListFromApi(ctx, container.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state.ExternalConnection = externalConn
 
 	// Health check
 	state.HealthCheck = buildHealthCheckState(container)
@@ -937,6 +1030,14 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 	input.Ingresses = ingresses
 
+	// External connection
+	externalConn, diags := buildExternalConnectionInputContainer(ctx, plan, &prev)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConn
+
 	// Environment variables (build API input from plan)
 	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
 	resp.Diagnostics.Append(dEnvU...)
@@ -1014,7 +1115,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	createTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 30*time.Second)
 
 	resp.Diagnostics.Append(diags...)
 
@@ -1022,7 +1123,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
 	client := api.NewClient()
@@ -1033,12 +1134,16 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
+	tflog.Debug(ctx, fmt.Sprintf("Input send to the backend: %v", input))
+
 	// modify containerResult
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
 		return
 	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Container after modification: %v", containerResult))
 
 	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
@@ -1051,6 +1156,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
 		return
 	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Container after modification and get: %v", containerResult))
 
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)
@@ -1104,12 +1211,21 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		plan.Mounts = mountList
 	}
 
+	// Ingresses
 	ingressesList, d := buildIngressesFromApi(containerResult)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	// External connection
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
@@ -1381,6 +1497,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		EnvironmentVariables: stateValues["environment_variables"].(types.Set),
 		Ports:                stateValues["ports"].(types.List),
 		Ingresses:            stateValues["ingresses"].(types.List),
+		ExternalConnection:   stateValues["external_connection"].(types.Object),
 		Mounts:               stateValues["mounts"].(types.List),
 		HealthCheck:          stateValues["health_check"].(types.Object),
 		Status:               stateValues["status"].(types.String),

@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package resources
@@ -10,10 +10,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -48,6 +51,7 @@ type starterContainerResource struct {
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
+	ExternalConnection	 types.Object   `tfsdk:"external_connection"`
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
 	LastUpdated          types.String   `tfsdk:"last_updated"`
@@ -166,7 +170,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 							Required:    true,
 							Description: "Boolean representing if you want TLS enabled or not",
 						},
-						"allow_list": schema.ListAttribute{
+						"allowlist": schema.ListAttribute{
 							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
@@ -177,6 +181,61 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 				Optional:    true,
 				Computed:    true,
 				Description: "Used to access the container from the internet",
+			},
+			"external_connection": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ipv4": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ipv6": schema.StringAttribute{
+						Computed:    true,
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your cluster",
+					},
+					"ports": schema.ListNestedAttribute{
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"external_port": schema.Int64Attribute{
+									Computed:    true,
+									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+								},
+								"internal_port": schema.Int64Attribute{
+									Required:    true,
+									Description: "The port that is used internally within the container",
+								},
+								"protocol": schema.StringAttribute{
+									Required:    true,
+									Description: "The protocol that is used for the external connection, must be either TCP or UDP",
+									Validators: []validator.String{
+										stringvalidator.OneOf("TCP", "UDP"),
+									},
+								},
+								"allowlist": schema.ListAttribute{
+									ElementType: types.StringType,
+									Optional:    true,
+									Computed:    true,
+									Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+									Default: listdefault.StaticValue(
+										types.ListValueMust(types.StringType, []attr.Value{
+											types.StringValue("0.0.0.0/0"),
+											types.StringValue("::/0"),
+										}),
+									),
+									PlanModifiers: []planmodifier.List{
+										listplanmodifier.UseStateForUnknown(),
+									},
+									Validators: []validator.List{
+										noEmptyAllowlistValidator{},
+									},
+								},
+							},
+						},
+						Required:    true,
+						Description: "Used to define the connection parts of the external connection",
+					},
+				},
+				Optional:    true,
+				Description: "An external connection that can used to connect to a cloud database cluster",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -307,6 +366,14 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	}
 	input.Ingresses = ingresses
 
+	// External connection
+	externalConnInput, diags := buildExternalConnectionInputStarterContainer(ctx, plan, nil)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConnInput
+
 	// Environment variables (build API input from plan)
 	inputs, dEnv := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
 	resp.Diagnostics.Append(dEnv...)
@@ -328,21 +395,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	// Create containerResult
 	client := api.NewClient()
 
-	// Log the request for debugging
-	tflog.Debug(ctx, "Creating starter container", map[string]interface{}{
-		"namespace":    input.Namespace,
-		"name":         input.Name,
-		"image":        input.Image,
-		"registry":     input.Registry,
-		"type":         input.Type,
-		"resources":    input.Resources,
-		"ports":        input.Ports,
-		"mounts":       input.Mounts,
-		"ingresses":    input.Ingresses,
-		"env_vars":     input.EnvironmentVariables,
-		"health_check": input.HealthCheck,
-	})
-
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
 		tflog.Error(ctx, "Failed to create starter container", map[string]interface{}{
@@ -352,11 +404,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		resp.Diagnostics.AddError("Error creating starter container", "Could not create starter container: "+err.Error())
 		return
 	}
-
-	tflog.Debug(ctx, "Successfully created starter container", map[string]interface{}{
-		"container_name":  containerResult.Name,
-		"container_state": containerResult.State,
-	})
 
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)
@@ -416,6 +463,14 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	// External connection
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
@@ -514,6 +569,14 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 	}
 	state.Ingresses = ingressesList
 
+	// External connection
+	externalConn, diags := buildExternalConnectionWithPortsListFromApi(ctx, container.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	state.ExternalConnection = externalConn
+
 	// Health check
 	state.HealthCheck = buildHealthCheckState(container)
 
@@ -610,6 +673,14 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 	input.Ingresses = ingresses
+
+	// External connection
+	externalConn, diags := buildExternalConnectionInputStarterContainer(ctx, plan, &prev)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.ExternalConnection = externalConn
 
 	// Environment variables (build API input from plan)
 	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
@@ -717,12 +788,21 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 		plan.Mounts = mountList
 	}
 
+	// Ingresses
 	ingressesList, d := buildIngressesFromApi(containerResult)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	plan.Ingresses = ingressesList
+
+	// External connection
+	externalConnection, diags := buildExternalConnectionWithPortsListFromApi(ctx, containerResult.ExternalConnection)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.ExternalConnection = externalConnection
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
@@ -838,6 +918,7 @@ func (r *starterContainerResource) ImportState(ctx context.Context, req resource
 		EnvironmentVariables: stateAttrs["environment_variables"].(types.Set),
 		Ports:                stateAttrs["ports"].(types.List),
 		Ingresses:            stateAttrs["ingresses"].(types.List),
+		ExternalConnection:   stateAttrs["external_connection"].(types.Object),
 		Mounts:               stateAttrs["mounts"].(types.List),
 		HealthCheck:          stateAttrs["health_check"].(types.Object),
 		Status:               stateAttrs["status"].(types.String),

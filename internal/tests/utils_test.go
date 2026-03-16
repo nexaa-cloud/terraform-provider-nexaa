@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2021, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package tests
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-faker/faker/v4"
@@ -248,7 +249,7 @@ resource "nexaa_container_job" "job" {
 `, name, image, command, entrypoint, schedule)
 }
 
-func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string) string {
+func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string, allowlist []string) string {
 	data := fmt.Sprintf(`
 data "nexaa_cloud_database_cluster_plans" "plan" {
   cpu      = %q
@@ -273,13 +274,20 @@ resource "nexaa_cloud_database_cluster" "cluster-database" {
 
   plan = data.nexaa_cloud_database_cluster_plans.plan.id
 
+  external_connection = {
+    ports = {
+        allowlist = %q
+    }
+  }
+
   timeouts {
 	create = "2m"
+	update = "2m"
 	delete = "2m"
   }
 }
 
-`, name, dbType, version)
+`, name, dbType, version, allowlist)
 }
 
 func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) string {
@@ -319,10 +327,12 @@ func givenCloudDatabaseClusterUser(userName string) string {
 `, userName)
 }
 
-func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string) string {
+func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string, externalConnAllowlist []string) string {
 	if name == "" {
 		name = generateTestMessageQueueName()
 	}
+
+	allowlistFormatted := `["` + strings.Join(externalConnAllowlist, `", "`) + `"]`
 
 	data := fmt.Sprintf(`
 data "nexaa_message_queue_plans" "plan" {
@@ -332,6 +342,7 @@ data "nexaa_message_queue_plans" "plan" {
   replicas = %q
 }
 `, cpu, memory, storage, replicas)
+
 
 	return data + fmt.Sprintf(`
 resource "nexaa_message_queue" "queue" {
@@ -345,6 +356,11 @@ resource "nexaa_message_queue" "queue" {
 	"127.0.0.1",
 	"192.168.1.1"
   ]
+  external_connection = {
+    ports = {
+		allowlist = %s
+	}
+  }
 }
-`, name, queueType, version)
+`, name, queueType, version, allowlistFormatted)
 }

@@ -180,7 +180,7 @@ resource "nexaa_container" "container" {
       domain_name = "example.com" # domain_nane is optional if left empty we will provide one
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 }
@@ -206,7 +206,7 @@ resource "nexaa_container" "container" {
       domain_name = "example.com" # domain_nane is optional if left empty we will provide one
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
@@ -366,7 +366,7 @@ resource "nexaa_container" "container" {
       domain_name = "example.com" # domain_nane is optional if left empty we will provide one
       port        = 80
       tls         = true
-      allow_list  = ["0.0.0.0/0"]
+      allowlist  = ["0.0.0.0/0"]
     }
   ]
 
