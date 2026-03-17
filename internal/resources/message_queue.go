@@ -14,7 +14,6 @@ import (
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-
 func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQueueResult, timeout timeouts.Value) (messageQueueResource, diag.Diagnostics) {
 	plan := messageQueueResource{}
 
@@ -22,9 +21,9 @@ func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQu
 	plan.ID = types.StringValue(generateMessageQueueId(namespace.GetName(), queue.GetName()))
 	plan.Namespace = types.StringValue(namespace.GetName())
 	plan.Name = types.StringValue(queue.GetName())
-	plan.Type = types.StringValue(queue.Spec.GetType()) 
-	plan.Version = types.StringValue(queue.Spec.GetVersion()) 
-	plan.Plan = types.StringValue(queue.Plan.GetId()) 
+	plan.Type = types.StringValue(queue.Spec.GetType())
+	plan.Version = types.StringValue(queue.Spec.GetVersion())
+	plan.Plan = types.StringValue(queue.Plan.GetId())
 	plan.State = types.StringValue(queue.GetState())
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Locked = types.BoolValue(queue.GetLocked())
@@ -35,7 +34,6 @@ func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQu
 		allowlist = types.ListNull(types.StringType)
 	}
 	plan.Allowlist = allowlist
-
 
 	if queue.GetExternalConnection() == nil {
 		plan.ExternalConnection = types.ObjectNull(ExternalConnectionObjectAttributeTypes())
@@ -54,8 +52,3 @@ func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQu
 func generateMessageQueueId(namespace string, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
-
-
-
-
-

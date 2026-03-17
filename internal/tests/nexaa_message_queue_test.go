@@ -30,7 +30,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// 1) Create & Read
 			{
-				Config: messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1","192.168.1.2"}),
+				Config: messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1", "192.168.1.2"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "id"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
@@ -66,7 +66,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "name", queueName),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
-					resource.TestCheckResourceAttr("nexaa_message_queue.queue","external_connection.ports.allowlist.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.#", "1"),
 				),
 			},
 			// 4) Delete is automatically tested by TestCase

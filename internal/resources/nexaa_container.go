@@ -82,16 +82,16 @@ type ingresResource struct {
 }
 
 type containerExternalConnectionResource struct {
-	Ipv6  types.String 	`tfsdk:"ipv6"`
-	Ipv4  types.String 	`tfsdk:"ipv4"`
-	Ports types.List 	`tfsdk:"ports"`
+	Ipv6  types.String `tfsdk:"ipv6"`
+	Ipv4  types.String `tfsdk:"ipv4"`
+	Ports types.List   `tfsdk:"ports"`
 }
 
 type containerExternalConnectionPortsResource struct {
-	ExternalPort types.Int64 	`tfsdk:"external_port"`
-	InternalPort types.Int64	`tfsdk:"internal_port"`
-	Protocol     types.String 	`tfsdk:"protocol"`
-	Allowlist    types.List  	`tfsdk:"allowlist"`
+	ExternalPort types.Int64  `tfsdk:"external_port"`
+	InternalPort types.Int64  `tfsdk:"internal_port"`
+	Protocol     types.String `tfsdk:"protocol"`
+	Allowlist    types.List   `tfsdk:"allowlist"`
 }
 
 type healthcheckResource struct {
@@ -829,7 +829,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	state.Ingresses = ingressesTF
-	
+
 	// External connection
 	externalConn, diags := buildExternalConnectionWithPortsListFromApi(ctx, container.ExternalConnection)
 	resp.Diagnostics.Append(diags...)

@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.10.0
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
 	github.com/joho/godotenv v1.5.1
-	github.com/nexaa-cloud/nexaa-cli v1.1.0
+	github.com/nexaa-cloud/nexaa-cli v1.1.1
 )
 
 require (

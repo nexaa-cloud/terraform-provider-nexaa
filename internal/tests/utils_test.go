@@ -343,7 +343,6 @@ data "nexaa_message_queue_plans" "plan" {
 }
 `, cpu, memory, storage, replicas)
 
-
 	return data + fmt.Sprintf(`
 resource "nexaa_message_queue" "queue" {
   depends_on = [nexaa_namespace.ns]

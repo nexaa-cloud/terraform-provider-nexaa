@@ -77,7 +77,7 @@ func buildAllowlistInput(ctx context.Context, oldAllowlist *types.List, newAllow
 	for _, ip := range newAllowlistArray {
 		plannedList[ip] = struct{}{}
 		allowlist = append(allowlist, api.AllowListInput{
-			Ip: ip,
+			Ip:    ip,
 			State: api.StatePresent,
 		})
 	}
@@ -85,23 +85,17 @@ func buildAllowlistInput(ctx context.Context, oldAllowlist *types.List, newAllow
 	for _, ip := range oldAllowlistArray {
 		if _, exists := plannedList[ip]; !exists {
 			allowlist = append(allowlist, api.AllowListInput{
-				Ip: ip,
+				Ip:    ip,
 				State: api.StateAbsent,
 			})
 		}
 	}
-	
+
 	return allowlist
 }
-
-
-
-
-
-
 
 /*
 
 
 
-*/
+ */

@@ -204,7 +204,6 @@ func buildExternalConnectionWithPortsListFromApi(ctx context.Context, conn *api.
 			"ports": portsList,
 		})
 
-	
 	tflog.Debug(ctx, fmt.Sprintf("Built external connection object from API: %v", externalConnectionObj))
 	return externalConnectionObj, nil
 }
@@ -338,7 +337,7 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 	oldPortsArray := map[string]containerExternalConnectionPortsResource{}
 	newPortsArray := map[string]containerExternalConnectionPortsResource{}
 	var ports []api.ExternalConnectionPortInput
-	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	if !oldExternalConnectionData.Ports.IsNull() && !oldExternalConnectionData.Ports.IsUnknown() {
 		diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
 		if diags.HasError() {
 			return nil, diags
@@ -351,14 +350,13 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		}
 	}
 
-	
 	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
 	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
 	if diags.HasError() {
 		tflog.Info(ctx, "Pos 5")
 		return nil, diags
 	}
-	
+
 	for _, port := range externalConnectionPortsData {
 		var portInput api.ExternalConnectionPortInput
 
@@ -387,7 +385,7 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 
 		newPortsArray[id] = port
 		ports = append(ports, portInput)
-		
+
 	}
 
 	for id, port := range oldPortsArray {
@@ -409,7 +407,7 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		}
 	}
 	externalConnectionInputs.Ports = ports
-	
+
 	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
 
 	return &externalConnectionInputs, nil
@@ -458,7 +456,7 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 	oldPortsArray := map[string]containerExternalConnectionPortsResource{}
 	newPortsArray := map[string]containerExternalConnectionPortsResource{}
 	var ports []api.ExternalConnectionPortInput
-	if !oldExternalConnectionData.Ports.IsNull()  && !oldExternalConnectionData.Ports.IsUnknown() {
+	if !oldExternalConnectionData.Ports.IsNull() && !oldExternalConnectionData.Ports.IsUnknown() {
 		diags = oldExternalConnectionData.Ports.ElementsAs(ctx, &oldExternalConnectionPortsData, true)
 		if diags.HasError() {
 			return nil, diags
@@ -471,14 +469,13 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 		}
 	}
 
-	
 	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
 	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
 	if diags.HasError() {
 		tflog.Info(ctx, "Pos 5")
 		return nil, diags
 	}
-	
+
 	for _, port := range externalConnectionPortsData {
 		var portInput api.ExternalConnectionPortInput
 
@@ -507,7 +504,7 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 
 		newPortsArray[id] = port
 		ports = append(ports, portInput)
-		
+
 	}
 
 	for id, port := range oldPortsArray {
@@ -529,7 +526,7 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 		}
 	}
 	externalConnectionInputs.Ports = ports
-	
+
 	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
 
 	return &externalConnectionInputs, nil

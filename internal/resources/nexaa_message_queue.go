@@ -34,18 +34,18 @@ func NewMessageQueueResource() resource.Resource {
 
 // messageQueueResource is the resource implementation.
 type messageQueueResource struct {
-	ID          		types.String `tfsdk:"id"`
-	Namespace   		types.String `tfsdk:"namespace"`
-	Name        		types.String `tfsdk:"name"`
-	Plan        		types.String `tfsdk:"plan"`
-	Type        		types.String `tfsdk:"type"`
-	Version     		types.String `tfsdk:"version"`
-	ExternalConnection	types.Object `tfsdk:"external_connection"`
-	State       		types.String `tfsdk:"state"`
-	Locked      		types.Bool   `tfsdk:"locked"`
-	LastUpdated 		types.String `tfsdk:"last_updated"`
-	Allowlist   		types.List   `tfsdk:"allowlist"`
-	Timeouts    		timeouts.Value `tfsdk:"timeouts"`
+	ID                 types.String   `tfsdk:"id"`
+	Namespace          types.String   `tfsdk:"namespace"`
+	Name               types.String   `tfsdk:"name"`
+	Plan               types.String   `tfsdk:"plan"`
+	Type               types.String   `tfsdk:"type"`
+	Version            types.String   `tfsdk:"version"`
+	ExternalConnection types.Object   `tfsdk:"external_connection"`
+	State              types.String   `tfsdk:"state"`
+	Locked             types.Bool     `tfsdk:"locked"`
+	LastUpdated        types.String   `tfsdk:"last_updated"`
+	Allowlist          types.List     `tfsdk:"allowlist"`
+	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 }
 
 type messageQueueExternalConnectionResource struct {
@@ -112,7 +112,7 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 							"allowlist": schema.ListAttribute{
 								ElementType: types.StringType,
 								Optional:    true,
-								Computed: 	 true,
+								Computed:    true,
 								Description: "A list with the IP's that can access the message queue through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the message queue can be accessed from any IP address.",
 								Default: listdefault.StaticValue(
 									types.ListValueMust(types.StringType, []attr.Value{
@@ -152,12 +152,12 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				ElementType: types.StringType,
 				Optional:    true,
 				Computed:    true,
-                Default: listdefault.StaticValue(
-                    types.ListValueMust(types.StringType, []attr.Value{
-                        types.StringValue("0.0.0.0/0"),
-                        types.StringValue("::/0"),
-                    }),
-                ),
+				Default: listdefault.StaticValue(
+					types.ListValueMust(types.StringType, []attr.Value{
+						types.StringValue("0.0.0.0/0"),
+						types.StringValue("::/0"),
+					}),
+				),
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
 				},
@@ -195,13 +195,12 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-
-	allowlist:= buildAllowlistInput(ctx, nil, plan.Allowlist)
+	allowlist := buildAllowlistInput(ctx, nil, plan.Allowlist)
 
 	input := api.MessageQueueCreateInput{
-		Name:      plan.Name.ValueString(),
-		Namespace: plan.Namespace.ValueString(),
-		Plan:      plan.Plan.ValueString(),
+		Name:               plan.Name.ValueString(),
+		Namespace:          plan.Namespace.ValueString(),
+		Plan:               plan.Plan.ValueString(),
 		ExternalConnection: buildExternalConnectionInputMQ(ctx, plan, nil),
 		Spec: api.MessageQueueSpecInput{
 			Type:    plan.Type.ValueString(),
@@ -325,9 +324,9 @@ func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRe
 	allowList := buildAllowlistInput(ctx, &state.Allowlist, plan.Allowlist)
 
 	input := api.MessageQueueModifyInput{
-		Name:      plan.Name.ValueString(),
-		Namespace: plan.Namespace.ValueString(),
-		AllowList: allowList,
+		Name:               plan.Name.ValueString(),
+		Namespace:          plan.Namespace.ValueString(),
+		AllowList:          allowList,
 		ExternalConnection: buildExternalConnectionInputMQ(ctx, plan, &state),
 	}
 
@@ -385,13 +384,13 @@ func (r *messageQueueResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	deleteTimeout, diags := state.Timeouts.Delete(ctx, 2*time.Minute)
-	
+
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	
+
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 

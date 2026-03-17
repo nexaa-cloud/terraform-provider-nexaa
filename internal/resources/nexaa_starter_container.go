@@ -51,7 +51,7 @@ type starterContainerResource struct {
 	EnvironmentVariables types.Set      `tfsdk:"environment_variables"`
 	Ports                types.List     `tfsdk:"ports"`
 	Ingresses            types.List     `tfsdk:"ingresses"`
-	ExternalConnection	 types.Object   `tfsdk:"external_connection"`
+	ExternalConnection   types.Object   `tfsdk:"external_connection"`
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
 	LastUpdated          types.String   `tfsdk:"last_updated"`
