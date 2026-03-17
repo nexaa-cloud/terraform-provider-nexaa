@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -1134,16 +1133,12 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("Input send to the backend: %v", input))
-
 	// modify containerResult
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
 		return
 	}
-
-	tflog.Debug(ctx, fmt.Sprintf("Container after modification: %v", containerResult))
 
 	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
@@ -1156,8 +1151,6 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
 		return
 	}
-
-	tflog.Debug(ctx, fmt.Sprintf("Container after modification and get: %v", containerResult))
 
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)

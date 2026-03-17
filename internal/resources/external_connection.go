@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
@@ -167,7 +166,6 @@ func buildExternalConnectionWithPortsListFromApi(ctx context.Context, conn *api.
 	for _, port := range conn.GetPorts() {
 		allowlist, diags := toTypesStringList(ctx, port.GetAllowList())
 		if diags.HasError() {
-			//tflog.Debug(ctx, "Exited build form api")
 			return types.ObjectNull(ExternalConnectionWithPortsObjectAttributeTypes()), diags
 		}
 
@@ -203,8 +201,6 @@ func buildExternalConnectionWithPortsListFromApi(ctx context.Context, conn *api.
 			"ipv6":  types.StringValue(conn.GetIpv6()),
 			"ports": portsList,
 		})
-
-	tflog.Debug(ctx, fmt.Sprintf("Built external connection object from API: %v", externalConnectionObj))
 	return externalConnectionObj, nil
 }
 
@@ -301,20 +297,17 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 	if plan.ExternalConnection.IsNull() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
-		tflog.Info(ctx, "Pos 1")
 		return &externalConnectionInputs, nil
 	}
 	if plan.ExternalConnection.IsUnknown() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
-		tflog.Info(ctx, "Pos 2")
 		return &externalConnectionInputs, nil
 	}
 
 	var externalConnectionData containerExternalConnectionResource
 	diags = plan.ExternalConnection.As(ctx, &externalConnectionData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
-		tflog.Info(ctx, "Pos 3")
 		return nil, diags
 	}
 
@@ -323,7 +316,6 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		if !state.ExternalConnection.IsNull() && !state.ExternalConnection.IsUnknown() {
 			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
 			if diags.HasError() {
-				tflog.Info(ctx, "Pos 4")
 				return nil, diags
 			}
 		}
@@ -344,7 +336,6 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		}
 
 		for _, port := range oldExternalConnectionPortsData {
-			tflog.Debug(ctx, fmt.Sprintf("Filling up look up table for old ports: %v", port))
 			id := fmt.Sprintf("%v:%v", port.InternalPort.ValueInt64(), port.Protocol.ValueString())
 			oldPortsArray[id] = port
 		}
@@ -353,7 +344,6 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
 	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
 	if diags.HasError() {
-		tflog.Info(ctx, "Pos 5")
 		return nil, diags
 	}
 
@@ -407,8 +397,6 @@ func buildExternalConnectionInputContainer(ctx context.Context, plan containerRe
 		}
 	}
 	externalConnectionInputs.Ports = ports
-
-	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
 
 	return &externalConnectionInputs, nil
 }
@@ -420,20 +408,17 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 	if plan.ExternalConnection.IsNull() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
-		tflog.Info(ctx, "Pos 1")
 		return &externalConnectionInputs, nil
 	}
 	if plan.ExternalConnection.IsUnknown() {
 		externalConnectionInputs.State = api.StateAbsent
 		externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{}
-		tflog.Info(ctx, "Pos 2")
 		return &externalConnectionInputs, nil
 	}
 
 	var externalConnectionData containerExternalConnectionResource
 	diags = plan.ExternalConnection.As(ctx, &externalConnectionData, basetypes.ObjectAsOptions{})
 	if diags.HasError() {
-		tflog.Info(ctx, "Pos 3")
 		return nil, diags
 	}
 
@@ -442,7 +427,6 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 		if !state.ExternalConnection.IsNull() && !state.ExternalConnection.IsUnknown() {
 			diags = state.ExternalConnection.As(ctx, &oldExternalConnectionData, basetypes.ObjectAsOptions{})
 			if diags.HasError() {
-				tflog.Info(ctx, "Pos 4")
 				return nil, diags
 			}
 		}
@@ -463,7 +447,6 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 		}
 
 		for _, port := range oldExternalConnectionPortsData {
-			tflog.Debug(ctx, fmt.Sprintf("Filling up look up table for old ports: %v", port))
 			id := fmt.Sprintf("%v:%v", port.InternalPort.ValueInt64(), port.Protocol.ValueString())
 			oldPortsArray[id] = port
 		}
@@ -472,7 +455,6 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 	externalConnectionPortsData := make([]containerExternalConnectionPortsResource, len(externalConnectionData.Ports.Elements()))
 	diags = externalConnectionData.Ports.ElementsAs(ctx, &externalConnectionPortsData, true)
 	if diags.HasError() {
-		tflog.Info(ctx, "Pos 5")
 		return nil, diags
 	}
 
@@ -526,8 +508,6 @@ func buildExternalConnectionInputStarterContainer(ctx context.Context, plan star
 		}
 	}
 	externalConnectionInputs.Ports = ports
-
-	tflog.Debug(ctx, fmt.Sprintf("External Connection input: %v", externalConnectionInputs))
 
 	return &externalConnectionInputs, nil
 }
