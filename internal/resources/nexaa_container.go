@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -201,7 +202,9 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 						},
 						"secret": schema.BoolAttribute{
 							Optional:    true,
+							Computed:	 true,
 							Description: "A boolean to represent if the environment variable is a secret or not",
+							Default: booldefault.StaticBool(false),
 						},
 					},
 				},
