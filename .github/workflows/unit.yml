@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+    branches:
+      - main
+
+concurrency:
+  group: unit-tests
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Terraform Provider Unit Tests
+    needs:
+    runs-on:
+      group: Default
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Run Acceptance Tests
+        env:
+          USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
+          PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
+          TILAA_ENV: ${{ secrets.TILAA_ENV }}
+        working-directory: .
+        run: go test -v -cover ./internal/resources/...

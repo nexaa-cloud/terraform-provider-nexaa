@@ -17,8 +17,9 @@ fmt:
 
 validate: fmt lint
 
+test: s=resources
 test:
-	go test -v -cover -timeout=120s -parallel=10 ./...
+	go test -v -cover -timeout=120s -parallel=10 ./internal/$(s)/...
 
 testacc:
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
