@@ -162,6 +162,10 @@ func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnec
 }
 
 func buildExternalConnectionWithPortsListFromApi(ctx context.Context, conn *api.ContainerResultExternalConnection) (types.Object, diag.Diagnostics) {
+	if conn == nil {
+		return types.ObjectNull(ExternalConnectionWithPortsObjectAttributeTypes()), nil
+	}
+
 	var ports []attr.Value
 	for _, port := range conn.GetPorts() {
 		allowlist, diags := toTypesStringList(ctx, port.GetAllowList())
