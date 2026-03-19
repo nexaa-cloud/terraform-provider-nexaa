@@ -99,7 +99,7 @@ resource "nexaa_cloud_database_cluster_user" "user" {
   permissions = [
     {
       database_name = nexaa_cloud_database_cluster_database.database.name
-      permission    = "READ_WRITE"
+      permission    = "read_write"
     }
   ]
 }
