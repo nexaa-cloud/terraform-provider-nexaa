@@ -17,14 +17,7 @@ permissions:
 
 jobs:
   unit:
-    name: Terraform Provider Unit Tests
-    needs:
-    runs-on:
-      group: Default
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
