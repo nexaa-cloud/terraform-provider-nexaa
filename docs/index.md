@@ -22,7 +22,7 @@ The resources we provide can be found
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }
