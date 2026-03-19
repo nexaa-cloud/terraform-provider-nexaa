@@ -11,7 +11,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
@@ -201,10 +200,8 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 							},
 						},
 						"secret": schema.BoolAttribute{
-							Optional:    true,
-							Computed:    true,
+							Required:    true,
 							Description: "A boolean to represent if the environment variable is a secret or not",
-							Default:     booldefault.StaticBool(false),
 						},
 					},
 				},

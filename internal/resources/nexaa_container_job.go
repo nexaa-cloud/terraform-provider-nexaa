@@ -99,7 +99,7 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 							},
 						},
 						"secret": schema.BoolAttribute{
-							Optional:    true,
+							Required:    true,
 							Description: "A boolean to represent if the environment variable is a secret or not",
 						},
 					},

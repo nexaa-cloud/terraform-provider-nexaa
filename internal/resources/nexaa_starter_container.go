@@ -142,7 +142,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 							},
 						},
 						"secret": schema.BoolAttribute{
-							Optional:    true,
+							Required:    true,
 							Description: "A boolean to represent if the environment variable is a secret or not",
 						},
 					},

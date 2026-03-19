@@ -146,11 +146,8 @@ resource "nexaa_starter_container" "starter-container" {
 Required:
 
 - `name` (String) The name used for the environment variable
-- `value` (String) The value used for the environment variable, is required
-
-Optional:
-
 - `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
+- `value` (String) The value used for the environment variable, is required
 
 
 <a id="nestedatt--external_connection"></a>
