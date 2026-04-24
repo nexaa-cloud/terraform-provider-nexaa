@@ -129,6 +129,7 @@ func buildExternalConnectionInputCloudDb(ctx context.Context, plan cloudDatabase
 
 	ports.AllowList = allowlist
 	ports.State = api.StatePresent
+	ports.Protocol = api.ProtocolTcp
 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
 	externalConnectionInputs.SharedIp = true
 	externalConnectionInputs.State = api.StatePresent
