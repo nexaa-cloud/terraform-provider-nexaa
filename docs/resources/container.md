@@ -269,7 +269,7 @@ Required:
 
 Optional:
 
-- `allowlist` (List of String) A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone
+- `allowlist` (List of String) A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone, can be in ipv4 and/or ipv6 format.
 - `domain_name` (String) The domain used for the ingress, defaults to https://{tenant}-{namespaceName}-{containerName}.container.tilaa.cloud
 
 
