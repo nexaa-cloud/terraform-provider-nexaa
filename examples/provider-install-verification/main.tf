@@ -183,8 +183,8 @@ resource "nexaa_cloud_database_cluster" "cluster" {
   }
 
   spec = {
-    type    = "MySQL"
-    version = "8.4"
+    type    = "PostgreSQL"
+    version = "18.1"
   }
 
   plan = data.nexaa_cloud_database_cluster_plans.plan.id

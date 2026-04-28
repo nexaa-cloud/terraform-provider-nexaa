@@ -120,6 +120,10 @@ func (r *namespaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 	client := api.NewClient()
 	namespace, err := client.NamespaceListByName(state.Name.ValueString())
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error reading Namespace",
 			"Could not find namespace "+state.Name.ValueString()+": "+err.Error(),

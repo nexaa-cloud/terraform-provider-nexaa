@@ -498,6 +498,10 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 	client := api.NewClient()
 	container, err := client.ListContainerByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Error reading starter container", "Could not find starter container: "+err.Error())
 		return
 	}

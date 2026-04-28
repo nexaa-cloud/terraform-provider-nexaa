@@ -99,22 +99,44 @@ func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocke
 	delay := initialDelay
 
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		locked, err := fetchResourceLocked(client, namespace, resourceName)
-
-		if err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		if !locked {
-			break
+		// The Nexaa SDK ignores caller context, so a stuck request would
+		// otherwise pin this loop forever. Run the poll in a goroutine and
+		// race it against ctx.Done so cancellation always wins promptly.
+		// A hung fetch still runs in the background and will be GC'd when
+		// it eventually returns.
+		type pollResult struct {
+			locked bool
+			err    error
+		}
+		ch := make(chan pollResult, 1)
+		go func() {
+			locked, err := fetchResourceLocked(client, namespace, resourceName)
+			ch <- pollResult{locked: locked, err: err}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case res := <-ch:
+			if res.err != nil {
+				return res.err
+			}
+			if !res.locked {
+				return nil
+			}
 		}
 
-		// Backoff between polls
-		time.Sleep(delay)
+		// Cancellable backoff between polls.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+
 		if delay < maxDelay {
 			delay *= 2
 			if delay > maxDelay {
@@ -122,6 +144,4 @@ func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocke
 			}
 		}
 	}
-
-	return nil
 }

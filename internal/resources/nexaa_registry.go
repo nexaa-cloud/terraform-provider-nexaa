@@ -181,6 +181,10 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error Reading Registry",
 			"Could not read registry with name "+state.Name.ValueString()+", error: "+err.Error(),

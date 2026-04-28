@@ -275,8 +275,12 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 	user, err := client.CloudDatabaseClusterUserGet(clusterInput, plan.Name.ValueString())
 
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
-			"Error reading cluster \""+clusterInput.Name+"\" not found in namespace \""+clusterInput.Namespace+"\"",
+			"Error reading user \""+plan.Name.ValueString()+"\" in cluster \""+clusterInput.Name+"\"",
 			err.Error(),
 		)
 		return
@@ -316,7 +320,7 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 	input := translatePlanToUserModifyInput(ctx, plan)
 	result, err := client.CloudDatabaseClusterUserModify(input)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating database", "Could not create database: "+err.Error())
+		resp.Diagnostics.AddError("Error updating user", "Could not update user: "+err.Error())
 		return
 	}
 

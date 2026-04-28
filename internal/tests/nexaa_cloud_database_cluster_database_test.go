@@ -32,7 +32,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "cluster.namespace", namespaceName),
@@ -52,7 +52,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 			},
 			// Update and Read testing — change description to exercise the update path
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "last_updated"),

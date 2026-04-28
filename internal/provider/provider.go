@@ -127,7 +127,11 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	config.Initialize()
 
 	if err := config.LoadConfig(); err != nil {
-		panic(err)
+		resp.Diagnostics.AddError(
+			"Unable to load Nexaa configuration",
+			"Error: "+err.Error(),
+		)
+		return
 	}
 
 	err := api.Login(username, password)

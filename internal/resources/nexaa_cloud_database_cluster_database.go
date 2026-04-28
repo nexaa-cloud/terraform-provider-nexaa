@@ -160,12 +160,17 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 	}
 	cluster, err := client.CloudDatabaseClusterDatabaseList(clusterInput)
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Error reading database", "Could not list clusters: "+err.Error())
 		return
 	}
 
 	if len(cluster.GetDatabases()) == 0 {
-		resp.Diagnostics.AddError("Error reading database: no databases found", "")
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
 	// Find the database in the cluster
