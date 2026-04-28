@@ -267,8 +267,12 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 	cluster, err := client.CloudDatabaseClusterGet(input)
 
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
-			"Error reading cluster, cluster not found",
+			"Error reading cluster",
 			err.Error(),
 		)
 		return

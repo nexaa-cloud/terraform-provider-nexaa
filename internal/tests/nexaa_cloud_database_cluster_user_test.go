@@ -37,7 +37,7 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
 				ConfigVariables: config.Variables{
 					"password": config.StringVariable(password),
 				},
@@ -64,7 +64,7 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 			},
 			// Update and Read testing — re-apply the same config to verify stability
 			{
-				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),

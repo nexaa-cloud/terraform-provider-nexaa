@@ -278,6 +278,10 @@ func (r *messageQueueResource) Read(ctx context.Context, req resource.ReadReques
 
 	queue, err := client.MessageQueueGet(input)
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error Reading Message Queue",
 			"Could not read message queue with name "+state.Name.ValueString()+", error: "+err.Error(),

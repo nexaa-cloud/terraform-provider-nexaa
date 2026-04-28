@@ -260,6 +260,11 @@ data "nexaa_container_resources" "small" {
 }
 ` + fmt.Sprintf(
 		`
+data "nexaa_container_resources" "job" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
 resource "nexaa_container_job" "job" {
   namespace  = nexaa_namespace.ns.name
   name       = %q
@@ -267,8 +272,8 @@ resource "nexaa_container_job" "job" {
   registry   = nexaa_registry.registry.name
   command    = %s
   entrypoint = %s
-  resources  = data.nexaa_container_resources.small.id
-  schedule   = %q
+  resources = data.nexaa_container_resources.job.id
+  schedule = %q
   timeouts {
     create = "30s"
     update = "30s"

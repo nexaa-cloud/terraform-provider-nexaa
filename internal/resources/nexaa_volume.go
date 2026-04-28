@@ -138,6 +138,10 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
+		if isNotFoundErr(err) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error Reading Volume",
 			"Could not read volume "+state.Name.ValueString()+": "+err.Error(),

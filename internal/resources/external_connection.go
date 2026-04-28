@@ -138,8 +138,12 @@ func buildExternalConnectionInputCloudDb(ctx context.Context, plan cloudDatabase
 }
 
 func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnectionResult) (types.Object, diag.Diagnostics) {
+	apiPorts := conn.GetPorts()
+	if len(apiPorts) == 0 {
+		return types.ObjectNull(ExternalConnectionObjectAttributeTypes()), nil
+	}
 
-	allowlist, diags := toTypesStringList(ctx, conn.GetPorts()[0].GetAllowList())
+	allowlist, diags := toTypesStringList(ctx, apiPorts[0].GetAllowList())
 	if diags.HasError() {
 		return types.ObjectNull(ExternalConnectionObjectAttributeTypes()), diags
 	}
@@ -147,7 +151,7 @@ func buildExternalConnectionFromApi(ctx context.Context, conn api.ExternalConnec
 	ports := types.ObjectValueMust(
 		ExternalConnectionPortsObjectAttributeTypes(),
 		map[string]attr.Value{
-			"external_port": types.Int64Value(int64(conn.GetPorts()[0].GetExternalPort())),
+			"external_port": types.Int64Value(int64(apiPorts[0].GetExternalPort())),
 			"allowlist":     allowlist,
 		})
 

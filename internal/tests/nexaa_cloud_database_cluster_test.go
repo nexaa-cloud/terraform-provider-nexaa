@@ -30,12 +30,12 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.type", "PostgreSQL"),
-					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "17.5"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "18.1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv4"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv6"),
@@ -55,7 +55,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			},
 			// Update and Read testing — change allowlist to exercise the update path
 			{
-				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2.0", "10", "1", []string{"10.0.0.1"}),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
