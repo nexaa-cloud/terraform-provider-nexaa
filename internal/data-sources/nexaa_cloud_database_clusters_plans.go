@@ -158,6 +158,7 @@ func (d *cloudDatabasePlansDataSource) Read(ctx context.Context, req datasource.
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error could not find plan", err.Error())
+		return
 	}
 
 	data.Id = types.StringValue(plan.Id.ValueString())

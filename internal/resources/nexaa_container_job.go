@@ -676,11 +676,9 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		mountTF = mountList
 	}
 
-	var registryTF types.String
-	if containerJob.PrivateRegistry == nil || containerJob.PrivateRegistry.Name == "public" {
-		registryTF = types.StringNull()
-	} else {
-		registryTF = types.StringValue(containerJob.PrivateRegistry.Name)
+	registryValue := types.StringNull()
+	if containerJob.PrivateRegistry != nil && containerJob.PrivateRegistry.Name != "public" {
+		registryValue = types.StringValue(containerJob.PrivateRegistry.Name)
 	}
 
 	state := containerJobResource{
@@ -688,7 +686,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Name:                 types.StringValue(containerJob.Name),
 		Namespace:            types.StringValue(namespace),
 		Image:                types.StringValue(containerJob.Image),
-		Registry:             registryTF,
+		Registry:             registryValue,
 		Resources:            types.StringValue(string(containerJob.Resources)),
 		EnvironmentVariables: envTF,
 		Command:              commandList,

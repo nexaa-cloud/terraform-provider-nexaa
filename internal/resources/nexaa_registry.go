@@ -192,6 +192,11 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+	if registry == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	state.ID = types.StringValue(registry.Name)
 	state.Namespace = types.StringValue(state.Namespace.ValueString())
 	state.Name = types.StringValue(registry.Name)
@@ -265,6 +270,11 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 			return
 		}
 
+		if registry == nil {
+			// Registry is already gone; nothing to delete.
+			return
+		}
+
 		if registry.State == "created" {
 			_, err := client.RegistryDelete(state.Namespace.ValueString(), state.Name.ValueString())
 
@@ -334,6 +344,14 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 		resp.Diagnostics.AddError(
 			"Error Reading Registry",
 			"Could not read registry "+registryName+": "+err.Error(),
+		)
+		return
+	}
+
+	if registry == nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Registry",
+			"Could not read registry "+registryName+", registry not found",
 		)
 		return
 	}
