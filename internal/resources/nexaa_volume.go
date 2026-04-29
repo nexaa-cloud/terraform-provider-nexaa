@@ -33,6 +33,8 @@ type volumeResource struct {
 	Namespace   types.String   `tfsdk:"namespace"`
 	Name        types.String   `tfsdk:"name"`
 	Size        types.Int64    `tfsdk:"size"`
+	Usage       types.Float64  `tfsdk:"usage"`
+	Locked      types.Bool     `tfsdk:"locked"`
 	Status      types.String   `tfsdk:"status"`
 	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
@@ -62,6 +64,14 @@ func (r *volumeResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			"size": schema.Int64Attribute{
 				Description: "Size of the volume in GB, min 1GB/ max 100GB.",
 				Required:    true,
+			},
+			"usage": schema.Float64Attribute{
+				Description: "Current usage of the volume in GB",
+				Computed:    true,
+			},
+			"locked": schema.BoolAttribute{
+				Description: "Whether the volume is currently locked (e.g. during an operation)",
+				Computed:    true,
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the volume",
