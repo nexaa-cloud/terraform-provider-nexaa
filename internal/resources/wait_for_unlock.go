@@ -53,6 +53,12 @@ func volumeLocked() fetchResourceLocked {
 			return false, err
 		}
 
+		// ListVolumeByName returns a pointer; treat a nil result (volume gone)
+		// as unlocked so callers proceed to the next step instead of panicking.
+		if resource == nil {
+			return false, nil
+		}
+
 		return resource.Locked, nil
 	}
 }
