@@ -1,4 +1,4 @@
-default: fmt lint install generate
+default: fmt vet lint install generate
 
 build:
 	go build -v ./...
@@ -15,7 +15,7 @@ generate:
 fmt:
 	gofmt -s -w -e .
 
-validate: fmt lint
+validate: fmt vet lint
 
 test: s=resources
 test:
@@ -24,4 +24,7 @@ test:
 testacc:
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
 
-.PHONY: fmt lint test testacc build install generate
+.PHONY: fmt vet lint test testacc build install generate
+
+vet:
+	go vet -v ./...

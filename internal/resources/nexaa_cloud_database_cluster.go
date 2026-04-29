@@ -86,16 +86,19 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 				Description:    "Cloud database cluster",
 				CustomType:     NewClusterRefType(),
 				AttributeTypes: ClusterRefAttributes(),
+				PlanModifiers:  []planmodifier.Object{ImmutableObject()},
 			},
 			"spec": schema.ObjectAttribute{
 				Required:       true,
 				Description:    "Database specification including type and version",
 				CustomType:     NewSpecType(),
 				AttributeTypes: SpecAttributes(),
+				PlanModifiers:  []planmodifier.Object{ImmutableObject()},
 			},
 			"plan": schema.StringAttribute{
-				Required:    true,
-				Description: "Plan for the cloud database cluster.",
+				Required:      true,
+				Description:   "Plan for the cloud database cluster.",
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"hostname": schema.StringAttribute{
 				Computed:    true,

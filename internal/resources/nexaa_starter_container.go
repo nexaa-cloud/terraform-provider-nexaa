@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
@@ -397,10 +396,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
-		tflog.Error(ctx, "Failed to create starter container", map[string]interface{}{
-			"error": err.Error(),
-			"input": input,
-		})
 		resp.Diagnostics.AddError("Error creating starter container", "Could not create starter container: "+err.Error())
 		return
 	}

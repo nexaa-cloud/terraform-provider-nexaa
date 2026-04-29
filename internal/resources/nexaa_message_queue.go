@@ -74,24 +74,29 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Computed:    true,
 			},
 			"namespace": schema.StringAttribute{
-				Description: "Name of the namespace the message queue belongs to",
-				Required:    true,
+				Description:   "Name of the namespace the message queue belongs to",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"name": schema.StringAttribute{
-				Description: "The name of the message queue",
-				Required:    true,
+				Description:   "The name of the message queue",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"plan": schema.StringAttribute{
-				Description: "The plan ID for the message queue",
-				Required:    true,
+				Description:   "The plan ID for the message queue",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"type": schema.StringAttribute{
-				Description: "The type of message queue (e.g., 'RabbitMQ')",
-				Required:    true,
+				Description:   "The type of message queue (e.g., 'RabbitMQ')",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"version": schema.StringAttribute{
-				Description: "The version of the message queue software",
-				Required:    true,
+				Description:   "The version of the message queue software",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"external_connection": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{

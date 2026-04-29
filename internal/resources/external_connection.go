@@ -287,6 +287,7 @@ func buildExternalConnectionInputMQ(ctx context.Context, plan messageQueueResour
 	}
 
 	ports.AllowList = allowlist
+	ports.Protocol = api.ProtocolTcp
 	ports.State = api.StatePresent
 	externalConnectionInputs.Ports = []api.ExternalConnectionPortInput{ports}
 	externalConnectionInputs.SharedIp = true
