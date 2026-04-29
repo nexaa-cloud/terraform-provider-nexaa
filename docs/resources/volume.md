@@ -63,7 +63,9 @@ resource "nexaa_volume" "volume-test" {
 
 - `id` (String) Identifier of the volume, equal to the name of the volume
 - `last_updated` (String) Timestamp of the last Terraform update of the volume
+- `locked` (Boolean) Whether the volume is currently locked (e.g. during an operation)
 - `status` (String) The status of the volume
+- `usage` (Number) Current usage of the volume in GB
 
 <a id="nestedblock--timeouts"></a>
 ### Nested Schema for `timeouts`
