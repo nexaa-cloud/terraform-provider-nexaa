@@ -1,7 +1,10 @@
+# Copyright Tilaa B.V. 2026
+# SPDX-License-Identifier: MPL-2.0
+
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source  = "nexaa-cloud/nexaa/nexaa"
     }
   }
 }
@@ -36,7 +39,8 @@ data "nexaa_container_resources" "container_resource" {
 }
 
 resource "nexaa_container" "container" {
-  name      = "tf-container2"
+  depends_on = [ nexaa_volume.volume ]
+  name      = "tf-container"
   namespace = nexaa_namespace.namespace.name
   image     = "nginx:latest"
   registry  = null
@@ -52,11 +56,6 @@ resource "nexaa_container" "container" {
       secret = false
     },
     {
-      name   = "Variable"
-      value  = "finish"
-      secret = false
-    },
-    {
       name   = "API_KEY"
       value  = "supersecret"
       secret = true
@@ -75,38 +74,23 @@ resource "nexaa_container" "container" {
   mounts = [
     {
       path   = "/storage/mount1"
-      volume = "storage"
+      volume = nexaa_volume.volume.name
     }
   ]
 
   health_check = {
     port = 80
-    path = "/storage/health"
+    path = "/"
   }
 
   scaling = {
     type         = "manual"
     manual_input = 1
-
-    auto_input = {
-      minimal_replicas = 1
-      maximal_replicas = 3
-
-      triggers = [
-        {
-          type      = "CPU"
-          threshold = 70
-        },
-        {
-          type      = "MEMORY"
-          threshold = 80
-        }
-      ]
-    }
   }
 }
 
 resource "nexaa_starter_container" "starter-container" {
+  depends_on = [ nexaa_volume.volume ]
   name      = "tf-starter-container"
   namespace = nexaa_namespace.namespace.name
   image     = "nginx:latest"
@@ -121,11 +105,6 @@ resource "nexaa_starter_container" "starter-container" {
       secret = false
     },
     {
-      name   = "Variable"
-      value  = "finish"
-      secret = false
-    },
-    {
       name   = "API_KEY"
       value  = "supersecret"
       secret = true
@@ -144,39 +123,112 @@ resource "nexaa_starter_container" "starter-container" {
   mounts = [
     {
       path   = "/storage/mount1"
-      volume = "storage"
+      volume = nexaa_volume.volume.name
     }
   ]
 
   health_check = {
     port = 80
-    path = "/storage/health"
+    path = "/"
   }
 }
 
-# Cloud Database Cluster example
-resource "nexaa_clouddatabasecluster" "database" {
-  name      = "test-db-cluster3"
-  namespace = nexaa_namespace.namespace.name
+resource "nexaa_container_job" "container-job" {
+  depends_on = [ nexaa_volume.volume ]
+  namespace  = nexaa_namespace.namespace.name
+  name       = "my-container-job"
+  image      = "ubuntu:latest"
+  resources  = data.nexaa_container_resources.container_resource.id
+  schedule   = "0 4 * * *"
+
+  command    = ["echo", "hello"]
+  entrypoint = ["/bin/bash"]
+
+  environment_variables = [
+    {
+      name   = "ENV"
+      value  = "production"
+      secret = false
+    },
+  ]
+
+  mounts = [
+    {
+      path   = "/storage/mount1"
+      volume = nexaa_volume.volume.name
+    }
+  ]
+
+  timeouts {
+    create = "30s"
+    update = "30s"
+    delete = "30s"
+  }
+}
+
+data "nexaa_cloud_database_cluster_plans" "plan" {
+  cpu      = 1
+  memory   = 2.0
+  storage  = 10
+  replicas = 1
+}
+
+resource "nexaa_cloud_database_cluster" "cluster" {
+  depends_on = [
+    nexaa_namespace.namespace
+  ]
+  cluster = {
+    name      = "tf-db-cluster"
+    namespace = nexaa_namespace.namespace.name
+  }
 
   spec = {
-    type    = "PostgreSQL"
-    version = "16.4"
+    type    = "MySQL"
+    version = "8.4"
   }
 
-  plan = {
-    cpu      = 1
-    memory   = 2.0
-    storage  = 60
-    replicas = 1
+  plan = data.nexaa_cloud_database_cluster_plans.plan.id
+
+  timeouts {
+    create = "10m"
+  }
+
+  external_connection = {
+    ports = {
+      allowlist = ["192.168.1.1"]
+    }
   }
 }
 
-# Message Queue example
+resource "nexaa_cloud_database_cluster_database" "database" {
+  depends_on = [
+    nexaa_cloud_database_cluster.cluster,
+  ]
+
+  cluster = nexaa_cloud_database_cluster.cluster.cluster
+  name    = "myDatabase"
+}
+
+resource "nexaa_cloud_database_cluster_user" "user" {
+  depends_on = [
+    nexaa_cloud_database_cluster_database.database,
+  ]
+
+  cluster  = nexaa_cloud_database_cluster.cluster.cluster
+  name     = "myUser"
+  password = "IThinkYouCanDoBetter"
+  permissions = [
+    {
+      database_name = nexaa_cloud_database_cluster_database.database.name
+      permission    = "read_write"
+    }
+  ]
+}
+
 data "nexaa_message_queue_plans" "queue_plan" {
-  cpu      = 1
-  memory   = 2
-  storage  = 10
+  cpu      = 0.25
+  memory   = 0.5
+  storage  = 5.0
   replicas = 1
 }
 
@@ -188,8 +240,19 @@ resource "nexaa_message_queue" "queue" {
   version   = "3.13"
 
   allowlist = [
-    "0.0.0.0",
-    "127.0.0.1"
+    "0.0.0.0/0",
+    "::/0"
   ]
-}
 
+  external_connection = {
+    ports = {
+      allowlist = ["0.0.0.0/0", "::/0"]
+    }
+  }
+
+  timeouts {
+    create = "2m"
+    update = "2m"
+    delete = "2m"
+  }
+}
