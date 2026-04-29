@@ -170,7 +170,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	createTimeout, diags := plan.Timeouts.Create(ctx, 2*time.Minute)
+	createTimeout, diags := plan.Timeouts.Create(ctx, 10*time.Minute)
 
 	resp.Diagnostics.Append(diags...)
 
