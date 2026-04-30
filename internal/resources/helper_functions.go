@@ -20,26 +20,6 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-type noEmptyAllowlistValidator struct{}
-
-func (v noEmptyAllowlistValidator) Description(_ context.Context) string {
-	return "Allowlist must not be empty, omit the field to use defaults."
-}
-
-func (v noEmptyAllowlistValidator) MarkdownDescription(_ context.Context) string {
-	return "Allowlist must not be empty, omit the field to use defaults."
-}
-
-func (v noEmptyAllowlistValidator) ValidateList(_ context.Context, req validator.ListRequest, resp *validator.ListResponse) {
-	if !req.ConfigValue.IsNull() && len(req.ConfigValue.Elements()) == 0 {
-		resp.Diagnostics.AddAttributeError(
-			req.Path,
-			"Invalid allowlist",
-			"Allowlist must not be empty. Omit the field to use the defaults (0.0.0.0/0 and ::/0).",
-		)
-	}
-}
-
 func toStringArray(ctx context.Context, listInput types.List) []string {
 	var rawList []types.String
 	result := []string{}
