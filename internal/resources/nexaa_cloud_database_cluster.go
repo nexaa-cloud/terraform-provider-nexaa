@@ -212,6 +212,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	cluster, err := client.CloudDatabaseClusterGet(api.CloudDatabaseClusterResourceInput{
@@ -301,12 +302,15 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	// No in-place updates supported; preserve current plan.
 	var plan cloudDatabaseClusterResource
 	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	var state cloudDatabaseClusterResource
 	diags = req.State.Get(ctx, &state)
-
 	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 

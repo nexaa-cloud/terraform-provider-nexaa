@@ -250,7 +250,8 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 
 	err = waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error creating container job", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	containerJobResult, err = client.ContainerJobByName(plan.Namespace.ValueString(), plan.Name.ValueString())
@@ -511,7 +512,8 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container job", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	containerJobResult, err := client.ContainerJobModify(input)
@@ -601,7 +603,8 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating containerResult", "Could not reach a running state: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting container job", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	_, err = client.ContainerJobDelete(plan.Namespace.ValueString(), plan.Name.ValueString())
@@ -669,12 +672,19 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		mountTF = mountList
 	}
 
+	var registryTF types.String
+	if containerJob.PrivateRegistry == nil || containerJob.PrivateRegistry.Name == "public" {
+		registryTF = types.StringNull()
+	} else {
+		registryTF = types.StringValue(containerJob.PrivateRegistry.Name)
+	}
+
 	state := containerJobResource{
 		ID:                   types.StringValue(containerJob.Name),
 		Name:                 types.StringValue(containerJob.Name),
 		Namespace:            types.StringValue(namespace),
 		Image:                types.StringValue(containerJob.Image),
-		Registry:             types.StringValue(containerJob.PrivateRegistry.Name),
+		Registry:             registryTF,
 		Resources:            types.StringValue(string(containerJob.Resources)),
 		EnvironmentVariables: envTF,
 		Command:              commandList,

@@ -273,6 +273,7 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 	}
 
 	var state volumeResource
+	state.Namespace = types.StringValue(id.Namespace)
 	state = translateApiToVolumeResource(state, *volume)
 	state.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(

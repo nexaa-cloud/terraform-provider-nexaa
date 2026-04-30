@@ -225,7 +225,8 @@ func (r *cloudDatabaseClusterUserResource) Create(ctx context.Context, req resou
 	client := api.NewClient()
 	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error creating user", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	input := translatePlanToUserCreateInput(ctx, plan)
@@ -287,11 +288,9 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 }
 
 func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// No in-place updates supported; preserve current plan.
 	var plan cloudDatabaseClusterUserResource
 
-	// Read current plan and write it back unchanged
-	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -310,7 +309,8 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 	client := api.NewClient()
 	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error updating user", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	input := translatePlanToUserModifyInput(ctx, plan)
@@ -348,7 +348,8 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 	client := api.NewClient()
 	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting user", "Could not reach a unlocked state: "+err.Error())
+		return
 	}
 
 	userInput := api.DatabaseUserInput{
@@ -374,7 +375,6 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 		)
 		return
 	}
-	fmt.Printf("Deleted user %q\n", plan.Name.ValueString())
 }
 
 func (r *cloudDatabaseClusterUserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

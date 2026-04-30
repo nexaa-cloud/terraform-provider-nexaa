@@ -14,6 +14,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -46,6 +48,9 @@ func (r *cloudDatabaseClusterDatabaseResource) Schema(_ context.Context, _ resou
 			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Unique identifier of the database",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cluster": schema.ObjectAttribute{
 				Required:       true,
@@ -58,9 +63,10 @@ func (r *cloudDatabaseClusterDatabaseResource) Schema(_ context.Context, _ resou
 				Description: "Name of the database",
 			},
 			"description": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Optional description of the database",
+				Optional:      true,
+				Computed:      true,
+				Description:   "Optional description of the database",
+				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the database",
@@ -100,6 +106,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating database", "Cloud database cluster is not ready yet: "+err.Error())
+		return
 	}
 
 	clusterInput := api.CloudDatabaseClusterResourceInput{
@@ -128,7 +135,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 		return
 	}
 
-	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
+	plan.ID = types.StringValue(generateCloudDatabaseClusterDatabaseId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
 	plan.Name = types.StringValue(database.Name)
 	plan.Description = types.StringPointerValue(database.Description)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
@@ -190,29 +197,51 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 	resp.Diagnostics.Append(diags...)
 }
 
-// Omitting is not supported for this resource. So we write the current state back unchanged.
 func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// No in-place updates supported; preserve current plan.
 	var plan cloudDatabaseClusterDatabaseResource
 
-	// Read current plan and write it back unchanged
-	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Timeouts = timeouts.Value{
-		Object: types.ObjectValueMust(
-			map[string]attr.Type{
-				"create": types.StringType,
-				"delete": types.StringType,
-			},
-			map[string]attr.Value{
-				"create": types.StringValue("2m"),
-				"delete": types.StringValue("2m"),
-			},
-		),
+	client := api.NewClient()
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating database", "Cloud database cluster is not ready yet: "+err.Error())
+		return
 	}
+
+	var description *string
+	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+		desc := plan.Description.ValueString()
+		description = &desc
+	}
+	result, err := client.CloudDatabaseClusterModify(api.CloudDatabaseClusterModifyInput{
+		Name:      plan.Cluster.Name.ValueString(),
+		Namespace: plan.Cluster.Namespace.ValueString(),
+		Databases: []api.DatabaseInput{
+			{
+				Name:        plan.Name.ValueString(),
+				Description: description,
+				State:       api.StatePresent,
+			},
+		},
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating database", "Could not update database: "+err.Error())
+		return
+	}
+
+	var updatedDescription *string
+	for _, db := range result.Databases {
+		if db.Name == plan.Name.ValueString() {
+			updatedDescription = db.Description
+			break
+		}
+	}
+	plan.Description = types.StringPointerValue(updatedDescription)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -240,7 +269,8 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating database", "Cloud database cluster is not ready yet: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting database", "Cloud database cluster is not ready yet: "+err.Error())
+		return
 	}
 
 	clusterInput := api.CloudDatabaseClusterResourceInput{
@@ -261,7 +291,6 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 		)
 		return
 	}
-	fmt.Printf("Deleted database %q\n", plan.Name.ValueString())
 }
 
 func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

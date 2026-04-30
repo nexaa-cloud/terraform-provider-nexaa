@@ -578,9 +578,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Debug: log what we got back
-	fmt.Printf("DEBUG: Created container - Command: %v, Entrypoint: %v\n", containerResult.Command, containerResult.Entrypoint)
-
 	// Set all fields in plan from returned containerResult
 	plan.ID = types.StringValue(containerResult.Name)
 	plan.Namespace = types.StringValue(plan.Namespace.ValueString())
@@ -779,9 +776,6 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	// Debug: log what we got back
-	fmt.Printf("DEBUG: Read container - Command: %v, Entrypoint: %v\n", container.Command, container.Entrypoint)
-
 	// Set all fields in state from returned container
 	state.ID = types.StringValue(container.Name)
 	state.Namespace = types.StringValue(state.Namespace.ValueString())
@@ -939,7 +933,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if obj, ok := scalingObj.(types.Object); ok {
 		state.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error creating container", "Could not read container: "+err.Error())
+		resp.Diagnostics.AddError("Error reading container", "Could not convert scaling to object type")
 		return
 	}
 
@@ -1320,7 +1314,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	if obj, ok := scalingObj.(types.Object); ok {
 		plan.Scaling = obj
 	} else {
-		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container", "Could not convert scaling to object type")
 		return
 	}
 

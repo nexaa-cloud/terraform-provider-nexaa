@@ -149,8 +149,8 @@ func getMessageQueuePlan(plans []api.MessageQueuePlanResult, Replicas int64, Cpu
 		sb.WriteString("No plan found for the given parameters. These are the available plans:\n")
 		sb.WriteString("ID\tNAME\tCPU\tRAM (GB)\tSTORAGE (GB)\tREPLICAS\tGROUP\n")
 		for _, plan := range plans {
-			sb.WriteString(fmt.Sprintf("%q\t%q\t%.1f\t%.1f\t%.1f\t%d\t%q\n",
-				plan.Id, plan.Name, plan.Cpu, plan.Memory, plan.Storage, plan.Replicas, plan.Group))
+			fmt.Fprintf(&sb, "%q\t%q\t%.2f\t%.1f\t%.1f\t%d\t%q\n",
+				plan.Id, plan.Name, plan.Cpu, plan.Memory, plan.Storage, plan.Replicas, plan.Group)
 		}
 
 		return messageQueuePlansDataSourceModel{}, errors.New(sb.String())

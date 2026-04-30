@@ -323,25 +323,21 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		Resources: api.ContainerResourcesCpu250Ram500,
 	}
 
-	// Command - only set if provided
-	command, shouldUpdateCmd, diags := buildCommandUpdateInput(ctx, plan.Command)
+	// Command
+	command, diags := buildCommandInput(ctx, plan.Command)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if shouldUpdateCmd {
-		input.Command = command
-	}
+	input.Command = command
 
-	// Entrypoint - only set if provided
-	entrypoint, shouldUpdateEp, diags := buildEntrypointUpdateInput(ctx, plan.Entrypoint)
+	// Entrypoint
+	entrypoint, diags := buildEntrypointInput(ctx, plan.Entrypoint)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if shouldUpdateEp {
-		input.Entrypoint = entrypoint
-	}
+	input.Entrypoint = entrypoint
 
 	// Use common functions to build input
 	ports, diags := buildPortsInput(ctx, plan.Ports)
@@ -607,12 +603,15 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 		plan.Registry = types.StringNull()
 	}
 
-	// Build input struct for starter container (no resources or scaling)
+	// Starter containers have fixed resources; must echo the current value so the
+	// API doesn't interpret a null as an attempt to change resources.
+	resources := api.ContainerResourcesCpu250Ram500
 	input := api.ContainerModifyInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
 		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
+		Resources: &resources,
 	}
 
 	// Command - only set if provided (following CLI modify behavior)
