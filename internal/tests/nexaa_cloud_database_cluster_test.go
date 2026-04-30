@@ -55,7 +55,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 			},
 			// Update and Read testing — change allowlist to exercise the update path
 			{
-				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2.0", "10", "1", []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2.0", "10", "1", []string{"10.0.0.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.name", clusterName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "cluster.namespace", namespaceName),
