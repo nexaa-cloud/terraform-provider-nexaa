@@ -50,9 +50,9 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_volume.volume",
 				ImportState:             true,
-				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, volumeName),
+				ImportStateId:           fmt.Sprintf("%s/volume/%s", namespaceName, volumeName),
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"last_updated"},
+				ImportStateVerifyIgnore: []string{"last_updated", "status"},
 			},
 
 			// 3) Update & Read

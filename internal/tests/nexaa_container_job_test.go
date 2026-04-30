@@ -24,6 +24,47 @@ func containerJobUpdateConfig(namespaceName string, registryName string, registr
 		givenContainerJob(containerJobName, image, command, entrypoint, schedule)
 }
 
+func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
+	testAccPreCheck(t)
+
+	namespaceName := generateTestNamespace()
+	containerJobName := generateTestContainerJobName()
+	entrypoint := generateTestEntrypoint()
+	command := generateTestCommands()
+	schedule := generateTestSchedule()
+
+	t.Logf("=== CONTAINER JOB PUBLIC REGISTRY TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, "") +
+					givenContainerJobPublic(containerJobName, "nginx:latest", command, entrypoint, schedule),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
+					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
+				),
+			},
+			// ImportState with no private registry — exercises the nil pointer fix in ImportState
+			{
+				ResourceName:      "nexaa_container_job.job",
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s/%s", namespaceName, containerJobName),
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"mounts",
+					"last_updated",
+					"status",
+					"state",
+					"timeouts",
+				},
+			},
+		},
+	})
+}
+
 func TestAcc_ContainerJobResource_basic(t *testing.T) {
 	testAccPreCheck(t)
 
@@ -48,8 +89,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.cpu", "0.25"),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.ram", "0.5"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
@@ -66,6 +106,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"mounts",
 					"last_updated",
 					"status",
+					"state",
 					"timeouts",
 				},
 			},
@@ -75,8 +116,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:alpine"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.cpu", "0.25"),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources.ram", "0.5"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-faker/faker/v4"
-	"github.com/go-faker/faker/v4/pkg/options"
 	"github.com/joho/godotenv"
 )
 
@@ -25,19 +23,19 @@ func testAccPreCheck(t *testing.T) {
 		t.Logf("Loaded .env file successfully")
 	}
 
-	// Debug: print what we got
-	t.Logf("NEXAA_USERNAME = %s", os.Getenv("NEXAA_USERNAME"))
-	t.Logf("NEXAA_PASSWORD = %s", os.Getenv("NEXAA_PASSWORD"))
-
 	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
 		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set for acceptance tests")
 	}
 }
 
-// generateRandomString generates a random lowercase string of given length.
+// generateRandomString generates a random lowercase string of exactly the given length.
 func generateRandomString(length int) string {
-	word := faker.Word(options.WithRandomStringLength(uint(length)))
-	return word
+	const chars = "abcdefghijklmnopqrstuvwxyz"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = chars[rand.IntN(len(chars))]
+	}
+	return string(b)
 }
 
 // generateResourceName generates a random resource name with prefix.
@@ -221,29 +219,60 @@ func givenVolume(name string, size int) string {
         }`, name, size)
 }
 
+func givenContainerJobPublic(name string, image string, command string, entrypoint string, schedule string) string {
+	if name == "" {
+		name = generateTestContainerJobName()
+	}
+
+	return `
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+` + fmt.Sprintf(
+		`
+resource "nexaa_container_job" "job" {
+  namespace  = nexaa_namespace.ns.name
+  name       = %q
+  image      = %q
+  command    = %s
+  entrypoint = %s
+  resources  = data.nexaa_container_resources.small.id
+  schedule   = %q
+  timeouts {
+    create = "30s"
+    update = "30s"
+    delete = "30s"
+  }
+}
+`, name, image, command, entrypoint, schedule)
+}
+
 func givenContainerJob(name string, image string, command string, entrypoint string, schedule string) string {
 	if name == "" {
 		name = generateTestContainerJobName()
 	}
 
-	return fmt.Sprintf(
+	return `
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+` + fmt.Sprintf(
 		`
 resource "nexaa_container_job" "job" {
-  namespace = nexaa_namespace.ns.name
-  name = %q
-  image = %q
-  registry = nexaa_registry.registry.name
-  command = %s
+  namespace  = nexaa_namespace.ns.name
+  name       = %q
+  image      = %q
+  registry   = nexaa_registry.registry.name
+  command    = %s
   entrypoint = %s
-  resources = {
-    cpu = 0.25
-    ram = 0.5
-  }
-  schedule = %q
+  resources  = data.nexaa_container_resources.small.id
+  schedule   = %q
   timeouts {
     create = "30s"
     update = "30s"
-   	delete = "30s" 
+    delete = "30s"
   }
 }
 `, name, image, command, entrypoint, schedule)

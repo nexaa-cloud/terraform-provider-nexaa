@@ -3,14 +3,13 @@ module github.com/nexaa-cloud/terraform-provider-nexaa
 go 1.25.9
 
 require (
-	github.com/go-faker/faker/v4 v4.7.0
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.7.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/hashicorp/terraform-plugin-log v0.10.0
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
 	github.com/joho/godotenv v1.5.1
-	github.com/nexaa-cloud/nexaa-cli v1.2.1
+	github.com/nexaa-cloud/nexaa-cli v1.2.2
 	github.com/stretchr/testify v1.11.1
 )
 

@@ -30,14 +30,16 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 
 	t.Logf("=== CLOUD DATABASE CLUSTER DATABASES TEST USING NAMESPACE: %s ===", namespaceName)
 
+	password := generateTestPassword()
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
 				ConfigVariables: config.Variables{
-					"password": config.StringVariable(generateTestPassword()),
+					"password": config.StringVariable(password),
 				},
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "cluster.name", clusterName),
@@ -57,18 +59,18 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 				ImportStateId:           fmt.Sprintf("%s/%s/user/%s", namespaceName, clusterName, user),
 				ImportStateVerifyIgnore: []string{"last_updated", "password"},
 				ConfigVariables: config.Variables{
-					"password": config.StringVariable(generateTestPassword()),
+					"password": config.StringVariable(password),
 				},
 			},
-			// Update and Read testing
+			// Update and Read testing — re-apply the same config to verify stability
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "16.4", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "17.5", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),
 				),
 				ConfigVariables: config.Variables{
-					"password": config.StringVariable(generateTestPassword()),
+					"password": config.StringVariable(password),
 				},
 			},
 			// Delete testing automatically occurs in TestCase

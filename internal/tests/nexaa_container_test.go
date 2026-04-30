@@ -204,6 +204,11 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 				},
 			},
 
+			// Refresh state so status reflects the actual running state before the update.
+			{
+				RefreshState: true,
+			},
+
 			// 3) Update
 			{
 				Config: containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
@@ -487,6 +492,10 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.com"),
 				),
+			},
+			// Refresh state so status reflects the actual running state before the next apply.
+			{
+				RefreshState: true,
 			},
 			{
 				Config: minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.org"),
