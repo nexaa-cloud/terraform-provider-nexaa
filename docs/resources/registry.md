@@ -57,12 +57,13 @@ resource "nexaa_registry" "registry" {
 
 - `name` (String) The name given to the private registry
 - `namespace` (String) Name of the namespace the private registry belongs to
+- `password` (String, Sensitive) The password used to connect to the source. Is required.
 - `source` (String) The URL of the site where the credentials are used
 - `username` (String) The username used to connect to the source
 
 ### Optional
 
-- `password` (String, Sensitive) The password used to connect to the source. Is required.
+- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `verify` (Boolean) If true(default) the connection will be tested immediately to check if the credentials are true
 
 ### Read-Only
@@ -71,6 +72,14 @@ resource "nexaa_registry" "registry" {
 - `last_updated` (String) Timestamp of the last Terraform update of the private registry
 - `locked` (Boolean) If the registry is locked it can't be deleted
 - `status` (String) The status of the registry
+
+<a id="nestedblock--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
 ## Import
 

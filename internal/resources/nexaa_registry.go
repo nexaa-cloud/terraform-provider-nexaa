@@ -32,17 +32,17 @@ func NewRegistryResource() resource.Resource {
 
 // registryResource is the resource implementation.
 type registryResource struct {
-	ID          types.String 	`tfsdk:"id"`
-	Namespace   types.String 	`tfsdk:"namespace"`
-	Name        types.String 	`tfsdk:"name"`
-	Source      types.String 	`tfsdk:"source"`
-	Username    types.String 	`tfsdk:"username"`
-	Password    types.String 	`tfsdk:"password"`
-	Verify      types.Bool   	`tfsdk:"verify"`
-	Locked      types.Bool   	`tfsdk:"locked"`
-	Status      types.String 	`tfsdk:"status"`
-	LastUpdated types.String 	`tfsdk:"last_updated"`
-	Timeouts   	timeouts.Value	`tfsdk:"timeouts"`
+	ID          types.String   `tfsdk:"id"`
+	Namespace   types.String   `tfsdk:"namespace"`
+	Name        types.String   `tfsdk:"name"`
+	Source      types.String   `tfsdk:"source"`
+	Username    types.String   `tfsdk:"username"`
+	Password    types.String   `tfsdk:"password"`
+	Verify      types.Bool     `tfsdk:"verify"`
+	Locked      types.Bool     `tfsdk:"locked"`
+	Status      types.String   `tfsdk:"status"`
+	LastUpdated types.String   `tfsdk:"last_updated"`
+	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the resource type name.
@@ -83,7 +83,7 @@ func (r *registryResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				Description: "If true(default) the connection will be tested immediately to check if the credentials are true",
 				Optional:    true,
 				Computed:    true,
-				Default: booldefault.StaticBool(true),
+				Default:     booldefault.StaticBool(true),
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
