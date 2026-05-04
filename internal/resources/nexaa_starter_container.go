@@ -173,7 +173,19 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
-							Description: "A list with the IP's that can access the ingress url, 0.0.0.0/0 to make it accessible for everyone",
+							Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+							Default: listdefault.StaticValue(
+								types.ListValueMust(types.StringType, []attr.Value{
+									types.StringValue("0.0.0.0/0"),
+									types.StringValue("::/0"),
+								}),
+							),
+							PlanModifiers: []planmodifier.List{
+								listplanmodifier.UseStateForUnknown(),
+							},
+							Validators: []validator.List{
+								noEmptyAllowlistValidator{},
+							},
 						},
 					},
 				},
@@ -849,7 +861,7 @@ func (r *starterContainerResource) Delete(ctx context.Context, req resource.Dele
 	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting starter container", "Could not reach a running state: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting starter container", "Could not reach an unlocked state: "+err.Error())
 		return
 	}
 
