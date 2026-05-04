@@ -5,13 +5,16 @@ package resources
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -29,16 +32,17 @@ func NewRegistryResource() resource.Resource {
 
 // registryResource is the resource implementation.
 type registryResource struct {
-	ID          types.String `tfsdk:"id"`
-	Namespace   types.String `tfsdk:"namespace"`
-	Name        types.String `tfsdk:"name"`
-	Source      types.String `tfsdk:"source"`
-	Username    types.String `tfsdk:"username"`
-	Password    types.String `tfsdk:"password"`
-	Verify      types.Bool   `tfsdk:"verify"`
-	Locked      types.Bool   `tfsdk:"locked"`
-	Status      types.String `tfsdk:"status"`
-	LastUpdated types.String `tfsdk:"last_updated"`
+	ID          types.String 	`tfsdk:"id"`
+	Namespace   types.String 	`tfsdk:"namespace"`
+	Name        types.String 	`tfsdk:"name"`
+	Source      types.String 	`tfsdk:"source"`
+	Username    types.String 	`tfsdk:"username"`
+	Password    types.String 	`tfsdk:"password"`
+	Verify      types.Bool   	`tfsdk:"verify"`
+	Locked      types.Bool   	`tfsdk:"locked"`
+	Status      types.String 	`tfsdk:"status"`
+	LastUpdated types.String 	`tfsdk:"last_updated"`
+	Timeouts   	timeouts.Value	`tfsdk:"timeouts"`
 }
 
 // Metadata returns the resource type name.
@@ -47,7 +51,7 @@ func (r *registryResource) Metadata(_ context.Context, req resource.MetadataRequ
 }
 
 // Schema defines the schema for the resource.
-func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *registryResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -73,12 +77,16 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"password": schema.StringAttribute{
 				Description: "The password used to connect to the source. Is required.",
 				Sensitive:   true,
-				Optional:    true,
+				Required:    true,
 			},
 			"verify": schema.BoolAttribute{
 				Description: "If true(default) the connection will be tested immediately to check if the credentials are true",
 				Optional:    true,
 				Computed:    true,
+				Default: booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"locked": schema.BoolAttribute{
 				Description: "If the registry is locked it can't be deleted",
@@ -93,6 +101,12 @@ func (r *registryResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Computed:    true,
 			},
 		},
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Delete: true,
+			}),
+		},
 	}
 }
 
@@ -105,13 +119,16 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	if plan.Password.IsNull() || plan.Password.IsUnknown() {
-		resp.Diagnostics.AddError(
-			"Missing password",
-			"Password is required to connect to a private registry.",
-		)
+	createTimeout, diags := plan.Timeouts.Create(ctx, 30*time.Second)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	input := api.RegistryCreateInput{
 		Namespace: plan.Namespace.ValueString(),
@@ -124,24 +141,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 
 	client := api.NewClient()
 
-	const (
-		maxRetries   = 4
-		initialDelay = 3 * time.Second
-	)
-	delay := initialDelay
-	var err error
-	var registry api.RegistryResult
-
-	for i := 0; i <= maxRetries; i++ {
-		registry, err = client.RegistryCreate(input)
-		if err == nil {
-			break
-		}
-
-		time.Sleep(delay)
-		delay *= 2
-	}
-
+	registry, err := client.RegistryCreate(input)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating registry",
@@ -237,88 +237,31 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	const (
-		maxRetries   = 10
-		initialDelay = 2 * time.Second
-	)
-	delay := initialDelay
+	deleteTimeout, diags := state.Timeouts.Delete(ctx, 2*time.Minute)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
 
 	client := api.NewClient()
 
-	var lastErr error
+	err := waitForUnlocked(ctx, registryLocked(), *client, state.Namespace.ValueString(), state.Name.ValueString())
 
-	// Retry DeleteRegistry with context timeout
-	for i := 0; i <= maxRetries; i++ {
-		// Check context timeout
-		select {
-		case <-ctx.Done():
-			resp.Diagnostics.AddError(
-				"Timeout deleting registry",
-				fmt.Sprintf("Context timeout while waiting to delete registry %q", state.Name.ValueString()),
-			)
-			return
-		default:
-		}
-
-		registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
-		if err != nil {
-			lastErr = err
-			resp.Diagnostics.AddError(
-				"Error fetching registry",
-				fmt.Sprintf("Could not find registry with name %q: %s", state.Name.ValueString(), err.Error()),
-			)
-			return
-		}
-
-		if registry == nil {
-			// Registry is already gone; nothing to delete.
-			return
-		}
-
-		if registry.State == "created" {
-			_, err := client.RegistryDelete(state.Namespace.ValueString(), state.Name.ValueString())
-
-			if err != nil {
-				lastErr = err
-				resp.Diagnostics.AddError(
-					"Error deleting registry",
-					fmt.Sprintf("Failed to delete registry %q: %s", state.Name.ValueString(), err.Error()),
-				)
-				return
-			}
-			return
-		}
-		if registry.State == "failed" && registry.Locked {
-			resp.Diagnostics.AddError(
-				"Error deleting registry",
-				fmt.Sprintf("Failed to delete registry %q, the registry is locked and could not be deleted", state.Name.ValueString()),
-			)
-			return
-		}
-
-		// Sleep with context timeout
-		select {
-		case <-ctx.Done():
-			resp.Diagnostics.AddError(
-				"Timeout deleting registry",
-				fmt.Sprintf("Context timeout while waiting to delete registry %q", state.Name.ValueString()),
-			)
-			return
-		case <-time.After(delay):
-		}
-		delay *= 2
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting registry", "Could not reach an unlocked state: "+err.Error())
+		return
 	}
 
-	if lastErr != nil {
+	_, err = client.RegistryDelete(state.Namespace.ValueString(), state.Name.ValueString())
+	if err != nil {
 		resp.Diagnostics.AddError(
-			"Timeout waiting for registry to unlock",
-			fmt.Sprintf("Registry could not be deleted after retries. Last error: %s", lastErr.Error()),
+			"Error deleting registry",
+			"Could not delete registry with name "+state.Name.ValueString()+", error: "+err.Error(),
 		)
-	} else {
-		resp.Diagnostics.AddError(
-			"Timeout waiting for registry to unlock",
-			"Registry could not be deleted after retries, and no specific error was returned.",
-		)
+		return
 	}
 }
 
