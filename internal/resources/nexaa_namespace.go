@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -149,7 +150,7 @@ func (r *namespaceResource) Update(ctx context.Context, req resource.UpdateReque
 	resp.Diagnostics.Append(diags...)
 	resp.Diagnostics.AddError(
 		"Error updating namespace",
-		"You can't change the name of your namespace, you can only create and delete a namespace.",
+		"You can't change your namespace, you can only create and delete a namespace.",
 	)
 
 	if resp.Diagnostics.HasError() {
@@ -209,114 +210,28 @@ func (r *namespaceResource) ImportState(ctx context.Context, req resource.Import
 	id := req.ID
 	item, err := client.NamespaceListByName(id)
 	if err != nil {
-		resp.Diagnostics.AddError("Error listing namespaces", err.Error())
+		resp.Diagnostics.AddError("Error listing namespace", err.Error())
 		return
 	}
 
-	if item.Name == id {
-		resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
-		resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
-		resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
-		return
+	timeouts := timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"delete": types.StringValue("5m"),
+			},
+		),
 	}
+
+	resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
+	resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
+	resp.State.SetAttribute(ctx, path.Root("timeouts"), timeouts)
+	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
+
 	resp.Diagnostics.AddError(
 		"Error importing namespace",
 		"Could not find namespace with name: "+id,
 	)
-}
-
-func waitForNamespaceToBeRemoved(ctx context.Context, client api.Client, namespaceName string) error {
-	const (
-		initialDelay = 2 * time.Second
-		maxDelay     = 15 * time.Second
-	)
-	delay := initialDelay
-
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		_, err := client.NamespaceListByName(namespaceName)
-		if err != nil {
-			// Namespace no longer found — deletion complete
-			return nil
-		}
-
-		time.Sleep(delay)
-		if delay < maxDelay {
-			delay *= 2
-			if delay > maxDelay {
-				delay = maxDelay
-			}
-		}
-	}
-}
-
-func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, namespaceName string) error {
-	const (
-		initialDelay = 2 * time.Second
-		maxDelay     = 15 * time.Second
-	)
-	delay := initialDelay
-
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		namespace, err := client.NamespaceListByName(namespaceName)
-		if err != nil {
-			return err
-		}
-
-		hasQueues, err := namespaceHasMessageQueues(client, namespaceName)
-		if err != nil {
-			return err
-		}
-
-		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) && !hasQueues {
-			break
-		}
-
-		// Backoff between polls
-		time.Sleep(delay)
-		if delay < maxDelay {
-			delay *= 2
-			if delay > maxDelay {
-				delay = maxDelay
-			}
-		}
-	}
-
-	return nil
-}
-
-func namespaceHasContainers(namespace api.NamespaceResult) bool {
-	return len(namespace.Containers) != 0
-}
-
-func namespaceHasContainerJobs(namespace api.NamespaceResult) bool {
-	return len(namespace.ContainerJobs) != 0
-}
-
-func namespaceHasVolumes(namespace api.NamespaceResult) bool {
-	return len(namespace.Volumes) != 0
-}
-
-func namespaceHasCloudDatabaseClusters(namespace api.NamespaceResult) bool {
-	return len(namespace.CloudDatabaseClusters) != 0
-}
-
-func namespaceHasMessageQueues(client api.Client, namespaceName string) (bool, error) {
-	queues, err := client.MessageQueueList()
-	if err != nil {
-		return false, err
-	}
-	for _, q := range queues {
-		if q.GetNamespace().Name == namespaceName {
-			return true, nil
-		}
-	}
-	return false, nil
 }

@@ -126,19 +126,19 @@ resource "nexaa_starter_container" "starter-container" {
 - `command` (List of String) Command to run. When the field is omitted, the default command of the image will be used. The command will be passed to the entrypoint as arguments. Environment variables can be used in the command by using the syntax $(ENVIRONMENT_VARIABLE).
 - `entrypoint` (List of String) Entrypoint of the container. This field will overwrite the default entrypoint of the image. When the field is omitted, the default entrypoint of the image will be used. Entry point is the first command executed when the container starts. It will receive the command as arguments.
 - `environment_variables` (Attributes Set) Environment variables used in the container; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
-- `external_connection` (Attributes) An external connection that can used to connect to a cloud database cluster (see [below for nested schema](#nestedatt--external_connection))
+- `external_connection` (Attributes) An external connection that can used to connect to a starter container (see [below for nested schema](#nestedatt--external_connection))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
 - `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
 - `ports` (List of String) The ports used to expose for traffic, format as from:to
-- `registry` (String) The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry
+- `registry` (String) The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
 - `last_updated` (String) Timestamp of the last Terraform update of the starter container
-- `status` (String) The status of the container
+- `status` (String) The status of the starter container
 
 <a id="nestedatt--environment_variables"></a>
 ### Nested Schema for `environment_variables`
@@ -159,24 +159,24 @@ Required:
 
 Read-Only:
 
-- `ipv4` (String) The ipv4 address that can be used in combination with the external port to connect to your cluster
-- `ipv6` (String) The ipv6 address that can be used in combination with the external port to connect to your cluster
+- `ipv4` (String) The ipv4 address that can be used in combination with the external port to connect to your starter container
+- `ipv6` (String) The ipv6 address that can be used in combination with the external port to connect to your starter container
 
 <a id="nestedatt--external_connection--ports"></a>
 ### Nested Schema for `external_connection.ports`
 
 Required:
 
-- `internal_port` (Number) The port that is used internally within the container
+- `internal_port` (Number) The port that is used internally within the starter container
 - `protocol` (String) The protocol that is used for the external connection, must be either TCP or UDP
 
 Optional:
 
-- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.
+- `allowlist` (List of String) A list with the IP's that can access the starter container through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the starter container can be accessed from any IP address.
 
 Read-Only:
 
-- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster
+- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your starter container
 
 
 
@@ -185,8 +185,8 @@ Read-Only:
 
 Required:
 
-- `path` (String)
-- `port` (Number)
+- `path` (String) The HTTP path used for the health check
+- `port` (Number) The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute
 
 
 <a id="nestedatt--ingresses"></a>
@@ -199,7 +199,7 @@ Required:
 
 Optional:
 
-- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.
+- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the starter container can be accessed from any IP address.
 - `domain_name` (String) The domain used for the ingress, defaults to https://{tenant}-{namespaceName}-{containerName}.container.tilaa.cloud
 
 

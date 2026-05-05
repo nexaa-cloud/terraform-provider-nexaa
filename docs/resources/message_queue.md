@@ -76,7 +76,7 @@ resource "nexaa_message_queue" "queue" {
 
 - `name` (String) The name of the message queue
 - `namespace` (String) Name of the namespace the message queue belongs to
-- `plan` (String) The plan ID for the message queue
+- `plan` (String) The plan used for the message queue.
 - `type` (String) The type of message queue (e.g., 'RabbitMQ')
 - `version` (String) The version of the message queue software
 

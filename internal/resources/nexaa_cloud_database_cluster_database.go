@@ -76,6 +76,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Schema(_ context.Context, _ resou
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
 				Create: true,
+				Update: true,
 				Delete: true,
 			}),
 		},
@@ -209,6 +210,16 @@ func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 2*time.Minute)
+	
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
 
 	client := api.NewClient()
 	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
@@ -350,10 +361,12 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 		Object: types.ObjectValueMust(
 			map[string]attr.Type{
 				"create": types.StringType,
+				"update": types.StringType,
 				"delete": types.StringType,
 			},
 			map[string]attr.Value{
 				"create": types.StringValue("2m"),
+				"update": types.StringValue("2m"),
 				"delete": types.StringValue("2m"),
 			},
 		),

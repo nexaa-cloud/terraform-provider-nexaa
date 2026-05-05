@@ -90,7 +90,7 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 			},
 			"spec": schema.ObjectAttribute{
 				Required:       true,
-				Description:    "Database specification including type and version",
+				Description:    "Cluster specification including type and version",
 				CustomType:     NewSpecType(),
 				AttributeTypes: SpecAttributes(),
 				PlanModifiers:  []planmodifier.Object{ImmutableObject()},
@@ -452,7 +452,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 	}
 	cluster, err := client.CloudDatabaseClusterGet(clusterResourceInput)
 	if err != nil {
-		resp.Diagnostics.AddError("Error importing database", "Could not list clusters: "+err.Error())
+		resp.Diagnostics.AddError("Error importing database cluster", "Could not list clusters: "+err.Error())
 		return
 	}
 
@@ -466,7 +466,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 				"delete": types.StringType,
 			},
 			map[string]attr.Value{
-				"create": types.StringValue("2m"),
+				"create": types.StringValue("10m"),
 				"update": types.StringValue("2m"),
 				"delete": types.StringValue("2m"),
 			},

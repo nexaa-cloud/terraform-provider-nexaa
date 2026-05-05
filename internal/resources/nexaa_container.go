@@ -163,11 +163,11 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"registry": schema.StringAttribute{
 				Optional:    true,
-				Description: "The registry used to be able to access images that are saved in a private environment, fill in null to use a public registry",
+				Description: "The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry",
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,
-				Description: "The resources used for running the container, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory",
+				Description: "The resources used for running the container, this can be specified via the nexaa_container_resources data source, with specifying the amount of cpu and memory",
 			},
 			"command": schema.ListAttribute{
 				ElementType: types.StringType,
@@ -194,7 +194,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 						},
 						"value": schema.StringAttribute{
 							Required:    true,
-							Description: "The value used for the environment variable, is required",
+							Description: "The value used for the environment variable",
 							PlanModifiers: []planmodifier.String{
 								stringplanmodifier.UseStateForUnknown(),
 							},
@@ -267,11 +267,11 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 							Attributes: map[string]schema.Attribute{
 								"external_port": schema.Int64Attribute{
 									Computed:    true,
-									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your container.",
 								},
 								"internal_port": schema.Int64Attribute{
 									Required:    true,
-									Description: "The port that is used internally within the container",
+									Description: "The port that is used internally within the container, this port needs to be one of the exposed ports declared in the ports attribute.",
 								},
 								"protocol": schema.StringAttribute{
 									Required:    true,
@@ -284,7 +284,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 									ElementType: types.StringType,
 									Optional:    true,
 									Computed:    true,
-									Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+									Description: "A list with the IP's that can access the container through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the container can be accessed from any IP address.",
 									Default: listdefault.StaticValue(
 										types.ListValueMust(types.StringType, []attr.Value{
 											types.StringValue("0.0.0.0/0"),
@@ -305,14 +305,14 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 					},
 				},
 				Optional:    true,
-				Description: "An external connection that can used to connect to a cloud database cluster",
+				Description: "An external connection that can used to connect to a container.",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"path": schema.StringAttribute{
 							Required:    true,
-							Description: "The path to the location where the data will be saved",
+							Description: "The path to where the data will be saved",
 						},
 						"volume": schema.StringAttribute{
 							Required:    true,
@@ -331,9 +331,11 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Attributes: map[string]schema.Attribute{
 					"port": schema.Int64Attribute{
 						Required: true,
+						Description: "The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute",
 					},
 					"path": schema.StringAttribute{
 						Required: true,
+						Description: "The HTTP path used for the health check",
 					},
 				},
 				Optional: true,
@@ -399,7 +401,7 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Computed: true,
 			},
 			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the container",
+				Description: "Timestamp of the last update of the container",
 				Computed:    true,
 			},
 		},
@@ -574,7 +576,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	client := api.NewClient()
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
+		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())
 		return
 	}
 
@@ -1146,7 +1148,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	// modify containerResult
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
-		resp.Diagnostics.AddError("Error creating containerResult", "Could not create containerResult: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container", "Could not update container: "+err.Error())
 		return
 	}
 
@@ -1158,7 +1160,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 
 	containerResult, err = client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating containerResult", "Could not update containerResult: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container", "Could not update container: "+err.Error())
 		return
 	}
 
@@ -1526,7 +1528,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 			map[string]attr.Value{
 				"create": types.StringValue("30s"),
 				"update": types.StringValue("30s"),
-				"delete": types.StringValue("30s"),
+				"delete": types.StringValue("2m"),
 			},
 		),
 	}
@@ -1538,29 +1540,4 @@ func processRegistryName(containerResult api.ContainerResult) types.String {
 		return types.StringValue(containerResult.PrivateRegistry.Name)
 	}
 	return types.StringNull()
-}
-
-// validateScalingConfig validates that only the appropriate scaling input is set based on the type
-func validateScalingConfig(scaling scalingResource) error {
-	scalingType := scaling.Type.ValueString()
-	hasManualInput := !scaling.Manualinput.IsNull() && !scaling.Manualinput.IsUnknown()
-	hasAutoInput := !scaling.AutoInput.IsNull() && !scaling.AutoInput.IsUnknown()
-
-	if scalingType == "manual" && hasAutoInput {
-		return fmt.Errorf("when scaling type is 'manual', auto_input must not be set")
-	}
-
-	if scalingType == "auto" && hasManualInput {
-		return fmt.Errorf("when scaling type is 'auto', manual_input must not be set")
-	}
-
-	if scalingType == "manual" && !hasManualInput {
-		return fmt.Errorf("when scaling type is 'manual', manual_input is required")
-	}
-
-	if scalingType == "auto" && !hasAutoInput {
-		return fmt.Errorf("when scaling type is 'auto', auto_input is required")
-	}
-
-	return nil
 }

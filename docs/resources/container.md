@@ -153,7 +153,7 @@ resource "nexaa_container" "container" {
 - `image` (String) The image use to run the container
 - `name` (String) Name of the container
 - `namespace` (String) Name of the namespace that the container will belong to
-- `resources` (String) The resources used for running the container, this can be gotten via the nexaa_container_resources data source, with specifying the amount of cpu and memory
+- `resources` (String) The resources used for running the container, this can be specified via the nexaa_container_resources data source, with specifying the amount of cpu and memory
 - `scaling` (Attributes) Used to specify or automaticaly scale the amount of replicas running (see [below for nested schema](#nestedatt--scaling))
 
 ### Optional
@@ -161,18 +161,18 @@ resource "nexaa_container" "container" {
 - `command` (List of String) Command to run. When the field is omitted, the default command of the image will be used. The command will be passed to the entrypoint as arguments. Environment variables can be used in the command by using the syntax $(ENVIRONMENT_VARIABLE).
 - `entrypoint` (List of String) Entrypoint of the container. This field will overwrite the default entrypoint of the image. When the field is omitted, the default entrypoint of the image will be used. Entry point is the first command executed when the container starts. It will receive the command as arguments.
 - `environment_variables` (Attributes Set) Environment variables used in the container; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
-- `external_connection` (Attributes) An external connection that can used to connect to a cloud database cluster (see [below for nested schema](#nestedatt--external_connection))
+- `external_connection` (Attributes) An external connection that can used to connect to a container. (see [below for nested schema](#nestedatt--external_connection))
 - `health_check` (Attributes) (see [below for nested schema](#nestedatt--health_check))
 - `ingresses` (Attributes List) Used to access the container from the internet (see [below for nested schema](#nestedatt--ingresses))
 - `mounts` (Attributes List) Used to add persistent storage to your container (see [below for nested schema](#nestedatt--mounts))
 - `ports` (List of String) The ports used to expose for traffic, format as from:to
-- `registry` (String) The registry used to be able to access images that are saved in a private environment, fill in null to use a public registry
+- `registry` (String) The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the container
+- `last_updated` (String) Timestamp of the last update of the container
 - `status` (String) The status of the container
 
 <a id="nestedatt--scaling"></a>
@@ -217,7 +217,7 @@ Required:
 
 - `name` (String) The name used for the environment variable
 - `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
-- `value` (String) The value used for the environment variable, is required
+- `value` (String) The value used for the environment variable
 
 
 <a id="nestedatt--external_connection"></a>
@@ -237,16 +237,16 @@ Read-Only:
 
 Required:
 
-- `internal_port` (Number) The port that is used internally within the container
+- `internal_port` (Number) The port that is used internally within the container, this port needs to be one of the exposed ports declared in the ports attribute.
 - `protocol` (String) The protocol that is used for the external connection, must be either TCP or UDP
 
 Optional:
 
-- `allowlist` (List of String) A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.
+- `allowlist` (List of String) A list with the IP's that can access the container through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the container can be accessed from any IP address.
 
 Read-Only:
 
-- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster
+- `external_port` (Number) The port that is used in combination with your ipv4 or ipv6 address to connect to your container.
 
 
 
@@ -255,8 +255,8 @@ Read-Only:
 
 Required:
 
-- `path` (String)
-- `port` (Number)
+- `path` (String) The HTTP path used for the health check
+- `port` (Number) The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute
 
 
 <a id="nestedatt--ingresses"></a>
@@ -278,7 +278,7 @@ Optional:
 
 Required:
 
-- `path` (String) The path to the location where the data will be saved
+- `path` (String) The path to where the data will be saved
 - `volume` (String) The name of the volume that is used for the mount
 
 

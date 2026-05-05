@@ -480,3 +480,29 @@ func parseContainerImportID(importID string) (namespace, name string, err error)
 	}
 	return parts[0], parts[1], nil
 }
+
+
+// validateScalingConfig validates that only the appropriate scaling input is set based on the type
+func validateScalingConfig(scaling scalingResource) error {
+	scalingType := scaling.Type.ValueString()
+	hasManualInput := !scaling.Manualinput.IsNull() && !scaling.Manualinput.IsUnknown()
+	hasAutoInput := !scaling.AutoInput.IsNull() && !scaling.AutoInput.IsUnknown()
+
+	if scalingType == "manual" && hasAutoInput {
+		return fmt.Errorf("when scaling type is 'manual', auto_input must not be set")
+	}
+
+	if scalingType == "auto" && hasManualInput {
+		return fmt.Errorf("when scaling type is 'auto', manual_input must not be set")
+	}
+
+	if scalingType == "manual" && !hasManualInput {
+		return fmt.Errorf("when scaling type is 'manual', manual_input is required")
+	}
+
+	if scalingType == "auto" && !hasAutoInput {
+		return fmt.Errorf("when scaling type is 'auto', auto_input is required")
+	}
+
+	return nil
+}

@@ -123,7 +123,36 @@ func (m immutableObjectModifier) PlanModifyObject(ctx context.Context, req planm
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			"Attribute is immutable",
-			fmt.Sprintf("Cannot change spec after creation. Current value is %s, new value is %s.",
+			fmt.Sprintf("Cannot change attribute after creation. Current value is %s, new value is %s.",
+				req.StateValue.String(),
+				req.PlanValue.String(),
+			),
+		)
+	}
+}
+
+// --- List ---
+
+type immutableListModifier struct{}
+
+func ImmutableList() planmodifier.List {
+	return immutableListModifier{}
+}
+
+func (m immutableListModifier) Description(_ context.Context) string { return immutableDescription() }
+func (m immutableListModifier) MarkdownDescription(_ context.Context) string {
+	return immutableDescription()
+}
+
+func (m immutableListModifier) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	if req.StateValue.IsNull() || req.StateValue.IsUnknown() {
+		return
+	}
+	if !req.PlanValue.Equal(req.StateValue) {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Attribute is immutable",
+			fmt.Sprintf("Cannot change attribute after creation. Current value is %s, new value is %s.",
 				req.StateValue.String(),
 				req.PlanValue.String(),
 			),

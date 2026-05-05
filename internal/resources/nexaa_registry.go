@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -299,6 +300,19 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 		return
 	}
 
+	timeouts := timeouts.Value{
+		Object: types.ObjectValueMust(
+			map[string]attr.Type{
+				"create": types.StringType,
+				"delete": types.StringType,
+			},
+			map[string]attr.Value{
+				"create": types.StringValue("30s"),
+				"delete": types.StringValue("2m"),
+			},
+		),
+	}
+
 	// Set the registry attributes in the state
 	resp.State.SetAttribute(ctx, path.Root("id"), registry.Name)
 	resp.State.SetAttribute(ctx, path.Root("namespace"), ns)
@@ -307,5 +321,6 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 	resp.State.SetAttribute(ctx, path.Root("username"), registry.Username)
 	resp.State.SetAttribute(ctx, path.Root("locked"), registry.Locked)
 	resp.State.SetAttribute(ctx, path.Root("status"), registry.State)
+	resp.State.SetAttribute(ctx, path.Root("timeouts"), timeouts)
 	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 }

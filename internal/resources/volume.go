@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,4 +22,50 @@ func translateApiToVolumeResource(plan volumeResource, volume api.VolumeResult) 
 	plan.Status = types.StringValue(volume.State)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	return plan
+}
+
+func waitForAllContainersToBeUnmounted(ctx context.Context, client api.Client, namespace string, volumeName string) error {
+	const (
+		initialDelay = 2 * time.Second
+		maxDelay     = 15 * time.Second
+	)
+	delay := initialDelay
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		volume, err := client.ListVolumeByName(namespace, volumeName)
+		if err != nil {
+			return err
+		}
+
+		if volume == nil {
+			return fmt.Errorf("volume %s not found", volumeName)
+		}
+
+		if !hasContainersAttached(*volume) && !hasContainerJobsAttached(*volume) {
+			break
+		}
+
+		// Backoff between polls
+		time.Sleep(delay)
+		if delay < maxDelay {
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
+
+	return nil
+}
+
+func hasContainersAttached(volume api.VolumeResult) bool {
+	return len(volume.Containers) != 0
+}
+
+func hasContainerJobsAttached(volume api.VolumeResult) bool {
+	return len(volume.ContainerJobs) != 0
 }

@@ -112,7 +112,7 @@ resource "nexaa_container_job" "containerjob" {
 - `entrypoint` (List of String) Entrypoint of the container. This field will overwrite the default entrypoint of the image. When omitted, the default entrypoint of the image will be used.
 - `environment_variables` (Attributes Set) Environment variables used in the container job; order is not significant and matched by name (see [below for nested schema](#nestedatt--environment_variables))
 - `mounts` (Attributes List) Used to add persistent storage to your container job (see [below for nested schema](#nestedatt--mounts))
-- `registry` (String) The registry used to access images that are saved in a private environment, leave empty to use a public registry
+- `registry` (String) The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only

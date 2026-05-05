@@ -78,7 +78,7 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 
 - `cluster` (Object) Cloud database cluster (see [below for nested schema](#nestedatt--cluster))
 - `plan` (String) Plan for the cloud database cluster.
-- `spec` (Object) Database specification including type and version (see [below for nested schema](#nestedatt--spec))
+- `spec` (Object) Cluster specification including type and version (see [below for nested schema](#nestedatt--spec))
 
 ### Optional
 

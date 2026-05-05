@@ -80,9 +80,3 @@ func buildAllowlistInput(ctx context.Context, oldAllowlist *types.List, newAllow
 
 	return allowlist
 }
-
-/*
-
-
-
- */

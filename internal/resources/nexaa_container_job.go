@@ -78,7 +78,7 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			},
 			"registry": schema.StringAttribute{
 				Optional:    true,
-				Description: "The registry used to access images that are saved in a private environment, leave empty to use a public registry",
+				Description: "The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry",
 			},
 			"resources": schema.StringAttribute{
 				Required:    true,
@@ -175,6 +175,15 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	createTimeout, diags := plan.Timeouts.Create(ctx, 30*time.Second)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
+
 	if plan.Registry.IsNull() || plan.Registry.IsUnknown() {
 		plan.Registry = types.StringNull()
 	}
@@ -256,7 +265,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 
 	containerJobResult, err = client.ContainerJobByName(plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Error finding container", "Could not find container: "+err.Error())
+		resp.Diagnostics.AddError("Error finding container job", "Could not find container job: "+err.Error())
 		return
 	}
 
@@ -516,7 +525,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating container job", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container job", "Could not reach an unlocked state: "+err.Error())
 		return
 	}
 
@@ -607,7 +616,7 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error deleting container job", "Could not reach a unlocked state: "+err.Error())
+		resp.Diagnostics.AddError("Error deleting container job", "Could not reach an unlocked state: "+err.Error())
 		return
 	}
 

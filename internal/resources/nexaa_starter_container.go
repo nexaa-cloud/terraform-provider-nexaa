@@ -106,7 +106,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 			},
 			"registry": schema.StringAttribute{
 				Optional:    true,
-				Description: "The registry used to be able to acces images that are saved in a private environment, fill in null to use a public registry",
+				Description: "The name of the registry used to access images that are saved in a private environment, leave empty to use a public registry",
 			},
 			"command": schema.ListAttribute{
 				ElementType: types.StringType,
@@ -173,7 +173,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
-							Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+							Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the starter container can be accessed from any IP address.",
 							Default: listdefault.StaticValue(
 								types.ListValueMust(types.StringType, []attr.Value{
 									types.StringValue("0.0.0.0/0"),
@@ -197,22 +197,22 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 				Attributes: map[string]schema.Attribute{
 					"ipv4": schema.StringAttribute{
 						Computed:    true,
-						Description: "The ipv4 address that can be used in combination with the external port to connect to your cluster",
+						Description: "The ipv4 address that can be used in combination with the external port to connect to your starter container",
 					},
 					"ipv6": schema.StringAttribute{
 						Computed:    true,
-						Description: "The ipv6 address that can be used in combination with the external port to connect to your cluster",
+						Description: "The ipv6 address that can be used in combination with the external port to connect to your starter container",
 					},
 					"ports": schema.ListNestedAttribute{
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"external_port": schema.Int64Attribute{
 									Computed:    true,
-									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your database cluster",
+									Description: "The port that is used in combination with your ipv4 or ipv6 address to connect to your starter container",
 								},
 								"internal_port": schema.Int64Attribute{
 									Required:    true,
-									Description: "The port that is used internally within the container",
+									Description: "The port that is used internally within the starter container",
 								},
 								"protocol": schema.StringAttribute{
 									Required:    true,
@@ -225,7 +225,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 									ElementType: types.StringType,
 									Optional:    true,
 									Computed:    true,
-									Description: "A list with the IP's that can access the database cluster through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the database cluster can be accessed from any IP address.",
+									Description: "A list with the IP's that can access the starter container through the external connection, can be in ipv4 and/or ipv6 format. Defaults to 0.0.0.0/0 and ::/0, which means that the starter container can be accessed from any IP address.",
 									Default: listdefault.StaticValue(
 										types.ListValueMust(types.StringType, []attr.Value{
 											types.StringValue("0.0.0.0/0"),
@@ -246,7 +246,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 					},
 				},
 				Optional:    true,
-				Description: "An external connection that can used to connect to a cloud database cluster",
+				Description: "An external connection that can used to connect to a starter container",
 			},
 			"mounts": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -272,15 +272,17 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 				Attributes: map[string]schema.Attribute{
 					"port": schema.Int64Attribute{
 						Required: true,
+						Description: "The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute",
 					},
 					"path": schema.StringAttribute{
 						Required: true,
+						Description: "The HTTP path used for the health check",
 					},
 				},
 				Optional: true,
 			},
 			"status": schema.StringAttribute{
-				Description: "The status of the container",
+				Description: "The status of the starter container",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -911,7 +913,7 @@ func (r *starterContainerResource) ImportState(ctx context.Context, req resource
 			map[string]attr.Value{
 				"create": types.StringValue("30s"),
 				"update": types.StringValue("30s"),
-				"delete": types.StringValue("30s"),
+				"delete": types.StringValue("2m"),
 			},
 		),
 	}

@@ -84,7 +84,7 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
 			"plan": schema.StringAttribute{
-				Description:   "The plan ID for the message queue",
+				Description:   "The plan used for the message queue.",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{ImmutableString()},
 			},
@@ -97,6 +97,25 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Description:   "The version of the message queue software",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{ImmutableString()},
+			},
+			"allowlist": schema.ListAttribute{
+				Description: "List of IP addresses allowed to access the management console of the message queue (defaults: '0.0.0.0/0' and '::/0')",
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				Default: listdefault.StaticValue(
+					types.ListValueMust(types.StringType, []attr.Value{
+						types.StringValue("0.0.0.0/0"),
+						types.StringValue("::/0"),
+					}),
+				),
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+					ImmutableList(),
+				},
+				Validators: []validator.List{
+					noEmptyAllowlistValidator{},
+				},
 			},
 			"external_connection": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -151,24 +170,6 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the message queue",
 				Computed:    true,
-			},
-			"allowlist": schema.ListAttribute{
-				Description: "List of IP addresses allowed to access the management console of the message queue (defaults: '0.0.0.0/0' and '::/0')",
-				ElementType: types.StringType,
-				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(
-					types.ListValueMust(types.StringType, []attr.Value{
-						types.StringValue("0.0.0.0/0"),
-						types.StringValue("::/0"),
-					}),
-				),
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
-				},
-				Validators: []validator.List{
-					noEmptyAllowlistValidator{},
-				},
 			},
 		},
 		Blocks: map[string]schema.Block{
