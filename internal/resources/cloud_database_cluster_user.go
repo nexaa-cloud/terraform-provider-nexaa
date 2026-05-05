@@ -9,9 +9,8 @@ import (
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-
 func translatePlanToUserCreateInput(ctx context.Context, plan cloudDatabaseClusterUserResource) api.CloudDatabaseClusterUserCreateInput {
-	var permissions []api.DatabaseUserPermissionInput
+	permissions := []api.DatabaseUserPermissionInput{}
 
 	type databasePermission struct {
 		DatabaseName string `tfsdk:"database_name"`
@@ -54,8 +53,8 @@ func translatePlanToUserCreateInput(ctx context.Context, plan cloudDatabaseClust
 	}
 }
 
-func translatePlanToUserModifyInput(ctx context.Context, plan cloudDatabaseClusterUserResource) api.CloudDatabaseClusterUserModifyInput {
-	var permissions []api.DatabaseUserPermissionInput
+func translatePlanToUserModifyInput(ctx context.Context, plan cloudDatabaseClusterUserResource, state cloudDatabaseClusterUserResource) api.CloudDatabaseClusterUserModifyInput {
+	permissions := []api.DatabaseUserPermissionInput{}
 
 	type databasePermission struct {
 		DatabaseName string `tfsdk:"database_name"`
@@ -63,24 +62,44 @@ func translatePlanToUserModifyInput(ctx context.Context, plan cloudDatabaseClust
 		State        string `tfsdk:"state"`
 	}
 
-	var databasePermissions []databasePermission
-	plan.Permissions.ElementsAs(ctx, &databasePermissions, false)
-	for _, permission := range databasePermissions {
+	var planPermissions []databasePermission
+	plan.Permissions.ElementsAs(ctx, &planPermissions, false)
+
+	planPermissionKeys := make(map[string]bool)
+	for _, permission := range planPermissions {
 		var role = api.DatabasePermissionReadWrite
 		if permission.Permission == "read_only" {
 			role = api.DatabasePermissionReadOnly
 		}
 
-		var state = api.StatePresent
+		var permState = api.StatePresent
 		if permission.State == "absent" {
-			state = api.StateAbsent
+			permState = api.StateAbsent
 		}
 
+		planPermissionKeys[permission.DatabaseName] = true
 		permissions = append(permissions, api.DatabaseUserPermissionInput{
 			DatabaseName: permission.DatabaseName,
 			Permission:   role,
-			State:        state,
+			State:        permState,
 		})
+	}
+
+	// Permissions that existed in state but are gone from the plan must be marked absent
+	var statePermissions []databasePermission
+	state.Permissions.ElementsAs(ctx, &statePermissions, false)
+	for _, permission := range statePermissions {
+		if !planPermissionKeys[permission.DatabaseName] {
+			var role = api.DatabasePermissionReadWrite
+			if permission.Permission == "read_only" {
+				role = api.DatabasePermissionReadOnly
+			}
+			permissions = append(permissions, api.DatabaseUserPermissionInput{
+				DatabaseName: permission.DatabaseName,
+				Permission:   role,
+				State:        api.StateAbsent,
+			})
+		}
 	}
 
 	userInput := api.DatabaseUserInput{

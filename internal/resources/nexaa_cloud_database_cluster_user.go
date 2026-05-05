@@ -205,8 +205,10 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 
 func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan cloudDatabaseClusterUserResource
+	var state cloudDatabaseClusterUserResource
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -229,7 +231,7 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 		return
 	}
 
-	input := translatePlanToUserModifyInput(ctx, plan)
+	input := translatePlanToUserModifyInput(ctx, plan, state)
 	result, err := client.CloudDatabaseClusterUserModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating user", "Could not update user: "+err.Error())

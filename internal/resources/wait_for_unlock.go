@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
@@ -149,6 +150,7 @@ func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocke
 			if !res.locked {
 				return nil
 			}
+			tflog.Info(ctx, resourceName+" is locked, retrying")
 		}
 
 		// Cancellable backoff between polls.
