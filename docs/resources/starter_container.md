@@ -147,7 +147,7 @@ Required:
 
 - `name` (String) The name used for the environment variable
 - `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
-- `value` (String) The value used for the environment variable, is required
+- `value` (String, Sensitive) The value used for the environment variable, is required
 
 
 <a id="nestedatt--external_connection"></a>

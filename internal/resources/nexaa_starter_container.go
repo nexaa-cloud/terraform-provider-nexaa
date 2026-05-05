@@ -135,6 +135,7 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 						},
 						"value": schema.StringAttribute{
 							Required:    true,
+							Sensitive:   true,
 							Description: "The value used for the environment variable, is required",
 							PlanModifiers: []planmodifier.String{
 								stringplanmodifier.UseStateForUnknown(),
