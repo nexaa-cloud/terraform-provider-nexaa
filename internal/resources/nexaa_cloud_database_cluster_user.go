@@ -98,7 +98,7 @@ func (r *cloudDatabaseClusterUserResource) Schema(_ context.Context, _ resource.
 				},
 				Optional:    true,
 				Computed:    true,
-				Description: "",
+				Description: "Permissions of the user per database",
 			},
 			"last_updated": schema.StringAttribute{
 				Description: "Timestamp of the last Terraform update of the database user",

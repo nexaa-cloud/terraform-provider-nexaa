@@ -116,7 +116,7 @@ resource "nexaa_cloud_database_cluster_user" "user" {
 ### Optional
 
 - `password` (String, Sensitive) Password for the database user
-- `permissions` (Attributes Set) (see [below for nested schema](#nestedatt--permissions))
+- `permissions` (Attributes Set) Permissions of the user per database (see [below for nested schema](#nestedatt--permissions))
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
