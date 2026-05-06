@@ -1,0 +1,1 @@
+terraform import nexaa_volume.example namespace/volume_name

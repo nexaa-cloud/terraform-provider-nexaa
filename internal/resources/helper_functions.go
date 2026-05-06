@@ -13,11 +13,8 @@ import (
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
 
-// isNotFoundErr reports whether err looks like a "resource missing" error
-// from the Nexaa SDK. The SDK formats these as "<kind> %q not found in
-// namespace %q", so substring matching is the only signal available today.
 func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 func toStringArray(ctx context.Context, listInput types.List) []string {

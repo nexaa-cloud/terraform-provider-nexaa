@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,6 +25,7 @@ import (
 var (
 	_ resource.Resource                = &registryResource{}
 	_ resource.ResourceWithImportState = &registryResource{}
+	_ resource.ResourceWithConfigure   = &registryResource{}
 )
 
 // NewRegistryResource is a helper function to simplify the provider implementation.
@@ -31,8 +33,22 @@ func NewRegistryResource() resource.Resource {
 	return &registryResource{}
 }
 
+func (r *registryResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // registryResource is the resource implementation.
 type registryResource struct {
+	nexaaClient *nexaaclient.NexaaClient
 	ID          types.String   `tfsdk:"id"`
 	Namespace   types.String   `tfsdk:"namespace"`
 	Name        types.String   `tfsdk:"name"`
@@ -140,7 +156,20 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 		Verify:    plan.Verify.ValueBool(),
 	}
 
+	r.nexaaClient.Lock("registry:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("registry:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if _, checkErr := client.ListRegistryByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
+		resp.Diagnostics.AddError("Registry already exists",
+			"A registry named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_registry.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	} else if !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing registry",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	}
 
 	registry, err := client.RegistryCreate(input)
 	if err != nil {

@@ -1,0 +1,1 @@
+terraform import nexaa_message_queue.example namespace/message_queue_name

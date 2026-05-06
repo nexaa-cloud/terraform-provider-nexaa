@@ -1,0 +1,1 @@
+terraform import nexaa_namespace.example namespace_name

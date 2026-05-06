@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -19,6 +20,7 @@ import (
 var (
 	_ resource.Resource                = &volumeResource{}
 	_ resource.ResourceWithImportState = &volumeResource{}
+	_ resource.ResourceWithConfigure   = &volumeResource{}
 )
 
 // NewVolumeResource is a helper function to simplify the provider implementation.
@@ -26,8 +28,22 @@ func NewVolumeResource() resource.Resource {
 	return &volumeResource{}
 }
 
+func (r *volumeResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // volumeResource is the resource implementation.
 type volumeResource struct {
+	nexaaClient *nexaaclient.NexaaClient
 	ID          types.String   `tfsdk:"id"`
 	Namespace   types.String   `tfsdk:"namespace"`
 	Name        types.String   `tfsdk:"name"`
@@ -104,7 +120,21 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 		Size:      int(plan.Size.ValueInt64()),
 	}
 
+	r.nexaaClient.Lock("volume:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("volume:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if existing, checkErr := client.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr != nil {
+		resp.Diagnostics.AddError("Error checking for existing volume",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	} else if existing != nil {
+		resp.Diagnostics.AddError("Volume already exists",
+			"A volume named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_volume.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	}
+
 	volume, err := client.VolumeCreate(input)
 
 	if err != nil {

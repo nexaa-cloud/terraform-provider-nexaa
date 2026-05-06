@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -25,6 +26,7 @@ import (
 var (
 	_ resource.Resource                = &messageQueueResource{}
 	_ resource.ResourceWithImportState = &messageQueueResource{}
+	_ resource.ResourceWithConfigure   = &messageQueueResource{}
 )
 
 // NewMessageQueueResource is a helper function to simplify the provider implementation.
@@ -32,8 +34,22 @@ func NewMessageQueueResource() resource.Resource {
 	return &messageQueueResource{}
 }
 
+func (r *messageQueueResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // messageQueueResource is the resource implementation.
 type messageQueueResource struct {
+	nexaaClient        *nexaaclient.NexaaClient
 	ID                 types.String   `tfsdk:"id"`
 	Namespace          types.String   `tfsdk:"namespace"`
 	Name               types.String   `tfsdk:"name"`
@@ -215,7 +231,23 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		AllowList: allowlist,
 	}
 
+	r.nexaaClient.Lock("message-queue:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("message-queue:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if existing, checkErr := client.MessageQueueGet(api.MessageQueueResourceInput{
+		Name:      plan.Name.ValueString(),
+		Namespace: plan.Namespace.ValueString(),
+	}); checkErr != nil && !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing message queue",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	} else if checkErr == nil && existing.Id != "" {
+		resp.Diagnostics.AddError("Message queue already exists",
+			"A message queue named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_message_queue.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	}
 
 	_, err := client.MessageQueueCreate(input)
 	if err != nil {

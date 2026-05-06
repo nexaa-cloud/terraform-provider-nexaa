@@ -1,0 +1,1 @@
+terraform import nexaa_cloud_database_cluster.example namespace/cluster_name

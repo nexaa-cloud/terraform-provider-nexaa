@@ -7,7 +7,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
+	data_sources "github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -144,9 +145,10 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	// Create API client and make it available to resources
-	client := api.NewClient()
-	resp.ResourceData = client
+	// Create API client and make it available to resources.
+	// NexaaClient wraps the client with a shared MutexKV that serializes
+	// concurrent Create calls for the same resource name.
+	resp.ResourceData = nexaaclient.New(api.NewClient())
 }
 
 func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resource {

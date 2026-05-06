@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -25,6 +26,7 @@ import (
 var (
 	_ resource.Resource                = &containerJobResource{}
 	_ resource.ResourceWithImportState = &containerJobResource{}
+	_ resource.ResourceWithConfigure   = &containerJobResource{}
 )
 
 // NewContainerJobResource is a helper function to simplify the provider implementation.
@@ -32,8 +34,22 @@ func NewContainerJobResource() resource.Resource {
 	return &containerJobResource{}
 }
 
+func (r *containerJobResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // containerJobResource is the resource implementation.
 type containerJobResource struct {
+	nexaaClient          *nexaaclient.NexaaClient
 	ID                   types.String   `tfsdk:"id"`
 	Name                 types.String   `tfsdk:"name"`
 	Namespace            types.String   `tfsdk:"namespace"`
@@ -250,7 +266,21 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Create container job
+	r.nexaaClient.Lock("container-job:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("container-job:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if _, checkErr := client.ContainerJobByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
+		resp.Diagnostics.AddError("Container job already exists",
+			"A container job named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_container_job.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	} else if !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing container job",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	}
+
 	containerJobResult, err := client.ContainerJobCreate(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating container job", "Could not create container job: "+err.Error())

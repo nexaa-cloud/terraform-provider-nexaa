@@ -83,11 +83,8 @@ Optional:
 
 ## Import
 
-Import existing resources is supported.
-
-The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+Import is supported using the following syntax:
 
 ```shell
-#!/bin/bash
-terraform import nexaa_container "namespace/container_name"
+terraform import nexaa_registry.example namespace/registry_name
 ```

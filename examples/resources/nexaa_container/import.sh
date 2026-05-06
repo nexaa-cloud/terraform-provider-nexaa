@@ -1,1 +1,1 @@
-terraform import nexaa_container "namespace/container_name"
+terraform import nexaa_container.example namespace/container_name

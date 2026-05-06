@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
@@ -25,13 +26,28 @@ var (
 	_ resource.Resource                = &cloudDatabaseClusterResource{}
 	_ resource.ResourceWithImportState = &cloudDatabaseClusterResource{}
 	_ resource.ResourceWithIdentity    = &cloudDatabaseClusterResource{}
+	_ resource.ResourceWithConfigure   = &cloudDatabaseClusterResource{}
 )
 
 func NewCloudDatabaseClusterResource() resource.Resource {
 	return &cloudDatabaseClusterResource{}
 }
 
+func (r *cloudDatabaseClusterResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 type cloudDatabaseClusterResource struct {
+	nexaaClient        *nexaaclient.NexaaClient
 	ID                 types.String   `tfsdk:"id"`
 	Cluster            ClusterRef     `tfsdk:"cluster"`
 	Spec               Spec           `tfsdk:"spec"`
@@ -185,6 +201,23 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 	defer cancel()
 
 	client := api.NewClient()
+
+	r.nexaaClient.Lock("cloud-database-cluster:" + plan.Cluster.Namespace.ValueString() + "/" + plan.Cluster.Name.ValueString())
+	defer r.nexaaClient.Unlock("cloud-database-cluster:" + plan.Cluster.Namespace.ValueString() + "/" + plan.Cluster.Name.ValueString())
+
+	if existing, checkErr := client.CloudDatabaseClusterGet(api.CloudDatabaseClusterResourceInput{
+		Name:      plan.Cluster.Name.ValueString(),
+		Namespace: plan.Cluster.Namespace.ValueString(),
+	}); checkErr != nil && !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing cloud database cluster",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	} else if checkErr == nil && existing.Id != "" {
+		resp.Diagnostics.AddError("Cloud database cluster already exists",
+			"A cloud database cluster named "+plan.Cluster.Name.ValueString()+" already exists in namespace "+plan.Cluster.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_cloud_database_cluster.example "+plan.Cluster.Namespace.ValueString()+"/"+plan.Cluster.Name.ValueString())
+		return
+	}
 
 	input := api.CloudDatabaseClusterCreateInput{
 		Name:      plan.Cluster.Name.ValueString(),

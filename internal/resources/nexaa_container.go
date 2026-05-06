@@ -17,6 +17,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
+
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -33,6 +35,7 @@ var (
 	_ resource.Resource                = &containerResource{}
 	_ resource.ResourceWithImportState = &containerResource{}
 	_ resource.ResourceWithIdentity    = &containerResource{}
+	_ resource.ResourceWithConfigure   = &containerResource{}
 )
 
 // NewContainerResource is a helper function to simplify the provider implementation.
@@ -40,8 +43,22 @@ func NewContainerResource() resource.Resource {
 	return &containerResource{}
 }
 
+func (r *containerResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // containerResource is the resource implementation.
 type containerResource struct {
+	nexaaClient          *nexaaclient.NexaaClient
 	ID                   types.String   `tfsdk:"id"`
 	Name                 types.String   `tfsdk:"name"`
 	Namespace            types.String   `tfsdk:"namespace"`
@@ -330,11 +347,11 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			"health_check": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"port": schema.Int64Attribute{
-						Required: true,
+						Required:    true,
 						Description: "The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute",
 					},
 					"path": schema.StringAttribute{
-						Required: true,
+						Required:    true,
 						Description: "The HTTP path used for the health check",
 					},
 				},
@@ -573,7 +590,21 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Create containerResult
+	r.nexaaClient.Lock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if _, checkErr := client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
+		resp.Diagnostics.AddError("Container already exists",
+			"A container named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_container.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	} else if !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing container",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	}
+
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating container", "Could not create container: "+err.Error())

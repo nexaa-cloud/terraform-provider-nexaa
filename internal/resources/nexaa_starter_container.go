@@ -18,6 +18,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
+
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -31,6 +33,7 @@ var (
 	_ resource.Resource                = &starterContainerResource{}
 	_ resource.ResourceWithImportState = &starterContainerResource{}
 	_ resource.ResourceWithIdentity    = &starterContainerResource{}
+	_ resource.ResourceWithConfigure   = &starterContainerResource{}
 )
 
 // NewStarterContainerResource is a helper function to simplify the provider implementation.
@@ -38,8 +41,22 @@ func NewStarterContainerResource() resource.Resource {
 	return &starterContainerResource{}
 }
 
+func (r *starterContainerResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 // starterContainerResource is the resource implementation for starter containers.
 type starterContainerResource struct {
+	nexaaClient          *nexaaclient.NexaaClient
 	ID                   types.String   `tfsdk:"id"`
 	Name                 types.String   `tfsdk:"name"`
 	Namespace            types.String   `tfsdk:"namespace"`
@@ -402,7 +419,20 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	input.HealthCheck = healthCheck
 
 	// Create containerResult
+	r.nexaaClient.Lock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	if _, checkErr := client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
+		resp.Diagnostics.AddError("Container already exists",
+			"A container named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
+				"To manage it with Terraform use: terraform import nexaa_starter_container.example "+plan.Namespace.ValueString()+"/"+plan.Name.ValueString())
+		return
+	} else if !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing container",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	}
 
 	containerResult, err := client.ContainerCreate(input)
 	if err != nil {

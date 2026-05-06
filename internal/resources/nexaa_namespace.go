@@ -7,7 +7,10 @@ import (
 	"context"
 	"time"
 
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
+
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -21,6 +24,7 @@ import (
 var (
 	_ resource.Resource                = &namespaceResource{}
 	_ resource.ResourceWithImportState = &namespaceResource{}
+	_ resource.ResourceWithConfigure   = &namespaceResource{}
 )
 
 // NewNamespaceResource is a helper function to simplify the provider implementation.
@@ -30,11 +34,26 @@ func NewNamespaceResource() resource.Resource {
 
 // namespaceResource is the resource implementation.
 type namespaceResource struct {
+	nexaaClient *nexaaclient.NexaaClient
 	ID          types.String   `tfsdk:"id"`
 	Name        types.String   `tfsdk:"name"`
 	Description types.String   `tfsdk:"description"`
 	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
+}
+
+func (r *namespaceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.",
+		)
+		return
+	}
+	r.nexaaClient = c
 }
 
 // Metadata returns the resource type name.
@@ -86,7 +105,24 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 		Description: plan.Description.ValueStringPointer(),
 	}
 
+	r.nexaaClient.Lock("namespace:" + plan.Name.ValueString())
+	defer r.nexaaClient.Unlock("namespace:" + plan.Name.ValueString())
+
 	client := api.NewClient()
+	existing, checkErr := client.NamespaceListByName(plan.Name.ValueString())
+	tflog.Info(ctx, checkErr.Error())
+	if checkErr != nil && !isNotFoundErr(checkErr) {
+		resp.Diagnostics.AddError("Error checking for existing namespace",
+			"Could not verify name availability: "+checkErr.Error())
+		return
+	}
+	if checkErr == nil && existing.Name != "" {
+		resp.Diagnostics.AddError("Namespace already exists",
+			"A namespace named "+plan.Name.ValueString()+" already exists. "+
+				"To manage it with Terraform use: terraform import nexaa_namespace.example "+plan.Name.ValueString())
+		return
+	}
+
 	namespace, err := client.NamespaceCreate(input)
 
 	if err != nil {
