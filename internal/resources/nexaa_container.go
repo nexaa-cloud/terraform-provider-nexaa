@@ -665,7 +665,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	// Ingresses
-	ingressesList, d := buildIngressesFromApi(containerResult)
+	ingressesList, d := buildIngressesFromApiInPlanOrder(ctx, containerResult, plan.Ingresses)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -865,7 +865,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	// Ingresses
-	ingressesTF, diags := buildIngressesFromApi(container)
+	ingressesTF, diags := buildIngressesFromApiInPlanOrder(ctx, container, state.Ingresses)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1248,7 +1248,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Ingresses
-	ingressesList, d := buildIngressesFromApi(containerResult)
+	ingressesList, d := buildIngressesFromApiInPlanOrder(ctx, containerResult, plan.Ingresses)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
