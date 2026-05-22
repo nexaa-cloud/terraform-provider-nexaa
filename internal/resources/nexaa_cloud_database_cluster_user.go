@@ -136,6 +136,25 @@ func (r *cloudDatabaseClusterUserResource) Create(ctx context.Context, req resou
 		return
 	}
 
+	clusterInput := api.CloudDatabaseClusterResourceInput{
+		Name:      plan.Cluster.Name.ValueString(),
+		Namespace: plan.Cluster.Namespace.ValueString(),
+	}
+	existingUsers, err := client.CloudDatabaseClusterUserList(clusterInput)
+	if err != nil {
+		resp.Diagnostics.AddError("Error creating user", "Could not check existing users: "+err.Error())
+		return
+	}
+	for _, u := range existingUsers {
+		if u.Name == plan.Name.ValueString() {
+			resp.Diagnostics.AddError(
+				"Error creating user",
+				fmt.Sprintf("User %q already exists in cluster %q. Each user name must be unique within a cluster.", plan.Name.ValueString(), plan.Cluster.Name.ValueString()),
+			)
+			return
+		}
+	}
+
 	input := translatePlanToUserCreateInput(ctx, plan)
 	result, err := client.CloudDatabaseClusterUserCreate(input)
 	if err != nil {
@@ -224,6 +243,27 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating user", "Could not reach a unlocked state: "+err.Error())
 		return
+	}
+
+	if plan.Name.ValueString() != state.Name.ValueString() {
+		clusterInput := api.CloudDatabaseClusterResourceInput{
+			Name:      plan.Cluster.Name.ValueString(),
+			Namespace: plan.Cluster.Namespace.ValueString(),
+		}
+		existingUsers, err := client.CloudDatabaseClusterUserList(clusterInput)
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating user", "Could not check existing users: "+err.Error())
+			return
+		}
+		for _, u := range existingUsers {
+			if u.Name == plan.Name.ValueString() {
+				resp.Diagnostics.AddError(
+					"Error updating user",
+					fmt.Sprintf("User %q already exists in cluster %q. Each user name must be unique within a cluster.", plan.Name.ValueString(), plan.Cluster.Name.ValueString()),
+				)
+				return
+			}
+		}
 	}
 
 	input := translatePlanToUserModifyInput(ctx, plan, state)
