@@ -8,8 +8,6 @@ on:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-  pull_request:
-  workflow_dispatch:
 
 concurrency:
   group: acceptance-tests
