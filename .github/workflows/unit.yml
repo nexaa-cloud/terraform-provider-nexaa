@@ -5,8 +5,6 @@ on:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-    branches:
-      - main
 
 concurrency:
   group: unit-tests
@@ -30,5 +28,7 @@ jobs:
           USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
           PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
           TILAA_ENV: ${{ secrets.TILAA_ENV }}
+          NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
+          NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
         working-directory: .
         run: go test -v -cover ./internal/resources/...
