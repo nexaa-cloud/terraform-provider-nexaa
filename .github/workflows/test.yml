@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
+    # paths-ignore:
+    #   - 'README.md'
+    #   - 'docs/**'
 
 concurrency:
   group: acceptance-tests
