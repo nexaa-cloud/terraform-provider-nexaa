@@ -37,7 +37,6 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_namespace.ns", "id"),
 					resource.TestCheckResourceAttr("nexaa_namespace.ns", "name", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_namespace.ns", "description", description),
-					resource.TestCheckResourceAttrSet("nexaa_namespace.ns", "last_updated"),
 				),
 			},
 			{

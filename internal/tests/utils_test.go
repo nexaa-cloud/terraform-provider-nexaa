@@ -239,11 +239,6 @@ resource "nexaa_container_job" "job" {
   entrypoint = %s
   resources  = data.nexaa_container_resources.small.id
   schedule   = %q
-  timeouts {
-    create = "30s"
-    update = "30s"
-    delete = "30s"
-  }
 }
 `, name, image, command, entrypoint, schedule)
 }
@@ -274,11 +269,6 @@ resource "nexaa_container_job" "job" {
   entrypoint = %s
   resources = data.nexaa_container_resources.job.id
   schedule = %q
-  timeouts {
-    create = "30s"
-    update = "30s"
-    delete = "30s"
-  }
 }
 `, name, image, command, entrypoint, schedule)
 }
@@ -312,12 +302,6 @@ resource "nexaa_cloud_database_cluster" "cluster-database" {
     ports = {
         allowlist = %q
     }
-  }
-
-  timeouts {
-	create = "2m"
-	update = "2m"
-	delete = "2m"
   }
 }
 

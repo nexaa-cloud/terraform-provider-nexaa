@@ -39,7 +39,6 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "name", databaseName),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_database.db1", "description", ""),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "last_updated"),
 				),
 			},
 			// ImportState testing
@@ -55,7 +54,6 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_database.db1", "last_updated"),
 				),
 			},
 			// Delete testing automatically occurs in TestCase

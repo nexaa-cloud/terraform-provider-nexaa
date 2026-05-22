@@ -41,7 +41,6 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv6"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.allowlist.#", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.external_port"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "last_updated"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "plan"),
 				),
 			},

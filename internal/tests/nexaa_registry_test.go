@@ -37,7 +37,6 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "username", username),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "verify", "false"),
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "last_updated"),
 				),
 			},
 
