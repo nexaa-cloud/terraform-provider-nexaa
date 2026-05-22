@@ -36,7 +36,7 @@ jobs:
 
   test:
     name: Terraform Provider Acceptance Tests
-    runs-on: self-hosted 
+    runs-on: ubuntu-latest
     env:
       NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
       NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
