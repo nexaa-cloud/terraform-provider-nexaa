@@ -33,7 +33,6 @@ type cloudDatabaseClusterDatabaseResource struct {
 	Cluster     ClusterRef     `tfsdk:"cluster"`
 	Name        types.String   `tfsdk:"name"`
 	Description types.String   `tfsdk:"description"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -67,10 +66,6 @@ func (r *cloudDatabaseClusterDatabaseResource) Schema(_ context.Context, _ resou
 				Computed:      true,
 				Description:   "Optional description of the database",
 				PlanModifiers: []planmodifier.String{ImmutableString()},
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the database",
-				Computed:    true,
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -139,7 +134,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 	plan.ID = types.StringValue(generateCloudDatabaseClusterDatabaseId(plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString(), plan.Name.ValueString()))
 	plan.Name = types.StringValue(database.Name)
 	plan.Description = types.StringPointerValue(database.Description)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -257,7 +252,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req r
 		}
 	}
 	plan.Description = types.StringPointerValue(updatedDescription)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -355,7 +350,7 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 			Name:      types.StringValue(cluster.Name),
 			Namespace: types.StringValue(id.Namespace),
 		},
-		LastUpdated: types.StringValue(time.Now().Format(time.RFC3339)),
+
 	}
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
@@ -74,7 +75,6 @@ type containerResource struct {
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
 	Scaling              types.Object   `tfsdk:"scaling"`
-	LastUpdated          types.String   `tfsdk:"last_updated"`
 	Status               types.String   `tfsdk:"status"`
 	Timeouts             timeouts.Value `tfsdk:"timeouts"`
 }
@@ -217,7 +217,9 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 							},
 						},
 						"secret": schema.BoolAttribute{
-							Required:    true,
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
 							Description: "A boolean to represent if the environment variable is a secret or not",
 						},
 					},
@@ -412,14 +414,10 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the container",
+				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
-				Computed: true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last update of the container",
-				Computed:    true,
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -771,8 +769,6 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError("Error creating containerResult", "Could not transform scaling object")
 		return
 	}
-
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	// Set state
 	diags = resp.State.Set(ctx, plan)
@@ -1172,7 +1168,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
-		resp.Diagnostics.AddError("Error updating container", "Could not reach a running state: "+err.Error())
+		resp.Diagnostics.AddError("Error updating container", "Cannot modify container in current state "+err.Error())
 		return
 	}
 
@@ -1180,12 +1176,6 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	containerResult, err := client.ContainerModify(input)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating container", "Could not update container: "+err.Error())
-		return
-	}
-
-	err = waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating container", "Could not reach a running state: "+err.Error())
 		return
 	}
 
@@ -1355,8 +1345,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	plan.Status = types.StringValue(containerResult.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.Status = prev.Status
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -1537,7 +1526,6 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 		Mounts:               stateValues["mounts"].(types.List),
 		HealthCheck:          stateValues["health_check"].(types.Object),
 		Status:               stateValues["status"].(types.String),
-		LastUpdated:          stateValues["last_updated"].(types.String),
 	}
 
 	// Add scaling (specific to regular containers)

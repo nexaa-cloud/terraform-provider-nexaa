@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 )
@@ -51,7 +53,6 @@ type volumeResource struct {
 	Usage       types.Float64  `tfsdk:"usage"`
 	Locked      types.Bool     `tfsdk:"locked"`
 	Status      types.String   `tfsdk:"status"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -91,10 +92,9 @@ func (r *volumeResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			"status": schema.StringAttribute{
 				Description: "The status of the volume",
 				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the volume",
-				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -207,6 +207,13 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		Size:      int(plan.Size.ValueInt64()),
 	}
 
+	var state volumeResource
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	client := api.NewClient()
 
 	volume, err := client.VolumeIncrease(input)
@@ -219,6 +226,7 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	plan = translateApiToVolumeResource(plan, volume)
+	plan.Status = state.Status
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

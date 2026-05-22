@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -55,7 +56,6 @@ type cloudDatabaseClusterResource struct {
 	Hostname           types.String   `tfsdk:"hostname"`
 	ExternalConnection types.Object   `tfsdk:"external_connection"`
 	State              types.String   `tfsdk:"state"`
-	LastUpdated        types.String   `tfsdk:"last_updated"`
 	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -165,10 +165,9 @@ func (r *cloudDatabaseClusterResource) Schema(ctx context.Context, _ resource.Sc
 			"state": schema.StringAttribute{
 				Description: "Current state of the cloud database cluster",
 				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the cloud database cluster",
-				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -406,6 +405,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		resp.Diagnostics.Append(diags...)
 		return
 	}
+	plan.State = state.State
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

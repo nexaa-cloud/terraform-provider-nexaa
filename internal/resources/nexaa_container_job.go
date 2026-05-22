@@ -62,7 +62,6 @@ type containerJobResource struct {
 	Mounts               types.List     `tfsdk:"mounts"`
 	Schedule             types.String   `tfsdk:"schedule"`
 	Enabled              types.Bool     `tfsdk:"enabled"`
-	LastUpdated          types.String   `tfsdk:"last_updated"`
 	State                types.String   `tfsdk:"state"`
 	Timeouts             timeouts.Value `tfsdk:"timeouts"`
 }
@@ -166,10 +165,9 @@ func (r *containerJobResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			"state": schema.StringAttribute{
 				Description: "The state of the container job",
 				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the container job",
-				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -350,7 +348,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		plan.Mounts = mountList
 	}
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 	plan.State = types.StringValue(containerJobResult.State)
 
 	diags = resp.State.Set(ctx, plan)
@@ -480,9 +478,9 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Mounts
+	var prev containerJobResource
 	var previousMounts []mountResource
 	if !req.State.Raw.IsNull() && req.State.Raw.IsKnown() {
-		var prev containerJobResource
 		diags := req.State.Get(ctx, &prev)
 		resp.Diagnostics.Append(diags...)
 		if !prev.Mounts.IsNull() && !prev.Mounts.IsUnknown() {
@@ -572,7 +570,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	plan.Image = types.StringValue(containerJobResult.Image)
 	plan.Schedule = types.StringValue(containerJobResult.Schedule)
 	plan.Enabled = types.BoolValue(containerJobResult.Enabled)
-	plan.State = types.StringValue(containerJobResult.State)
+	plan.State = prev.State
 
 	if containerJobResult.PrivateRegistry == nil {
 		plan.Registry = types.StringNull()
@@ -616,7 +614,7 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		plan.Mounts = mountList
 	}
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -734,7 +732,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 		Schedule:             types.StringValue(containerJob.Schedule),
 		Enabled:              types.BoolValue(containerJob.Enabled),
 		State:                types.StringValue(containerJob.State),
-		LastUpdated:          types.StringValue(time.Now().Format(time.RFC3339)),
+
 		Timeouts: timeouts.Value{
 			Object: types.ObjectValueMust(
 				map[string]attr.Type{

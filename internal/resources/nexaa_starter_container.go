@@ -70,7 +70,6 @@ type starterContainerResource struct {
 	ExternalConnection   types.Object   `tfsdk:"external_connection"`
 	Mounts               types.List     `tfsdk:"mounts"`
 	HealthCheck          types.Object   `tfsdk:"health_check"`
-	LastUpdated          types.String   `tfsdk:"last_updated"`
 	Status               types.String   `tfsdk:"status"`
 	Timeouts             timeouts.Value `tfsdk:"timeouts"`
 }
@@ -305,10 +304,6 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 				},
 				Computed: true,
 			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the starter container",
-				Computed:    true,
-			},
 		},
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{
@@ -510,7 +505,7 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -849,8 +844,7 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
 
-	plan.Status = types.StringValue(containerResult.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	plan.Status = prev.Status
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -964,7 +958,7 @@ func (r *starterContainerResource) ImportState(ctx context.Context, req resource
 		Mounts:               stateAttrs["mounts"].(types.List),
 		HealthCheck:          stateAttrs["health_check"].(types.Object),
 		Status:               stateAttrs["status"].(types.String),
-		LastUpdated:          stateAttrs["last_updated"].(types.String),
+
 		Timeouts:             stateAttrs["timeouts"].(timeouts.Value),
 	}
 

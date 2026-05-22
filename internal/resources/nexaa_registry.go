@@ -58,7 +58,6 @@ type registryResource struct {
 	Verify      types.Bool     `tfsdk:"verify"`
 	Locked      types.Bool     `tfsdk:"locked"`
 	Status      types.String   `tfsdk:"status"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -111,10 +110,6 @@ func (r *registryResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 			},
 			"status": schema.StringAttribute{
 				Description: "The status of the registry",
-				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the private registry",
 				Computed:    true,
 			},
 		},
@@ -189,7 +184,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 	plan.Verify = types.BoolValue(input.Verify)
 	plan.Locked = types.BoolValue(registry.Locked)
 	plan.Status = types.StringValue(registry.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -351,5 +346,5 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 	resp.State.SetAttribute(ctx, path.Root("locked"), registry.Locked)
 	resp.State.SetAttribute(ctx, path.Root("status"), registry.State)
 	resp.State.SetAttribute(ctx, path.Root("timeouts"), timeouts)
-	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
+
 }

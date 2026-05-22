@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
-
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -468,7 +466,6 @@ func buildContainerImportState(ctx context.Context, container api.ContainerResul
 		"mounts":                mountTF,
 		"health_check":          healthTF,
 		"status":                types.StringValue(container.State),
-		"last_updated":          types.StringValue(time.Now().Format(time.RFC3339)),
 	}, diags
 }
 

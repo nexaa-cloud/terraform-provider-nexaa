@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -59,7 +60,6 @@ type messageQueueResource struct {
 	ExternalConnection types.Object   `tfsdk:"external_connection"`
 	State              types.String   `tfsdk:"state"`
 	Locked             types.Bool     `tfsdk:"locked"`
-	LastUpdated        types.String   `tfsdk:"last_updated"`
 	Allowlist          types.List     `tfsdk:"allowlist"`
 	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 }
@@ -178,13 +178,12 @@ func (r *messageQueueResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			"state": schema.StringAttribute{
 				Description: "The current state of the message queue",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"locked": schema.BoolAttribute{
 				Description: "If the message queue is locked it can't be deleted",
-				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the message queue",
 				Computed:    true,
 			},
 		},
@@ -408,6 +407,7 @@ func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRe
 		resp.Diagnostics.Append(diags...)
 		return
 	}
+	plan.State = state.State
 
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)

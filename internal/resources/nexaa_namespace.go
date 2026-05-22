@@ -38,7 +38,6 @@ type namespaceResource struct {
 	ID          types.String   `tfsdk:"id"`
 	Name        types.String   `tfsdk:"name"`
 	Description types.String   `tfsdk:"description"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -76,10 +75,6 @@ func (r *namespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"description": schema.StringAttribute{
 				Description: "Description of the namespace",
 				Optional:    true,
-				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the namespace",
 				Computed:    true,
 			},
 		},
@@ -136,7 +131,6 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 	plan.ID = types.StringValue(namespace.Name)
 	plan.Name = types.StringValue(namespace.Name)
 	plan.Description = types.StringValue(namespace.Description)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -264,7 +258,6 @@ func (r *namespaceResource) ImportState(ctx context.Context, req resource.Import
 	resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
 	resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
 	resp.State.SetAttribute(ctx, path.Root("timeouts"), timeouts)
-	resp.State.SetAttribute(ctx, path.Root("last_updated"), time.Now().Format(time.RFC850))
 
 	resp.Diagnostics.AddError(
 		"Error importing namespace",

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -35,7 +34,6 @@ func translateApiToCloudDatabaseClusterResource(ctx context.Context, cluster api
 	}
 
 	plan.State = types.StringValue(cluster.GetState())
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
 	plan.Timeouts = timeout
 
 	if cluster.GetExternalConnection() == nil {
@@ -86,7 +84,6 @@ func translateApiToCloudDatabaseClusterUserResource(plan cloudDatabaseClusterUse
 	}
 	plan.Permissions = types.SetValueMust(elementType, values)
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	return plan
 }
 

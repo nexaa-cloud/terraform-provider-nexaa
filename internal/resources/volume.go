@@ -20,7 +20,6 @@ func translateApiToVolumeResource(plan volumeResource, volume api.VolumeResult) 
 	plan.Usage = types.Float64Value(volume.Usage)
 	plan.Locked = types.BoolValue(volume.Locked)
 	plan.Status = types.StringValue(volume.State)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	return plan
 }
 

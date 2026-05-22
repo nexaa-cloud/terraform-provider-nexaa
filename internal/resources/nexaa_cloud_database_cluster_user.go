@@ -36,7 +36,6 @@ type cloudDatabaseClusterUserResource struct {
 	Name        types.String   `tfsdk:"name"`
 	Password    types.String   `tfsdk:"password"`
 	Permissions types.Set      `tfsdk:"permissions"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
 	Timeouts    timeouts.Value `tfsdk:"timeouts"`
 }
 
@@ -99,10 +98,6 @@ func (r *cloudDatabaseClusterUserResource) Schema(_ context.Context, _ resource.
 				Optional:    true,
 				Computed:    true,
 				Description: "Permissions of the user per database",
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the database user",
-				Computed:    true,
 			},
 		},
 		Blocks: map[string]schema.Block{

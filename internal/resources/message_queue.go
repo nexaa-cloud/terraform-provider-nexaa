@@ -6,7 +6,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -25,7 +24,6 @@ func translateApiToMessageQueueResource(ctx context.Context, queue api.MessageQu
 	plan.Version = types.StringValue(queue.Spec.GetVersion())
 	plan.Plan = types.StringValue(queue.Plan.GetId())
 	plan.State = types.StringValue(queue.GetState())
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Locked = types.BoolValue(queue.GetLocked())
 	plan.Timeouts = timeout
 
