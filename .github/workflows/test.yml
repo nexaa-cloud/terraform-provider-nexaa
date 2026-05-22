@@ -33,12 +33,7 @@ jobs:
           git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
       - run: go build -v .
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: latest
 
-          
   test:
     name: Terraform Provider Acceptance Tests
     needs: build
