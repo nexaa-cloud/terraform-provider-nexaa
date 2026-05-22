@@ -7,7 +7,7 @@ on:
       - 'docs/**'
 
 concurrency:
-  group: acceptance-tests
+  group: lint-tests
   cancel-in-progress: false
 
 permissions:
