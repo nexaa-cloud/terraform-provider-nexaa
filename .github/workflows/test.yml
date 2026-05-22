@@ -40,13 +40,14 @@ jobs:
 
   test:
     name: Terraform Provider Acceptance Tests
-    needs:
     runs-on:
       group: Default
     env:
       NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
       NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
       TILAA_ENV: ${{ secrets.TILAA_ENV }}
+      NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
+      NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
