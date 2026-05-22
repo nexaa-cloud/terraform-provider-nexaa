@@ -122,7 +122,6 @@ resource "nexaa_cloud_database_cluster_user" "user" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the database user
-- `last_updated` (String) Timestamp of the last Terraform update of the database user
 
 <a id="nestedatt--cluster"></a>
 ### Nested Schema for `cluster`

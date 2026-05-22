@@ -137,7 +137,6 @@ resource "nexaa_starter_container" "starter-container" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the starter container
 - `status` (String) The status of the starter container
 
 <a id="nestedatt--environment_variables"></a>

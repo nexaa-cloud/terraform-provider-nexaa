@@ -89,7 +89,6 @@ resource "nexaa_cloud_database_cluster" "cluster" {
 
 - `hostname` (String) Hostname of the cloud database cluster
 - `id` (String) Unique identifier of the cloud database cluster
-- `last_updated` (String) Timestamp of the last Terraform update of the cloud database cluster
 - `state` (String) Current state of the cloud database cluster
 
 <a id="nestedatt--cluster"></a>

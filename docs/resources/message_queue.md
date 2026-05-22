@@ -89,7 +89,6 @@ resource "nexaa_message_queue" "queue" {
 ### Read-Only
 
 - `id` (String) Identifier of the message queue in the format 'namespace/name'
-- `last_updated` (String) Timestamp of the last Terraform update of the message queue
 - `locked` (Boolean) If the message queue is locked it can't be deleted
 - `state` (String) The current state of the message queue
 

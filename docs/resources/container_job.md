@@ -118,7 +118,6 @@ resource "nexaa_container_job" "containerjob" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the container job
 - `state` (String) The state of the container job
 
 <a id="nestedatt--environment_variables"></a>

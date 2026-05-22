@@ -49,7 +49,6 @@ resource "nexaa_namespace" "test" {
 ### Read-Only
 
 - `id` (String) Identifier of the namespace, equal to the name
-- `last_updated` (String) Timestamp of the last Terraform update of the namespace
 
 <a id="nestedblock--timeouts"></a>
 ### Nested Schema for `timeouts`

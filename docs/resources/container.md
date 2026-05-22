@@ -172,7 +172,6 @@ resource "nexaa_container" "container" {
 ### Read-Only
 
 - `id` (String) Unique identifier of the container, equal to the name
-- `last_updated` (String) Timestamp of the last update of the container
 - `status` (String) The status of the container
 
 <a id="nestedatt--scaling"></a>
@@ -216,8 +215,11 @@ Required:
 Required:
 
 - `name` (String) The name used for the environment variable
-- `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
 - `value` (String) The value used for the environment variable
+
+Optional:
+
+- `secret` (Boolean) A boolean to represent if the environment variable is a secret or not
 
 
 <a id="nestedatt--external_connection"></a>
