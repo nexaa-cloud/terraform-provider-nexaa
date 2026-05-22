@@ -229,6 +229,9 @@ func (r *containerResource) Schema(ctx context.Context, _ resource.SchemaRequest
 				Description: "Environment variables used in the container; order is not significant and matched by name",
 			},
 			"ingresses": schema.ListNestedAttribute{
+				Validators: []validator.List{
+					noDuplicateDefaultIngressValidator{},
+				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"domain_name": schema.StringAttribute{

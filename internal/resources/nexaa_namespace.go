@@ -10,7 +10,6 @@ import (
 	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -105,7 +104,6 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 
 	client := api.NewClient()
 	existing, checkErr := client.NamespaceListByName(plan.Name.ValueString())
-	tflog.Info(ctx, checkErr.Error())
 	if checkErr != nil && !isNotFoundErr(checkErr) {
 		resp.Diagnostics.AddError("Error checking for existing namespace",
 			"Could not verify name availability: "+checkErr.Error())
