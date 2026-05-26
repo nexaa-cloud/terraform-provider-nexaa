@@ -32,6 +32,19 @@ func makeIngressObject(domainName *string, port int64) types.Object {
 	})
 }
 
+func makeIngressObjectUnknownDomain(port int64) types.Object {
+	allowlist := types.ListValueMust(types.StringType, []attr.Value{
+		types.StringValue("0.0.0.0/0"),
+		types.StringValue("::/0"),
+	})
+	return types.ObjectValueMust(IngressObjectAttributeTypes(), map[string]attr.Value{
+		"domain_name": types.StringUnknown(),
+		"port":        types.Int64Value(port),
+		"tls":         types.BoolValue(true),
+		"allowlist":   allowlist,
+	})
+}
+
 func strPtr(s string) *string { return &s }
 
 func runIngressValidator(t *testing.T, elems []attr.Value) validator.ListResponse {
@@ -98,4 +111,28 @@ func Test_NoDuplicateDefaultIngress_two_same_explicit_domains(t *testing.T) {
 		makeIngressObject(strPtr("a.example.com"), 443),
 	})
 	assert.True(t, resp.Diagnostics.HasError())
+}
+
+func Test_NoDuplicateDefaultIngress_two_unknown_domains(t *testing.T) {
+	resp := runIngressValidator(t, []attr.Value{
+		makeIngressObjectUnknownDomain(80),
+		makeIngressObjectUnknownDomain(443),
+	})
+	assert.False(t, resp.Diagnostics.HasError())
+}
+
+func Test_NoDuplicateDefaultIngress_unknown_and_explicit_domain(t *testing.T) {
+	resp := runIngressValidator(t, []attr.Value{
+		makeIngressObjectUnknownDomain(80),
+		makeIngressObject(strPtr("b.example.com"), 443),
+	})
+	assert.False(t, resp.Diagnostics.HasError())
+}
+
+func Test_NoDuplicateDefaultIngress_unknown_does_not_count_as_null(t *testing.T) {
+	resp := runIngressValidator(t, []attr.Value{
+		makeIngressObjectUnknownDomain(80),
+		makeIngressObject(nil, 443),
+	})
+	assert.False(t, resp.Diagnostics.HasError())
 }

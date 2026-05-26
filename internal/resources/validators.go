@@ -55,7 +55,10 @@ func (v noDuplicateDefaultIngressValidator) ValidateList(ctx context.Context, re
 	seen := make(map[string]bool)
 	defaultCount := 0
 	for _, ing := range ingresses {
-		if ing.DomainName.IsNull() || ing.DomainName.IsUnknown() {
+		if ing.DomainName.IsUnknown() {
+			continue
+		}
+		if ing.DomainName.IsNull() {
 			defaultCount++
 			if defaultCount > 1 {
 				resp.Diagnostics.AddAttributeError(
