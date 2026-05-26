@@ -42,6 +42,7 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 			{
 				ResourceName:            "nexaa_namespace.ns",
 				ImportState:             true,
+				ImportStateId:           namespaceName,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated"},
 			},
