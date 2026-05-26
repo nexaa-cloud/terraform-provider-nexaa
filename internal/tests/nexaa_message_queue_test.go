@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -69,6 +70,14 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 				),
 			},
 			// 4) Delete is automatically tested by TestCase
+			{
+				Config:  messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1"}),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }

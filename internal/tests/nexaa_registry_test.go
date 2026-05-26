@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -47,6 +48,16 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, registryName),
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password", "status"},
+			},
+			{
+				Config: givenProvider() +
+					givenNamespace(namespaceName, "") +
+					givenRegistry(registryName, username, password),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})

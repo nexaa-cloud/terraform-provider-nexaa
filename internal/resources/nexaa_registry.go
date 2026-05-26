@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -19,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -184,7 +184,6 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 	plan.Verify = types.BoolValue(input.Verify)
 	plan.Locked = types.BoolValue(registry.Locked)
 	plan.Status = types.StringValue(registry.State)
-
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

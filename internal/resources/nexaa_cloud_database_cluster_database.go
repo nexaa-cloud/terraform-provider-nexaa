@@ -135,7 +135,6 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 	plan.Name = types.StringValue(database.Name)
 	plan.Description = types.StringPointerValue(database.Description)
 
-
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -207,7 +206,7 @@ func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req r
 	}
 
 	updateTimeout, diags := plan.Timeouts.Update(ctx, 2*time.Minute)
-	
+
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -252,7 +251,6 @@ func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req r
 		}
 	}
 	plan.Description = types.StringPointerValue(updatedDescription)
-
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -350,7 +348,6 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 			Name:      types.StringValue(cluster.Name),
 			Namespace: types.StringValue(id.Namespace),
 		},
-
 	}
 	plan.Timeouts = timeouts.Value{
 		Object: types.ObjectValueMust(

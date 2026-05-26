@@ -6,8 +6,8 @@ package resources
 import (
 	"context"
 	"fmt"
-	"strings"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -477,7 +477,6 @@ func parseContainerImportID(importID string) (namespace, name string, err error)
 	}
 	return parts[0], parts[1], nil
 }
-
 
 // validateScalingConfig validates that only the appropriate scaling input is set based on the type
 func validateScalingConfig(scaling scalingResource) error {

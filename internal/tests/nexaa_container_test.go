@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -238,6 +239,15 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.manual_input", "3"),
 				),
 			},
+
+			{
+				Config:  containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }
@@ -342,6 +352,15 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "0"),
 				),
 			},
+
+			{
+				Config:  minimalContainerConfig(namespaceName, containerName),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }
@@ -424,6 +443,15 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 					// domain_name should remain the same computed value
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "ingresses.0.domain_name"),
 				),
+			},
+
+			{
+				Config:  minimalContainerWithIngressConfig(namespaceName, containerName),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})
@@ -510,6 +538,15 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.org"),
 				),
+			},
+
+			{
+				Config:  minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.org"),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})
