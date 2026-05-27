@@ -41,8 +41,8 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 				Config:  givenProvider() + givenNamespace(namespaceName, description),
 				Destroy: true,
 				PreConfig: func() {
-					t.Log("Waiting 10 seconds before destroy...")
-					time.Sleep(10 * time.Second)
+					t.Log("Waiting 30 seconds before destroy...")
+					time.Sleep(30 * time.Second)
 				},
 			},
 		},

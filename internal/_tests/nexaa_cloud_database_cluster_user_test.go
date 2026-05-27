@@ -80,6 +80,9 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 					t.Log("Waiting 10 seconds before destroy...")
 					time.Sleep(10 * time.Second)
 				},
+				ConfigVariables: config.Variables{
+					"password": config.StringVariable(password),
+				},
 			},
 		},
 	})
