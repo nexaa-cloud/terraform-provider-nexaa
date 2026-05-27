@@ -290,11 +290,11 @@ func (r *starterContainerResource) Schema(ctx context.Context, _ resource.Schema
 			"health_check": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"port": schema.Int64Attribute{
-						Required: true,
+						Required:    true,
 						Description: "The port used for the health check, this needs to be one of the exposed ports declared in the ports attribute",
 					},
 					"path": schema.StringAttribute{
-						Required: true,
+						Required:    true,
 						Description: "The HTTP path used for the health check",
 					},
 				},
@@ -507,8 +507,6 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 
 	// Health check
 	plan.HealthCheck = buildHealthCheckState(containerResult)
-
-
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -962,7 +960,7 @@ func (r *starterContainerResource) ImportState(ctx context.Context, req resource
 		HealthCheck:          stateAttrs["health_check"].(types.Object),
 		Status:               stateAttrs["status"].(types.String),
 
-		Timeouts:             stateAttrs["timeouts"].(timeouts.Value),
+		Timeouts: stateAttrs["timeouts"].(timeouts.Value),
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

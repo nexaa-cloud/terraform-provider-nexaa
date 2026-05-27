@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -348,7 +348,6 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		plan.Mounts = mountList
 	}
 
-
 	plan.State = types.StringValue(containerJobResult.State)
 
 	diags = resp.State.Set(ctx, plan)
@@ -613,8 +612,6 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 		}
 		plan.Mounts = mountList
 	}
-
-
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

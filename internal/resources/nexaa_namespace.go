@@ -256,9 +256,4 @@ func (r *namespaceResource) ImportState(ctx context.Context, req resource.Import
 	resp.State.SetAttribute(ctx, path.Root("name"), item.Name)
 	resp.State.SetAttribute(ctx, path.Root("description"), item.Description)
 	resp.State.SetAttribute(ctx, path.Root("timeouts"), timeouts)
-
-	resp.Diagnostics.AddError(
-		"Error importing namespace",
-		"Could not find namespace with name: "+id,
-	)
 }

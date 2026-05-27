@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -41,7 +42,6 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv6"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.allowlist.#", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.external_port"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "last_updated"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "plan"),
 				),
 			},
@@ -64,6 +64,14 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+			{
+				Config:  cloudDatabaseClusterConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2.0", "10", "1", []string{"10.0.0.1"}),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }

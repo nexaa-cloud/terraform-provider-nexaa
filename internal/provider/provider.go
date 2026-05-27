@@ -7,8 +7,8 @@ import (
 	"context"
 	"os"
 
-	data_sources "github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
 	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
+	data_sources "github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"

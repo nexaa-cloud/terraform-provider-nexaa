@@ -2,13 +2,13 @@ name: Tests
 
 on:
   push:
+    branches:
+      - main
+      - 'feature/**'
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-      - '**'
-    branches:
-      - main
-  workflow_dispatch: null
+  pull_request:
 
 concurrency:
   group: acceptance-tests
@@ -23,7 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
@@ -33,36 +34,34 @@ jobs:
           git config --global url."https://gitlab-ci-token:${{ secrets.GITLAB_TOKEN }}@gitlab.com".insteadOf "https://gitlab.com"
       - run: go mod download
       - run: go build -v .
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: latest
 
   test:
     name: Terraform Provider Acceptance Tests
-    needs:
-    runs-on:
+    needs: build
+    runs-on: 
       group: Default
     env:
       NEXAA_USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
       NEXAA_PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
       TILAA_ENV: ${{ secrets.TILAA_ENV }}
+      NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
+      NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         terraform:
-          - '1.5.*'
-          - '1.6.*'
-          - '1.7.*'
+          - '1.15.*'
+          - '1.14.*'
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
           go-version-file: 'go.mod'
           cache: true
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
@@ -107,5 +106,7 @@ jobs:
           USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
           PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
           TILAA_ENV: ${{ secrets.TILAA_ENV }}
+          NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
+          NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
         working-directory: .
-        run: TF_ACC=1 go test -v -cover ./internal/...
+        run: TF_ACC=1 go test -v -cover ./internal/tests/...

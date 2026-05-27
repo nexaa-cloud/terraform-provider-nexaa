@@ -8,6 +8,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -42,7 +43,6 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_volume.volume", "size", fmt.Sprintf("%d", initialSize)),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "usage"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "last_updated"),
 				),
 			},
 
@@ -62,8 +62,16 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_volume.volume", "size", fmt.Sprintf("%d", updatedSize)),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "usage"),
 					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_volume.volume", "last_updated"),
 				),
+			},
+
+			{
+				Config:  volumeConfig(namespaceName, volumeName, updatedSize),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})

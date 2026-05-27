@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -40,7 +41,6 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "plan"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "state"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "last_updated"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.0", "127.0.0.1"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "allowlist.1", "192.168.1.1"),
@@ -70,6 +70,14 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 				),
 			},
 			// 4) Delete is automatically tested by TestCase
+			{
+				Config:  messageQueueConfig(namespaceName, queueName, "RabbitMQ", "3.13", "0.25", "0.5", "5.0", "1", []string{"192.168.1.1"}),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }

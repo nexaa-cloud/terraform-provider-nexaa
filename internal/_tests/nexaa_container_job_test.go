@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -120,6 +121,16 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
+			},
+
+			// Delete testing automatically occurs in TestCase
+			{
+				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})

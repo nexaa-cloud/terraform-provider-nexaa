@@ -5,8 +5,6 @@ on:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-    branches:
-      - main
 
 concurrency:
   group: unit-tests
@@ -19,8 +17,8 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -30,5 +28,7 @@ jobs:
           USERNAME: ${{ secrets.STAGING_NEXAA_CLOUD_USER }}
           PASSWORD: ${{ secrets.STAGING_NEXAA_CLOUD_PASSWORD }}
           TILAA_ENV: ${{ secrets.TILAA_ENV }}
+          NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
+          NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
         working-directory: .
         run: go test -v -cover ./internal/resources/...

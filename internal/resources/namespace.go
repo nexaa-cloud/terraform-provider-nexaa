@@ -24,8 +24,11 @@ func waitForNamespaceToBeRemoved(ctx context.Context, client api.Client, namespa
 
 		_, err := client.NamespaceListByName(namespaceName)
 		if err != nil {
-			// Namespace no longer found — deletion complete
-			return nil
+			if isNotFoundErr(err) {
+				// Namespace no longer found — deletion complete
+				return nil
+			}
+			return err
 		}
 
 		time.Sleep(delay)
@@ -52,6 +55,9 @@ func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, names
 
 		namespace, err := client.NamespaceListByName(namespaceName)
 		if err != nil {
+			if isNotFoundErr(err) {
+				return nil
+			}
 			return err
 		}
 

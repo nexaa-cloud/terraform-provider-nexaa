@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/config"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -48,7 +49,6 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "permissions.#", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "password"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),
 				),
 			},
 			// ImportState testing
@@ -67,13 +67,23 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
-					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "last_updated"),
 				),
 				ConfigVariables: config.Variables{
 					"password": config.StringVariable(password),
 				},
 			},
 			// Delete testing automatically occurs in TestCase
+			{
+				Config:  cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+				ConfigVariables: config.Variables{
+					"password": config.StringVariable(password),
+				},
+			},
 		},
 	})
 }

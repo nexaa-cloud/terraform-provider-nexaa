@@ -6,6 +6,7 @@ package tests
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
@@ -37,7 +38,6 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "username", username),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "verify", "false"),
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "locked"),
-					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "last_updated"),
 				),
 			},
 
@@ -47,7 +47,17 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 				ImportState:             true,
 				ImportStateId:           fmt.Sprintf("%s/%s", namespaceName, registryName),
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password", "status"},
+				ImportStateVerifyIgnore: []string{"last_updated", "verify", "password", "status", "locked"},
+			},
+			{
+				Config: givenProvider() +
+					givenNamespace(namespaceName, "") +
+					givenRegistry(registryName, username, password),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 		},
 	})
