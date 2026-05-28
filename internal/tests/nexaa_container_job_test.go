@@ -11,18 +11,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func containerJobConfig(namespaceName string, registryName string, registryUsername string, registryPassword string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
+func containerJobConfig(namespaceName string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenRegistry(registryName, registryUsername, registryPassword) +
-		givenContainerJob(containerJobName, image, command, entrypoint, schedule)
+		givenContainerJobPublic(containerJobName, image, command, entrypoint, schedule)
 }
 
-func containerJobUpdateConfig(namespaceName string, registryName string, registryUsername string, registryPassword string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
+func containerJobUpdateConfig(namespaceName string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenRegistry(registryName, registryUsername, registryPassword) +
-		givenContainerJob(containerJobName, image, command, entrypoint, schedule)
+		givenContainerJobPublic(containerJobName, image, command, entrypoint, schedule)
 }
 
 func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
@@ -72,9 +70,6 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 	namespaceName := generateTestNamespace()
 	containerJobName := generateTestContainerJobName()
 	image := generateTestImage()
-	registryName := generateTestRegistryName()
-	registryUsername := generateTestUsername()
-	registryPassword := generateTestPassword()
 	entrypoint := generateTestEntrypoint()
 	command := generateTestCommands()
 	schedule := generateTestSchedule()
@@ -85,11 +80,11 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: containerJobConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, image, entrypoint, command, schedule),
+				Config: containerJobConfig(namespaceName, containerJobName, image, entrypoint, command, schedule),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
+					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
@@ -113,19 +108,18 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 			},
 
 			{
-				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				Config: containerJobUpdateConfig(namespaceName, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:alpine"),
-					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
+					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
 			},
 
-			// Delete testing automatically occurs in TestCase
 			{
-				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				Config:  containerJobUpdateConfig(namespaceName, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")
