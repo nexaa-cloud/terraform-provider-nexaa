@@ -27,6 +27,7 @@ resource "nexaa_container_job" "job" {
   name       = %q
   image      = %q
   registry   = null
+  enabled    = false
   command    = %s
   entrypoint = %s
   resources  = data.nexaa_container_resources.job.id
@@ -51,6 +52,7 @@ resource "nexaa_container_job" "job" {
   name       = %q
   image      = %q
   registry   = %q
+  enabled    = false
   command    = %s
   entrypoint = %s
   resources  = data.nexaa_container_resources.job.id
@@ -124,6 +126,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
 					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "false"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
