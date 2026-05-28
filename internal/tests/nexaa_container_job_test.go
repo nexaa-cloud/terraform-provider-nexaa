@@ -11,16 +11,52 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func containerJobConfig(namespaceName string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
+func containerJobConfig(namespaceName string, registryName string, registryUsername string, registryPassword string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenContainerJobPublic(containerJobName, image, command, entrypoint, schedule)
+		givenRegistry(registryName, registryUsername, registryPassword) +
+		fmt.Sprintf(`
+data "nexaa_container_resources" "job" {
+  cpu    = 0.25
+  memory = 0.5
 }
 
-func containerJobUpdateConfig(namespaceName string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
+resource "nexaa_container_job" "job" {
+  depends_on = [nexaa_registry.registry]
+  namespace  = nexaa_namespace.ns.name
+  name       = %q
+  image      = %q
+  registry   = null
+  command    = %s
+  entrypoint = %s
+  resources  = data.nexaa_container_resources.job.id
+  schedule   = %q
+}
+`, containerJobName, image, command, entrypoint, schedule)
+}
+
+func containerJobUpdateConfig(namespaceName string, registryName string, registryUsername string, registryPassword string, containerJobName string, image string, entrypoint string, command string, schedule string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
-		givenContainerJobPublic(containerJobName, image, command, entrypoint, schedule)
+		givenRegistry(registryName, registryUsername, registryPassword) +
+		fmt.Sprintf(`
+data "nexaa_container_resources" "job" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
+resource "nexaa_container_job" "job" {
+  depends_on = [nexaa_registry.registry]
+  namespace  = nexaa_namespace.ns.name
+  name       = %q
+  image      = %q
+  registry   = %q
+  command    = %s
+  entrypoint = %s
+  resources  = data.nexaa_container_resources.job.id
+  schedule   = %q
+}
+`, containerJobName, image, registryName, command, entrypoint, schedule)
 }
 
 func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
@@ -70,6 +106,9 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 	namespaceName := generateTestNamespace()
 	containerJobName := generateTestContainerJobName()
 	image := generateTestImage()
+	registryName := generateTestRegistryName()
+	registryUsername := generateTestUsername()
+	registryPassword := generateTestPassword()
 	entrypoint := generateTestEntrypoint()
 	command := generateTestCommands()
 	schedule := generateTestSchedule()
@@ -80,7 +119,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: containerJobConfig(namespaceName, containerJobName, image, entrypoint, command, schedule),
+				Config: containerJobConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, image, entrypoint, command, schedule),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
@@ -107,11 +146,12 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 				},
 			},
 
+			// 3) Update — also exercises setting a private registry
 			{
-				Config: containerJobUpdateConfig(namespaceName, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:alpine"),
-					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
@@ -119,7 +159,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 			},
 
 			{
-				Config:  containerJobUpdateConfig(namespaceName, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")
