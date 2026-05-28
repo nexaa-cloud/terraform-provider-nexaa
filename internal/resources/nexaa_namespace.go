@@ -217,7 +217,7 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	_, err = client.NamespaceDelete(state.ID.ValueString())
+	err = deleteNamespaceWithRetry(ctx, *client, state.ID.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError(

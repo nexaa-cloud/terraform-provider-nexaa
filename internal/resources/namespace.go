@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
@@ -66,7 +67,12 @@ func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, names
 			return err
 		}
 
-		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) && !hasQueues {
+		hasRegistries, err := namespaceHasRegistries(client, namespaceName)
+		if err != nil {
+			return err
+		}
+
+		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) && !hasQueues && !hasRegistries {
 			break
 		}
 
@@ -83,6 +89,46 @@ func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, names
 	return nil
 }
 
+func deleteNamespaceWithRetry(ctx context.Context, client api.Client, namespaceName string) error {
+	const (
+		initialDelay = 5 * time.Second
+		maxDelay     = 30 * time.Second
+	)
+	delay := initialDelay
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		_, err := client.NamespaceDelete(namespaceName)
+		if err == nil {
+			return nil
+		}
+
+		if !isCannotBeDeletedErr(err) {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+
+		if delay < maxDelay {
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
+}
+
+func isCannotBeDeletedErr(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "cannot be deleted")
+}
+
 func namespaceHasContainers(namespace api.NamespaceResult) bool {
 	return len(namespace.Containers) != 0
 }
@@ -97,6 +143,14 @@ func namespaceHasVolumes(namespace api.NamespaceResult) bool {
 
 func namespaceHasCloudDatabaseClusters(namespace api.NamespaceResult) bool {
 	return len(namespace.CloudDatabaseClusters) != 0
+}
+
+func namespaceHasRegistries(client api.Client, namespaceName string) (bool, error) {
+	registries, err := client.ListRegistries(namespaceName)
+	if err != nil {
+		return false, err
+	}
+	return len(registries) > 0, nil
 }
 
 func namespaceHasMessageQueues(client api.Client, namespaceName string) (bool, error) {
