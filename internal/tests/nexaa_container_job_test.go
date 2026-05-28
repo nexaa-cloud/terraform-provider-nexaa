@@ -148,7 +148,9 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"timeouts",
 				},
 			},
-
+			{
+				RefreshState: true,
+			},
 			// 3) Update — also exercises setting a private registry
 			{
 				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
