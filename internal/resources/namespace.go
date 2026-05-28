@@ -67,12 +67,7 @@ func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, names
 			return err
 		}
 
-		hasRegistries, err := namespaceHasRegistries(client, namespaceName)
-		if err != nil {
-			return err
-		}
-
-		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) && !hasQueues && !hasRegistries {
+		if !namespaceHasContainers(namespace) && !namespaceHasContainerJobs(namespace) && !namespaceHasCloudDatabaseClusters(namespace) && !namespaceHasVolumes(namespace) && !namespaceHasPrivateRegistries(namespace) && !hasQueues {
 			break
 		}
 
@@ -145,12 +140,8 @@ func namespaceHasCloudDatabaseClusters(namespace api.NamespaceResult) bool {
 	return len(namespace.CloudDatabaseClusters) != 0
 }
 
-func namespaceHasRegistries(client api.Client, namespaceName string) (bool, error) {
-	registries, err := client.ListRegistries(namespaceName)
-	if err != nil {
-		return false, err
-	}
-	return len(registries) > 0, nil
+func namespaceHasPrivateRegistries(namespace api.NamespaceResult) bool {
+	return len(namespace.PrivateRegistries) != 0
 }
 
 func namespaceHasMessageQueues(client api.Client, namespaceName string) (bool, error) {

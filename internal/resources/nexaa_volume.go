@@ -216,6 +216,15 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	client := api.NewClient()
 
+	updateTimeout := 5 * time.Minute
+	updateCtx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
+	if err := waitForUnlocked(updateCtx, volumeLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Error Updating Volume", "Could not reach an unlocked state: "+err.Error())
+		return
+	}
+
 	volume, err := client.VolumeIncrease(input)
 	if err != nil {
 		resp.Diagnostics.AddError(
