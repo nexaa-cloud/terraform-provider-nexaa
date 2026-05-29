@@ -165,6 +165,10 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// 1) Create
 			{
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before create...")
+					time.Sleep(10 * time.Second)
+				},
 				Config: containerConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, healthPath1),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "id"),
@@ -203,6 +207,10 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					"last_updated",
 					"status",
 				},
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before update...")
+					time.Sleep(5 * time.Second)
+				},
 			},
 
 			// Refresh state so status reflects the actual running state before the update.
@@ -212,6 +220,10 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 
 			// 3) Update
 			{
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before update...")
+					time.Sleep(5 * time.Second)
+				},
 				Config: containerUpdateConfig(namespaceName, containerName, registryName, registryUsername, registryPassword, envVar1, envValue1, envVar2, envValue2, healthPath2, randomPort),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:alpine"),
@@ -339,6 +351,10 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "0"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before create	...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 			// 2) Apply the same config again - should result in no changes
 			{
@@ -351,6 +367,10 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "image", "nginx:latest"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "0"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before update...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 
 			{
@@ -427,6 +447,10 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 					// domain_name should be computed and set by the provider
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "ingresses.0.domain_name"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before create	...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 			// 2) Apply the same config again - should result in no changes
 			{
@@ -443,6 +467,10 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 					// domain_name should remain the same computed value
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "ingresses.0.domain_name"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before update...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 
 			{
@@ -520,6 +548,10 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.com"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before create	...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 			// Refresh state so status reflects the actual running state before the next apply.
 			{
@@ -538,6 +570,10 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.org"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before update...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 
 			{
