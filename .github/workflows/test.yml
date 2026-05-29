@@ -48,7 +48,7 @@ jobs:
       NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
     timeout-minutes: 15
     strategy:
-      fail-fast: true
+      fail-fast: false
       max-parallel: 1
       matrix:
         terraform:
