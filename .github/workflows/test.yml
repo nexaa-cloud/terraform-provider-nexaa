@@ -46,7 +46,7 @@ jobs:
       TILAA_ENV: ${{ secrets.TILAA_ENV }}
       NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
       NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       max-parallel: 1
