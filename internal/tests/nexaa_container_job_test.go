@@ -156,6 +156,10 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"state",
 					"timeouts",
 				},
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before import...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 			{
 				RefreshState: true,
@@ -170,6 +174,10 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before update...")
+					time.Sleep(10 * time.Second)
+				},
 			},
 
 			{
