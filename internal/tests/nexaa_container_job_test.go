@@ -22,7 +22,7 @@ data "nexaa_container_resources" "job" {
 }
 
 resource "nexaa_container_job" "job" {
-  depends_on = [nexaa_registry.registry]
+  depends_on = [nexaa_registry.registry, nexaa_namespace.ns]
   namespace  = nexaa_namespace.ns.name
   name       = %q
   image      = %q
@@ -47,7 +47,7 @@ data "nexaa_container_resources" "job" {
 }
 
 resource "nexaa_container_job" "job" {
-  depends_on = [nexaa_registry.registry]
+  depends_on = [nexaa_registry.registry, nexaa_namespace.ns]
   namespace  = nexaa_namespace.ns.name
   name       = %q
   image      = %q
@@ -111,8 +111,8 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 	registryName := generateTestRegistryName()
 	registryUsername := generateTestUsername()
 	registryPassword := generateTestPassword()
-	entrypoint := generateTestEntrypoint()
-	command := generateTestCommands()
+	entrypoint := `["/bin/sh"]`
+	command := `["-c", "echo hello"]`
 	schedule := generateTestSchedule()
 
 	t.Logf("=== CONTAINER JOB TEST USING NAMESPACE: %s ===", namespaceName)
@@ -121,6 +121,10 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before update...")
+					time.Sleep(5 * time.Second)
+				},
 				Config: containerJobConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, image, entrypoint, command, schedule),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
@@ -131,6 +135,9 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
 				),
+			},
+			{
+				RefreshState: true,
 			},
 
 			// 2) ImportState
@@ -148,12 +155,19 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"timeouts",
 				},
 			},
+
+			// Refresh state so status reflects the actual running state before the update.
 			{
 				RefreshState: true,
 			},
+
 			// 3) Update — also exercises setting a private registry
 			{
-				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before update...")
+					time.Sleep(5 * time.Second)
+				},
+				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh"]`, `["-c", "echo update"]`, "* * 1 * *"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:alpine"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
@@ -164,7 +178,8 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 			},
 
 			{
-				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh", "-c"]`, `["ping", "google.com"]`, "* * 1 * *"),
+
+				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh"]`, `["-c", "echo update"]`, "* * 1 * *"),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")
