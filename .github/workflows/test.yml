@@ -48,7 +48,8 @@ jobs:
       NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
     timeout-minutes: 15
     strategy:
-      fail-fast: false
+      fail-fast: true
+      max-parallel: 1
       matrix:
         terraform:
           - '1.15.*'
@@ -109,4 +110,4 @@ jobs:
           NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
           NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
         working-directory: .
-        run: TF_ACC=1 go test -v -cover ./internal/tests/...
+        run: TF_ACC=1 go test -v -cover -timeout 20m ./internal/tests/...
