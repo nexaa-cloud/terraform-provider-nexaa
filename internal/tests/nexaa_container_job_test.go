@@ -98,6 +98,15 @@ func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
 					"timeouts",
 				},
 			},
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, "") +
+					givenContainerJobPublic(containerJobName, "nginx:latest", command, entrypoint, schedule),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
 		},
 	})
 }
