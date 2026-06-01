@@ -82,6 +82,17 @@ func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
 					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "name", containerJobName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "true"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "schedule", schedule),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.0", "echo"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.1", "hello"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "entrypoint.0", "/bin/bash"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "mount.#", "0"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "state"),
 				),
 			},
 			// ImportState with no private registry — exercises the nil pointer fix in ImportState
@@ -97,10 +108,14 @@ func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
 					"state",
 					"timeouts",
 				},
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before import...")
+					time.Sleep(5 * time.Second)
+				},
 			},
 			{
 				Config: givenProvider() + givenNamespace(namespaceName, "") +
-					givenContainerJobPublic(containerJobName, "nginx:latest", command, entrypoint, schedule),
+					givenContainerJobPublic(containerJobName, "nginx:alpine", command, entrypoint, schedule),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")

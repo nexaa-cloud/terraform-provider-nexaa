@@ -141,7 +141,7 @@ func TestAcc_StarterContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "command.2", "daemon off;"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "entrypoint.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "entrypoint.0", "/docker-entrypoint.sh"),
-					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "ports.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "ports.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_starter_container.starter_container", "health_check.port", "80"),
