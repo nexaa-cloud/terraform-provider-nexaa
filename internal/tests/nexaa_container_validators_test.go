@@ -53,16 +53,13 @@ func TestAcc_ContainerResource_InvalidIngressDomain_HttpsPrefix(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create namespace first so it exists in state for cleanup after the expected failure.
 			{
 				Config: givenProvider() + givenNamespace(namespaceName, ""),
 			},
-			// Container create passes plan validation but the backend rejects the https:// domain during apply.
 			{
 				Config:      givenProvider() + givenNamespace(namespaceName, "") + containerWithHttpsDomainIngress(containerName),
-				ExpectError: regexp.MustCompile(`(?i)domain|invalid|ingress|https`),
+				ExpectError: regexp.MustCompile(`(?i)valid hostname`),
 			},
-			// Destroy namespace.
 			{
 				Config:  givenProvider() + givenNamespace(namespaceName, ""),
 				Destroy: true,
