@@ -444,9 +444,9 @@ type AttributeInfo struct {
 
 func printText(resources []*ResourceCoverage, overall float64, threshold int) int {
 	fmt.Println()
-	fmt.Println("╔══════════════════════════════════════════════════════════════════╗")
-	fmt.Println("║              Terraform Schema Coverage Report                    ║")
-	fmt.Println("╚══════════════════════════════════════════════════════════════════╝")
+	fmt.Println("	╔══════════════════════════════════════════════════════════════════╗")
+	fmt.Println("	║                Terraform Schema Coverage Report                  ║")
+	fmt.Println("	╚══════════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 
 	for _, rc := range resources {
@@ -506,7 +506,7 @@ func modifierStr(attr Attribute) string {
 func main() {
 	resourcesDir := flag.String("resources", "./internal/resources", "path to resource schema definitions")
 	testsDir := flag.String("tests", "./internal/tests", "path to acceptance test files")
-	threshold := flag.Int("threshold", 0, "fail if overall coverage is below this percentage (0 = disabled)")
+	threshold := flag.Int("threshold", 100, "fail if overall coverage is below this percentage (0 = disabled)")
 	format := flag.String("format", "text", "output format: text or json")
 	flag.Parse()
 

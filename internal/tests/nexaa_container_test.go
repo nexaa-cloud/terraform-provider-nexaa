@@ -5,7 +5,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 	"time"
@@ -112,7 +111,7 @@ resource "nexaa_container" "container" {
 
   resources = data.nexaa_container_resources.medium.id
 
-  ports = ["80:80", "%d:%d"]
+  ports = ["80:80", "%d:%d", "5000"]
 
   environment_variables = [
     {
@@ -135,6 +134,14 @@ resource "nexaa_container" "container" {
       allowlist  = ["0.0.0.0/0"]
     }
   ]
+
+  external_connection = {
+    ports = [{
+      internal_port = 5000
+      protocol      = "TCP"
+      allowlist     = ["172.16.254.1"]
+    }]
+  }
 
   health_check = {
     port = 80
@@ -194,6 +201,13 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ipv4"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ipv6"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.#", "1"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ports.0.external_port"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.internal_port", "8080"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.protocol", "TCP"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.allowlist.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.allowlist.0", "192.168.1.1/32"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", "/"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.type", "auto"),
@@ -246,13 +260,21 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.0", "/docker-entrypoint.sh"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources", "CPU_500_RAM_1000"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "2"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "3"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "2"),
 					checkEnvironmentVariablesSet(map[string]string{envVar1: envValue1, envVar2: envValue2}),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.tls", "true"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.allowlist.0", "0.0.0.0/0"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ipv4"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ipv6"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.#", "1"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ports.0.external_port"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.internal_port", "5000"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.protocol", "TCP"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.allowlist.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "external_connection.ports.0.allowlist.0", "172.16.254.1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", healthPath2),
@@ -365,7 +387,23 @@ func TestAcc_ContainerResource_Minimal(t *testing.T) {
 					time.Sleep(10 * time.Second)
 				},
 			},
-			// 2) Apply the same config again - should result in no changes
+			// 2) ImportState
+			{
+				ResourceName:      "nexaa_container.container",
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s/%s", namespaceName, containerName),
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"registry",
+					"last_updated",
+					"status",
+				},
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before import...")
+					time.Sleep(5 * time.Second)
+				},
+			},
+			// 3) Apply the same config again - should result in no changes
 			{
 				Config:   minimalContainerConfig(namespaceName, containerName),
 				PlanOnly: true,
@@ -429,9 +467,7 @@ resource "nexaa_container" "container" {
 }
 
 func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-	}
+	testAccPreCheck(t)
 
 	// Generate random test data
 	namespaceName := generateTestNamespace()
@@ -461,7 +497,27 @@ func TestAcc_ContainerResource_IngressDomainNamePlanStability(t *testing.T) {
 					time.Sleep(10 * time.Second)
 				},
 			},
-			// 2) Apply the same config again - should result in no changes
+			
+			// 2) ImportState
+			{
+				ResourceName:      "nexaa_container.container",
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s/%s", namespaceName, containerName),
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"registry",
+					"mounts",
+					"ingresses.0.domain_name",
+					"last_updated",
+					"status",
+				},
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before import...")
+					time.Sleep(5 * time.Second)
+				},
+			},
+			
+			// 3) Apply the same config again - should result in no changes
 			{
 				Config:   minimalContainerWithIngressConfig(namespaceName, containerName),
 				PlanOnly: true,
@@ -532,9 +588,7 @@ resource "nexaa_container" "container" {
 }
 
 func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing.T) {
-	if os.Getenv("NEXAA_USERNAME") == "" || os.Getenv("NEXAA_PASSWORD") == "" {
-		t.Fatal("NEXAA_USERNAME and NEXAA_PASSWORD must be set")
-	}
+	testAccPreCheck(t)
 
 	// Generate random test data
 	namespaceName := generateTestNamespace()
@@ -545,6 +599,7 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
+			// 1) Create with minimal config (domain_name omitted)
 			{
 				Config: minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.com"),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -558,14 +613,29 @@ func TestAcc_ContainerResource_IngressDomainNameChangeReplaceExisting(t *testing
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.0.domain_name", "example.com"),
 				),
 				PreConfig: func() {
-					t.Log("Waiting 10 seconds before create	...")
+					t.Log("Waiting 10 seconds before create...")
 					time.Sleep(10 * time.Second)
 				},
 			},
-			// Refresh state so status reflects the actual running state before the next apply.
+			// 2) ImportState
 			{
-				RefreshState: true,
+				ResourceName:      "nexaa_container.container",
+				ImportState:       true,
+				ImportStateId:     fmt.Sprintf("%s/%s", namespaceName, containerName),
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"registry",
+					"mounts",
+					"ingresses.0.domain_name",
+					"last_updated",
+					"status",
+				},
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before import...")
+					time.Sleep(5 * time.Second)
+				},
 			},
+			// 3) Update domain_name to a different value
 			{
 				Config: minimalContainerWithDomainNameConfig(namespaceName, containerName, "example.org"),
 
