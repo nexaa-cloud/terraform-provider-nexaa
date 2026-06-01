@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
@@ -36,6 +37,11 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 				ImportStateId:           namespaceName,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"last_updated"},
+			},
+			// Attempt to update the description — provider must reject this
+			{
+				Config:      givenProvider() + givenNamespace(namespaceName, "a different description"),
+				ExpectError: regexp.MustCompile(`You can't change your namespace`),
 			},
 			{
 				Config:  givenProvider() + givenNamespace(namespaceName, description),

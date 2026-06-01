@@ -31,4 +31,16 @@ jobs:
           NEXAA_KEYCLOAK_URL: ${{ secrets.NEXAA_KEYCLOAK_URL }}
           NEXAA_GRAPHQL_URL: ${{ secrets.NEXAA_GRAPHQL_URL }}
         working-directory: .
-        run: go test -v -cover ./internal/resources/...
+        run: go test -v -coverprofile=coverage.out -covermode=atomic -coverpkg=./internal/... ./internal/resources/...
+
+      - name: Generate coverage HTML report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage-report
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30

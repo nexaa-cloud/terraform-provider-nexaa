@@ -111,6 +111,65 @@ func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
 	})
 }
 
+func TestAcc_ContainerJobResource_enabled_toggle(t *testing.T) {
+	testAccPreCheck(t)
+
+	namespaceName := generateTestNamespace()
+	containerJobName := generateTestContainerJobName()
+	entrypoint := generateTestEntrypoint()
+	command := generateTestCommands()
+	schedule := generateTestSchedule()
+
+	t.Logf("=== CONTAINER JOB ENABLED TOGGLE TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// 1) Create with enabled=true
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, "") +
+					givenContainerJobPublicWithEnabled(containerJobName, "nginx:latest", command, entrypoint, schedule, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "true"),
+				),
+			},
+			// 2) Disable the job
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, "") +
+					givenContainerJobPublicWithEnabled(containerJobName, "nginx:latest", command, entrypoint, schedule, false),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "false"),
+				),
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before disable...")
+					time.Sleep(5 * time.Second)
+				},
+			},
+			// 3) Re-enable the job
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, "") +
+					givenContainerJobPublicWithEnabled(containerJobName, "nginx:latest", command, entrypoint, schedule, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "true"),
+				),
+				PreConfig: func() {
+					t.Log("Waiting 5 seconds before re-enable...")
+					time.Sleep(5 * time.Second)
+				},
+			},
+			{
+				Config:  givenProvider() + givenNamespace(namespaceName, "") + givenContainerJobPublicWithEnabled(containerJobName, "nginx:latest", command, entrypoint, schedule, true),
+				Destroy: true,
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before destroy...")
+					time.Sleep(10 * time.Second)
+				},
+			},
+		},
+	})
+}
+
 func TestAcc_ContainerJobResource_basic(t *testing.T) {
 	testAccPreCheck(t)
 

@@ -154,34 +154,6 @@ type ClusterRef struct {
 	Name      types.String `tfsdk:"name"`
 }
 
-type PlanType struct {
-	basetypes.ObjectType
-}
-
-func NewPlanType() PlanType {
-	return PlanType{
-		ObjectType: types.ObjectType{
-			AttrTypes: PlanAttributes(),
-		},
-	}
-}
-
-type Plan struct {
-	Replicas types.Int64 `tfsdk:"replicas"`
-	Cpu      types.Int64 `tfsdk:"cpu"`
-	Memory   types.Int64 `tfsdk:"memory"`
-	Storage  types.Int64 `tfsdk:"storage"`
-}
-
-func PlanAttributes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"replicas": types.Int64Type,
-		"memory":   types.Int64Type,
-		"storage":  types.Int64Type,
-		"cpu":      types.Int64Type,
-	}
-}
-
 type SpecType struct {
 	basetypes.ObjectType
 }

@@ -252,7 +252,7 @@ resource "nexaa_container_job" "job" {
 `, name, image, command, entrypoint, schedule)
 }
 
-func givenContainerJob(name string, image string, command string, entrypoint string, schedule string) string {
+func givenContainerJobPublicWithEnabled(name string, image string, command string, entrypoint string, schedule string, enabled bool) string {
 	if name == "" {
 		name = generateTestContainerJobName()
 	}
@@ -264,22 +264,17 @@ data "nexaa_container_resources" "small" {
 }
 ` + fmt.Sprintf(
 		`
-data "nexaa_container_resources" "job" {
-  cpu    = 0.25
-  memory = 0.5
-}
-
 resource "nexaa_container_job" "job" {
   namespace  = nexaa_namespace.ns.name
   name       = %q
   image      = %q
-  registry   = nexaa_registry.registry.name
   command    = %s
   entrypoint = %s
-  resources = data.nexaa_container_resources.job.id
-  schedule = %q
+  resources  = data.nexaa_container_resources.small.id
+  schedule   = %q
+  enabled    = %t
 }
-`, name, image, command, entrypoint, schedule)
+`, name, image, command, entrypoint, schedule, enabled)
 }
 
 func givenCloudDatabaseCluster(name string, dbType string, version string, cpu string, memory string, storage string, replicas string, allowlist []string) string {
@@ -328,7 +323,7 @@ func givenCloudDatabaseClusterDatabase(dbName string, dbDescription string) stri
 	}`, dbName, dbDescription)
 }
 
-func givenCloudDatabaseClusterUser(userName string) string {
+func givenCloudDatabaseClusterUser(userName string, permission string) string {
 	return fmt.Sprintf(`
 	variable "password" {
 	  sensitive = true
@@ -346,12 +341,12 @@ func givenCloudDatabaseClusterUser(userName string) string {
 		permissions = [
 			{
 				database_name = nexaa_cloud_database_cluster_database.db1.name,
-				permission = "read_write",
+				permission = %q,
 				state = "present",
 			}
 		]
 	}
-`, userName)
+`, userName, permission)
 }
 
 func givenMessageQueue(name string, queueType string, version string, cpu string, memory string, storage string, replicas string, externalConnAllowlist []string) string {

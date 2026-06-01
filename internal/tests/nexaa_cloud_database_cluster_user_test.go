@@ -12,12 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func cloudDatabaseClusterUserConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string, databaseName string, databaseDescription string, user string, allowlist []string) string {
+func cloudDatabaseClusterUserConfig(namespaceName string, clusterName string, dbType string, version string, cpu string, memory string, storage string, replicas string, databaseName string, databaseDescription string, user string, permission string, allowlist []string) string {
 	return givenProvider() +
 		givenNamespace(namespaceName, "") +
 		givenCloudDatabaseCluster(clusterName, dbType, version, cpu, memory, storage, replicas, allowlist) +
 		givenCloudDatabaseClusterDatabase(databaseName, databaseDescription) +
-		givenCloudDatabaseClusterUser(user)
+		givenCloudDatabaseClusterUser(user, permission)
 }
 
 func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
@@ -38,7 +38,7 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, "read_write", []string{"192.168.1.1"}),
 				ConfigVariables: config.Variables{
 					"password": config.StringVariable(password),
 				},
@@ -62,11 +62,12 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 					"password": config.StringVariable(password),
 				},
 			},
-			// Update and Read testing — re-apply the same config to verify stability
+			// Update: change permission from read_write to read_only
 			{
-				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config: cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, "read_only", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster_user.user", "id"),
+					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster_user.user", "permissions.#", "1"),
 				),
 				ConfigVariables: config.Variables{
 					"password": config.StringVariable(password),
@@ -74,7 +75,7 @@ func TestAccCloudDatabaseClusterUserResource(t *testing.T) {
 			},
 			// Delete testing automatically occurs in TestCase
 			{
-				Config:  cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, []string{"192.168.1.1"}),
+				Config:  cloudDatabaseClusterUserConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", user, "read_only", []string{"192.168.1.1"}),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")

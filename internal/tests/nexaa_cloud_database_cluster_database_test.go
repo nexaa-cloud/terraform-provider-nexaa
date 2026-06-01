@@ -50,7 +50,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 				ImportStateId:           fmt.Sprintf("%s/%s/database/%s", namespaceName, clusterName, databaseName),
 				ImportStateVerifyIgnore: []string{"last_updated", "description"},
 			},
-			// Update and Read testing — change description to exercise the update path
+			// Re-apply to verify plan stability (description is immutable, no update path exists)
 			{
 				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -59,8 +59,7 @@ func TestAccCloudDatabaseClusterDatabaseResource(t *testing.T) {
 			},
 			// Delete testing automatically occurs in TestCase
 			{
-				Config: cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
-
+				Config:  cloudDatabaseClusterDatabaseConfig(namespaceName, clusterName, "PostgreSQL", "18.1", "1", "2", "10", "1", databaseName, "", []string{"192.168.1.1"}),
 				Destroy: true,
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before destroy...")

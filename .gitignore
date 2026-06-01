@@ -39,6 +39,8 @@ go.work.sum
 CLAUDE.md
 
 terraform-test/
+**/coverage-*.*
+**/coverage.*
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate

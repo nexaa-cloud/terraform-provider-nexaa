@@ -7,6 +7,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -55,7 +56,7 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"last_updated", "status"},
 			},
 
-			// 3) Update & Read
+			// 3) Update & Read (increase)
 			{
 				Config: volumeConfig(namespaceName, volumeName, updatedSize),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -65,6 +66,16 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 				),
 				PreConfig: func() {
 					t.Log("Waiting 10 seconds before update...")
+					time.Sleep(10 * time.Second)
+				},
+			},
+
+			// 4) Attempt to decrease size — API must reject this
+			{
+				Config:      volumeConfig(namespaceName, volumeName, initialSize),
+				ExpectError: regexp.MustCompile(`Error Updating Volume`),
+				PreConfig: func() {
+					t.Log("Waiting 10 seconds before decrease attempt...")
 					time.Sleep(10 * time.Second)
 				},
 			},
