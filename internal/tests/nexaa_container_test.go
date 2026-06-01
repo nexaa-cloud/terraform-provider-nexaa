@@ -36,7 +36,7 @@ resource "nexaa_container" "container" {
 
   resources = data.nexaa_container_resources.small.id
 
-  ports = ["80:80"]
+  ports = ["80:80", "8080"]
 
   environment_variables = [
     {
@@ -54,6 +54,14 @@ resource "nexaa_container" "container" {
       allowlist  = ["0.0.0.0/0"]
     }
   ]
+
+  external_connection = {
+    ports = [{
+      internal_port = 8080
+      protocol      = "TCP"
+      allowlist     = ["192.168.1.1/32"]
+    }]
+  }
 
   health_check = {
     port = 80
@@ -182,9 +190,10 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "entrypoint.0", "/docker-entrypoint.sh"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "resources", "CPU_250_RAM_500"),
-					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_container.container", "ports.#", "2"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "environment_variables.#", "1"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "ingresses.#", "1"),
+					resource.TestCheckResourceAttrSet("nexaa_container.container", "external_connection.ipv4"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.port", "80"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "health_check.path", "/"),
 					resource.TestCheckResourceAttr("nexaa_container.container", "scaling.type", "auto"),
@@ -208,7 +217,7 @@ func TestAcc_ContainerResource_basic(t *testing.T) {
 					"status",
 				},
 				PreConfig: func() {
-					t.Log("Waiting 5 seconds before update...")
+					t.Log("Waiting 5 seconds before import...")
 					time.Sleep(5 * time.Second)
 				},
 			},

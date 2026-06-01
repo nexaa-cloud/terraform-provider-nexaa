@@ -38,6 +38,7 @@ func TestAccCloudDatabaseClusterResource(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.type", "PostgreSQL"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "spec.version", "18.1"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "id"),
+					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "hostname"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv4"),
 					resource.TestCheckResourceAttrSet("nexaa_cloud_database_cluster.cluster-database", "external_connection.ipv6"),
 					resource.TestCheckResourceAttr("nexaa_cloud_database_cluster.cluster-database", "external_connection.ports.allowlist.#", "1"),

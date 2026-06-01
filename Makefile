@@ -1,4 +1,4 @@
-default: fmt vet lint install generate
+default: fmt vet lint install generate coverage
 
 build:
 	go build -v ./...
@@ -15,7 +15,7 @@ generate:
 fmt:
 	gofmt -s -w -e .
 
-validate: fmt vet lint
+validate: fmt vet lint coverage
 
 test: s=resources
 test:
@@ -24,7 +24,10 @@ test:
 testacc:
 	TF_ACC=1 go test -v -count=1 -cover -p 1 -timeout 120m ./internal/tests/...
 
-.PHONY: fmt vet lint test testacc build install generate
+.PHONY: fmt vet lint test testacc coverage build install generate
 
 vet:
 	go vet -v ./...
+
+coverage:
+	go run ./tools/schema-coverage.go --resources ./internal/resources --tests ./internal/tests

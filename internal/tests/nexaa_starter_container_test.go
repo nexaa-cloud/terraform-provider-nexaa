@@ -27,7 +27,7 @@ resource "nexaa_starter_container" "starter_container" {
   command = ["nginx", "-g", "daemon off;"]
   entrypoint = ["/docker-entrypoint.sh"]
 
-  ports = ["80:80"]
+  ports = ["80:80", "8080"]
 
   environment_variables = [
     {
@@ -36,6 +36,14 @@ resource "nexaa_starter_container" "starter_container" {
       secret = false
     }
   ]
+
+  external_connection = {
+    ports = [{
+      internal_port = 8080
+      protocol      = "TCP"
+      allowlist     = ["192.168.1.1/32"]
+    }]
+  }
 
   ingresses = [
     {
