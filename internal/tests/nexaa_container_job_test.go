@@ -142,8 +142,8 @@ func TestAcc_ContainerJobResource_enabled_toggle(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "false"),
 				),
 				PreConfig: func() {
-					t.Log("Waiting 5 seconds before disable...")
-					time.Sleep(5 * time.Second)
+					t.Log("Waiting 10 seconds before disable...")
+					time.Sleep(10 * time.Second)
 				},
 			},
 			// 3) Re-enable the job
@@ -154,8 +154,8 @@ func TestAcc_ContainerJobResource_enabled_toggle(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "true"),
 				),
 				PreConfig: func() {
-					t.Log("Waiting 5 seconds before re-enable...")
-					time.Sleep(5 * time.Second)
+					t.Log("Waiting 10 seconds before re-enable...")
+					time.Sleep(10 * time.Second)
 				},
 			},
 			{
