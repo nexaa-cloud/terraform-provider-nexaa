@@ -827,7 +827,7 @@ func (r *starterContainerResource) Update(ctx context.Context, req resource.Upda
 	}
 
 	// Ingresses
-	ingressesList, d := buildIngressesFromApi(containerResult)
+	ingressesList, d := buildIngressesFromApiInPlanOrder(ctx, containerResult, plan.Ingresses)
 	resp.Diagnostics.Append(d...)
 	if resp.Diagnostics.HasError() {
 		return
