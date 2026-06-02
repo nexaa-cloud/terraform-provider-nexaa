@@ -95,7 +95,7 @@ func TestAcc_ContainerJobResource_public_registry(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "state"),
 				),
 			},
-			// ImportState with no private registry — exercises the nil pointer fix in ImportState
+			// ImportState with no private registry
 			{
 				ResourceName:      "nexaa_container_job.job",
 				ImportState:       true,
@@ -146,7 +146,7 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				PreConfig: func() {
-					t.Log("Waiting 5 seconds before update...")
+					t.Log("Waiting 5 seconds before create...")
 					time.Sleep(5 * time.Second)
 				},
 				Config: containerJobConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, image, entrypoint, command, schedule),
@@ -154,10 +154,17 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:latest"),
 					resource.TestCheckNoResourceAttr("nexaa_container_job.job", "registry"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "name", containerJobName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "false"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "schedule", schedule),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.0", "-c"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.1", "echo hello"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "entrypoint.0", "/bin/sh"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "state"),
 				),
 			},
 			{
@@ -178,6 +185,9 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 					"state",
 					"timeouts",
 				},
+				PreConfig: func() {
+					t.Log("Importing...")
+				},
 			},
 
 			// Refresh state so status reflects the actual running state before the update.
@@ -193,16 +203,24 @@ func TestAcc_ContainerJobResource_basic(t *testing.T) {
 				},
 				Config: containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh"]`, `["-c", "echo update"]`, "* * 1 * *"),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "id"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "image", "nginx:alpine"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "registry", registryName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "name", containerJobName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "namespace", namespaceName),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "enabled", "false"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "resources", "CPU_250_RAM_500"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "schedule", "* * 1 * *"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.0", "-c"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "command.1", "echo update"),
+					resource.TestCheckResourceAttr("nexaa_container_job.job", "entrypoint.0", "/bin/sh"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "mounts.#", "0"),
 					resource.TestCheckResourceAttr("nexaa_container_job.job", "environment_variables.#", "0"),
+					resource.TestCheckResourceAttrSet("nexaa_container_job.job", "state"),
 				),
 			},
 
 			{
-
 				Config:  containerJobUpdateConfig(namespaceName, registryName, registryUsername, registryPassword, containerJobName, "nginx:alpine", `["/bin/sh"]`, `["-c", "echo update"]`, "* * 1 * *"),
 				Destroy: true,
 				PreConfig: func() {
