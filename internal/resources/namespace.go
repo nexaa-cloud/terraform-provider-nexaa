@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
-func waitForNamespaceToBeRemoved(ctx context.Context, client api.Client, namespaceName string) error {
+func waitForNamespaceToBeRemoved(ctx context.Context, client nexaaclient.NexaaAPI, namespaceName string) error {
 	const (
 		initialDelay = 2 * time.Second
 		maxDelay     = 15 * time.Second
@@ -42,7 +43,7 @@ func waitForNamespaceToBeRemoved(ctx context.Context, client api.Client, namespa
 	}
 }
 
-func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, namespaceName string) error {
+func waitForAllChildrenToBeRemoved(ctx context.Context, client nexaaclient.NexaaAPI, namespaceName string) error {
 	const (
 		initialDelay = 2 * time.Second
 		maxDelay     = 15 * time.Second
@@ -84,7 +85,7 @@ func waitForAllChildrenToBeRemoved(ctx context.Context, client api.Client, names
 	return nil
 }
 
-func deleteNamespaceWithRetry(ctx context.Context, client api.Client, namespaceName string) error {
+func deleteNamespaceWithRetry(ctx context.Context, client nexaaclient.NexaaAPI, namespaceName string) error {
 	const (
 		initialDelay = 5 * time.Second
 		maxDelay     = 30 * time.Second
@@ -144,7 +145,7 @@ func namespaceHasPrivateRegistries(namespace api.NamespaceResult) bool {
 	return len(namespace.PrivateRegistries) != 0
 }
 
-func namespaceHasMessageQueues(client api.Client, namespaceName string) (bool, error) {
+func namespaceHasMessageQueues(client nexaaclient.NexaaAPI, namespaceName string) (bool, error) {
 	queues, err := client.MessageQueueList()
 	if err != nil {
 		return false, err

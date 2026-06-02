@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
 func translateApiToVolumeResource(plan volumeResource, volume api.VolumeResult) volumeResource {
@@ -23,7 +24,7 @@ func translateApiToVolumeResource(plan volumeResource, volume api.VolumeResult) 
 	return plan
 }
 
-func waitForAllContainersToBeUnmounted(ctx context.Context, client api.Client, namespace string, volumeName string) error {
+func waitForAllContainersToBeUnmounted(ctx context.Context, client nexaaclient.NexaaAPI, namespace string, volumeName string) error {
 	const (
 		initialDelay = 2 * time.Second
 		maxDelay     = 15 * time.Second

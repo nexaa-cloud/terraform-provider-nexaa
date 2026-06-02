@@ -123,7 +123,7 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	r.nexaaClient.Lock("volume:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("volume:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	if existing, checkErr := client.ListVolumeByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr != nil {
 		resp.Diagnostics.AddError("Error checking for existing volume",
 			"Could not verify name availability: "+checkErr.Error())
@@ -163,7 +163,7 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	volume, err := client.ListVolumeByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
@@ -214,13 +214,13 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	updateTimeout := 5 * time.Minute
 	updateCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	if err := waitForUnlocked(updateCtx, volumeLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString()); err != nil {
+	if err := waitForUnlocked(updateCtx, volumeLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Error Updating Volume", "Could not reach an unlocked state: "+err.Error())
 		return
 	}
@@ -264,18 +264,18 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	namespaceName := state.Namespace.ValueString()
 	volumeName := state.Name.ValueString()
 
-	err := waitForUnlocked(ctx, volumeLocked(), *client, namespaceName, volumeName)
+	err := waitForUnlocked(ctx, volumeLocked(), client, namespaceName, volumeName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting volume", "Could not reach a unlocked state: "+err.Error())
 		return
 	}
 
-	err = waitForAllContainersToBeUnmounted(ctx, *client, namespaceName, volumeName)
+	err = waitForAllContainersToBeUnmounted(ctx, client, namespaceName, volumeName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting volume", "Could not reach a unmounted state: "+err.Error())
 		return
@@ -303,7 +303,7 @@ func (r *volumeResource) ImportState(ctx context.Context, req resource.ImportSta
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	// Fetch the volume using the namespace and volume name
 	volume, err := client.ListVolumeByName(id.Namespace, id.Name)
 	if err != nil {

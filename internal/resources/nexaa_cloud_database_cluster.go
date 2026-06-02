@@ -199,7 +199,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	r.nexaaClient.Lock("cloud-database-cluster:" + plan.Cluster.Namespace.ValueString() + "/" + plan.Cluster.Name.ValueString())
 	defer r.nexaaClient.Unlock("cloud-database-cluster:" + plan.Cluster.Namespace.ValueString() + "/" + plan.Cluster.Name.ValueString())
@@ -241,7 +241,7 @@ func (r *cloudDatabaseClusterResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating cluster", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -291,7 +291,7 @@ func (r *cloudDatabaseClusterResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	input := api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
@@ -361,7 +361,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	//Set up the modify input
 
@@ -381,7 +381,7 @@ func (r *cloudDatabaseClusterResource) Update(ctx context.Context, req resource.
 		return
 	}
 
-	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	err = waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating cluster", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -443,8 +443,8 @@ func (r *cloudDatabaseClusterResource) Delete(ctx context.Context, req resource.
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting cluster", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -478,7 +478,7 @@ func (r *cloudDatabaseClusterResource) ImportState(ctx context.Context, req reso
 	namespace := parts[0]
 	clusterName := parts[1]
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	clusterResourceInput := api.CloudDatabaseClusterResourceInput{
 		Namespace: namespace,
 		Name:      clusterName,

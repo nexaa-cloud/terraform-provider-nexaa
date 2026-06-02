@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -27,6 +28,7 @@ func NewMessageQueuePlans() datasource.DataSource {
 }
 
 type messageQueuePlansDataSource struct {
+	nexaaAPI nexaaclient.NexaaAPI
 }
 
 // messageQueuePlansDataSourceModel is the data source implementation.
@@ -78,6 +80,13 @@ func (d *messageQueuePlansDataSource) Configure(ctx context.Context, req datasou
 	if req.ProviderData == nil {
 		return
 	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	d.nexaaAPI = c.API
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -90,13 +99,12 @@ func (d *messageQueuePlansDataSource) Read(ctx context.Context, req datasource.R
 		return
 	}
 
-	client := api.NewClient()
-	if client == nil {
-		resp.Diagnostics.AddError("Error creating API client", "Failed to create API client")
+	if d.nexaaAPI == nil {
+		resp.Diagnostics.AddError("Provider not configured", "The provider has not been configured. Please ensure the provider block is set up correctly.")
 		return
 	}
 
-	plans, err := client.MessageQueuePlans()
+	plans, err := d.nexaaAPI.MessageQueuePlans()
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading message queue plans", err.Error())
 		return

@@ -267,7 +267,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 	r.nexaaClient.Lock("container-job:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("container-job:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	if _, checkErr := client.ContainerJobByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
 		resp.Diagnostics.AddError("Container job already exists",
 			"A container job named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
@@ -285,7 +285,7 @@ func (r *containerJobResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	err = waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err = waitForUnlocked(ctx, containerJobLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating container job", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -364,7 +364,7 @@ func (r *containerJobResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	// Fetch the created container job
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	containerJob, err := client.ContainerJobByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		if isNotFoundErr(err) {
@@ -548,8 +548,8 @@ func (r *containerJobResource) Update(ctx context.Context, req resource.UpdateRe
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, containerJobLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating container job", "Could not reach an unlocked state: "+err.Error())
@@ -637,8 +637,8 @@ func (r *containerJobResource) Delete(ctx context.Context, req resource.DeleteRe
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, containerJobLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, containerJobLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting container job", "Could not reach an unlocked state: "+err.Error())
@@ -668,7 +668,7 @@ func (r *containerJobResource) ImportState(ctx context.Context, req resource.Imp
 	name := parts[1]
 
 	// Fetch the container job from your API
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	containerJob, err := client.ContainerJobByName(namespace, name)
 	if err != nil {
 		resp.Diagnostics.AddError(

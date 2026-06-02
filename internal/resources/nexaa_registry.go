@@ -154,7 +154,7 @@ func (r *registryResource) Create(ctx context.Context, req resource.CreateReques
 	r.nexaaClient.Lock("registry:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("registry:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	if _, checkErr := client.ListRegistryByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
 		resp.Diagnostics.AddError("Registry already exists",
 			"A registry named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
@@ -201,7 +201,7 @@ func (r *registryResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	registry, err := client.ListRegistryByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
@@ -270,9 +270,9 @@ func (r *registryResource) Delete(ctx context.Context, req resource.DeleteReques
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
-	err := waitForUnlocked(ctx, registryLocked(), *client, state.Namespace.ValueString(), state.Name.ValueString())
+	err := waitForUnlocked(ctx, registryLocked(), client, state.Namespace.ValueString(), state.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting registry", "Could not reach an unlocked state: "+err.Error())
@@ -303,7 +303,7 @@ func (r *registryResource) ImportState(ctx context.Context, req resource.ImportS
 	ns := parts[0]
 	registryName := parts[1]
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	// Fetch the registry using the namespace and registry name
 	registry, err := client.ListRegistryByName(ns, registryName)

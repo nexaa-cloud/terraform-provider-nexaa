@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -22,13 +23,28 @@ import (
 var (
 	_ resource.Resource                = &cloudDatabaseClusterDatabaseResource{}
 	_ resource.ResourceWithImportState = &cloudDatabaseClusterDatabaseResource{}
+	_ resource.ResourceWithConfigure   = &cloudDatabaseClusterDatabaseResource{}
 )
 
 func NewCloudDatabaseClusterDatabaseResource() resource.Resource {
 	return &cloudDatabaseClusterDatabaseResource{}
 }
 
+func (r *cloudDatabaseClusterDatabaseResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 type cloudDatabaseClusterDatabaseResource struct {
+	nexaaClient *nexaaclient.NexaaClient
 	ID          types.String   `tfsdk:"id"`
 	Cluster     ClusterRef     `tfsdk:"cluster"`
 	Name        types.String   `tfsdk:"name"`
@@ -97,8 +113,8 @@ func (r *cloudDatabaseClusterDatabaseResource) Create(ctx context.Context, req r
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating database", "Cloud database cluster is not ready yet: "+err.Error())
@@ -147,40 +163,34 @@ func (r *cloudDatabaseClusterDatabaseResource) Read(ctx context.Context, req res
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	clusterInput := api.CloudDatabaseClusterResourceInput{
 		Name:      plan.Cluster.Name.ValueString(),
 		Namespace: plan.Cluster.Namespace.ValueString(),
 	}
-	cluster, err := client.CloudDatabaseClusterDatabaseList(clusterInput)
+	cluster, err := client.CloudDatabaseClusterGet(clusterInput)
 	if err != nil {
 		if isNotFoundErr(err) {
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("Error reading database", "Could not list clusters: "+err.Error())
+		resp.Diagnostics.AddError("Error reading database", "Could not get cluster: "+err.Error())
 		return
 	}
 
-	if len(cluster.GetDatabases()) == 0 {
+	if len(cluster.Databases) == 0 {
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
 	// Find the database in the cluster
 	var database *api.CloudDatabaseClusterResultDatabasesDatabase
-	for _, db := range cluster.GetDatabases() {
+	for i, db := range cluster.Databases {
 		if db.Name != plan.Name.ValueString() {
 			continue
 		}
-
-		database = &api.CloudDatabaseClusterResultDatabasesDatabase{
-			CloudDatabaseClusterDatabaseResult: api.CloudDatabaseClusterDatabaseResult{
-				Name:        db.Name,
-				Description: db.Description,
-			},
-		}
+		database = &cluster.Databases[i]
 		break
 	}
 
@@ -215,8 +225,8 @@ func (r *cloudDatabaseClusterDatabaseResource) Update(ctx context.Context, req r
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating database", "Cloud database cluster is not ready yet: "+err.Error())
 		return
@@ -274,8 +284,8 @@ func (r *cloudDatabaseClusterDatabaseResource) Delete(ctx context.Context, req r
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting database", "Cloud database cluster is not ready yet: "+err.Error())
@@ -312,7 +322,7 @@ func (r *cloudDatabaseClusterDatabaseResource) ImportState(ctx context.Context, 
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	clusterResourceInput := api.CloudDatabaseClusterResourceInput{
 		Namespace: id.Namespace,
 		Name:      id.Cluster,

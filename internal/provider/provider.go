@@ -148,7 +148,9 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	// Create API client and make it available to resources.
 	// NexaaClient wraps the client with a shared MutexKV that serializes
 	// concurrent Create calls for the same resource name.
-	resp.ResourceData = nexaaclient.New(api.NewClient())
+	client := nexaaclient.New(api.NewClient())
+	resp.ResourceData = client
+	resp.DataSourceData = client
 }
 
 func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resource {
