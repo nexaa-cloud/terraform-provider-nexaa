@@ -1,8 +1,6 @@
 // Copyright Tilaa B.V. 2026
 // SPDX-License-Identifier: MPL-2.0
 
-// internal/tests/volume_test.go
-
 package tests
 
 import (
@@ -87,6 +85,29 @@ func TestAcc_VolumeResource_basic(t *testing.T) {
 					t.Log("Waiting 10 seconds before destroy...")
 					time.Sleep(10 * time.Second)
 				},
+			},
+		},
+	})
+}
+
+func TestAcc_VolumeResource_NameTooLong(t *testing.T) {
+	testAccPreCheck(t)
+	namespaceName := generateTestNamespace()
+	t.Logf("=== VOLUME NAME VALIDATION TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, ""),
+			},
+			{
+				Config:      givenProvider() + givenNamespace(namespaceName, "") + givenVolume("toolongvolname", 1),
+				ExpectError: regexp.MustCompile(`(?i)name|length|long`),
+			},
+			{
+				Config:  givenProvider() + givenNamespace(namespaceName, ""),
+				Destroy: true,
 			},
 		},
 	})

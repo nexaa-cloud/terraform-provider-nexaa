@@ -12,6 +12,97 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+// --- Backend validation helpers ---
+
+func containerStartingWithDigit() string {
+	return `
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
+resource "nexaa_container" "container" {
+  depends_on   = [nexaa_namespace.ns]
+  namespace    = nexaa_namespace.ns.name
+  name         = "1invalid"
+  image        = "nginx:latest"
+  resources    = data.nexaa_container_resources.small.id
+  scaling = {
+    type         = "manual"
+    manual_input = 1
+  }
+  ports = ["80:80"]
+}
+`
+}
+
+func containerJobWithInvalidCron() string {
+	return `
+data "nexaa_container_resources" "small" {
+  cpu    = 0.25
+  memory = 0.5
+}
+
+resource "nexaa_container_job" "job" {
+  namespace  = nexaa_namespace.ns.name
+  name       = "tf-cron-test"
+  image      = "nginx:latest"
+  resources  = data.nexaa_container_resources.small.id
+  schedule   = "not-a-valid-cron"
+}
+`
+}
+
+// --- Backend name/cron validation tests ---
+
+func TestAcc_ContainerResource_NameStartsWithDigit(t *testing.T) {
+	testAccPreCheck(t)
+	namespaceName := generateTestNamespace()
+	t.Logf("=== CONTAINER NAME VALIDATION TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, ""),
+			},
+			{
+				Config:      givenProvider() + givenNamespace(namespaceName, "") + containerStartingWithDigit(),
+				ExpectError: regexp.MustCompile(`(?i)digit|cannot start`),
+			},
+			{
+				Config:  givenProvider() + givenNamespace(namespaceName, ""),
+				Destroy: true,
+			},
+		},
+	})
+}
+
+func TestAcc_ContainerJobResource_InvalidCronSchedule(t *testing.T) {
+	testAccPreCheck(t)
+	namespaceName := generateTestNamespace()
+	t.Logf("=== CONTAINER JOB CRON VALIDATION TEST USING NAMESPACE: %s ===", namespaceName)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: givenProvider() + givenNamespace(namespaceName, ""),
+			},
+			{
+				Config:      givenProvider() + givenNamespace(namespaceName, "") + containerJobWithInvalidCron(),
+				ExpectError: regexp.MustCompile(`(?i)cron|schedule|invalid`),
+			},
+			{
+				Config:  givenProvider() + givenNamespace(namespaceName, ""),
+				Destroy: true,
+			},
+		},
+	})
+}
+
+// --- Backend https domain test ---
+
 func containerWithHttpsDomainIngress(containerName string) string {
 	return `
 data "nexaa_container_resources" "small" {

@@ -30,13 +30,6 @@ func Test_ExternalConnection_null(t *testing.T) {
 }
 
 func Test_ExternalConnection_with_ports(t *testing.T) {
-	// This test is to verify that the ports list is correctly built when the API returns a non-null result.
-
-	// Mock API response with ports
-	// 	Ipv4  string                                                `json:"ipv4"`
-	// Ipv6  string                                                `json:"ipv6"`
-	// Ports []ExternalConnectionResultPortsExternalConnectionPort `json:"ports"`
-
 	metricPort := 9001
 	webServerPort := 80
 
@@ -112,4 +105,30 @@ func Test_ExternalConnection_with_ports(t *testing.T) {
 		expected,
 		externalConnection,
 	)
+}
+
+func Test_ExternalConnection_udp_protocol(t *testing.T) {
+	internalPort := 53
+
+	queryResult := &api.ContainerResultExternalConnection{
+		ExternalConnectionResult: api.ExternalConnectionResult{
+			Ipv4: "203.0.113.5",
+			Ipv6: "2001:db8::1",
+			Ports: []api.ExternalConnectionResultPortsExternalConnectionPort{
+				{
+					AllowList:    []string{"0.0.0.0/0"},
+					ExternalPort: 10053,
+					InternalPort: &internalPort,
+					Protocol:     api.ProtocolUdp,
+				},
+			},
+		},
+	}
+
+	result, diags := buildExternalConnectionWithPortsListFromApi(context.Background(), queryResult)
+	assert.False(t, diags.HasError())
+
+	portsList := result.Attributes()["ports"].(types.List)
+	portObj := portsList.Elements()[0].(types.Object)
+	assert.Equal(t, types.StringValue("UDP"), portObj.Attributes()["protocol"])
 }

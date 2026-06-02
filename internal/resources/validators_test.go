@@ -136,3 +136,29 @@ func Test_NoDuplicateDefaultIngress_unknown_does_not_count_as_null(t *testing.T)
 	})
 	assert.False(t, resp.Diagnostics.HasError())
 }
+
+// --- noEmptyAllowlistValidator ---
+
+func runAllowlistValidator(list types.List) validator.ListResponse {
+	req := validator.ListRequest{ConfigValue: list}
+	var resp validator.ListResponse
+	noEmptyAllowlistValidator{}.ValidateList(context.Background(), req, &resp)
+	return resp
+}
+
+func Test_NoEmptyAllowlist_null_list_allowed(t *testing.T) {
+	resp := runAllowlistValidator(types.ListNull(types.StringType))
+	assert.False(t, resp.Diagnostics.HasError())
+}
+
+func Test_NoEmptyAllowlist_non_empty_list_allowed(t *testing.T) {
+	list := types.ListValueMust(types.StringType, []attr.Value{types.StringValue("0.0.0.0/0")})
+	resp := runAllowlistValidator(list)
+	assert.False(t, resp.Diagnostics.HasError())
+}
+
+func Test_NoEmptyAllowlist_empty_list_errors(t *testing.T) {
+	list := types.ListValueMust(types.StringType, []attr.Value{})
+	resp := runAllowlistValidator(list)
+	assert.True(t, resp.Diagnostics.HasError())
+}

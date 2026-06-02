@@ -5,6 +5,7 @@ package tests
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,19 @@ func TestAcc_NamespaceResource_basic(t *testing.T) {
 					t.Log("Waiting 30 seconds before destroy...")
 					time.Sleep(30 * time.Second)
 				},
+			},
+		},
+	})
+}
+
+func TestAcc_NamespaceResource_DescriptionTooLong(t *testing.T) {
+	testAccPreCheck(t)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      givenProvider() + givenNamespace(generateTestNamespace(), strings.Repeat("a", 121)),
+				ExpectError: regexp.MustCompile(`(?i)description|length|120|characters`),
 			},
 		},
 	})
