@@ -597,7 +597,7 @@ func (r *starterContainerResource) Read(ctx context.Context, req resource.ReadRe
 	}
 
 	// Ingresses
-	ingressesList, diags := buildIngressesFromApi(container)
+	ingressesList, diags := buildIngressesFromApiInPlanOrder(ctx, container, state.Ingresses)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
