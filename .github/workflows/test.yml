@@ -113,7 +113,7 @@ jobs:
         run: TF_ACC=1 go test -v -coverprofile=coverage-acc.out -covermode=atomic -coverpkg=./internal/resources/...,./internal/data-sources/...,./internal/provider/... -count=1 -p 1 -timeout 120m ./internal/tests/...
 
       - name: Generate coverage HTML report
-        run: go tool cover -html=coverage.out -o coverage.html
+        run: go tool cover -html=coverage-acc.out -o coverage.html
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
