@@ -47,6 +47,8 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ipv4"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ipv6"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.#", "2"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.0", "192.168.1.1"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.1", "192.168.1.2"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ports.external_port"),
 				),
 			},
@@ -67,6 +69,7 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "name", queueName),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "namespace", namespaceName),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.#", "1"),
+					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.0", "192.168.1.1"),
 				),
 			},
 			// 4) Delete is automatically tested by TestCase
