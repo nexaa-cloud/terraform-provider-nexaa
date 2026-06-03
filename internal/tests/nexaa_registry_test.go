@@ -36,8 +36,10 @@ func TestAcc_RegistryResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "name", registryName),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "source", "registry.gitlab.com"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "username", username),
+					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "password"),
 					resource.TestCheckResourceAttr("nexaa_registry.registry", "verify", "false"),
 					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "locked"),
+					resource.TestCheckResourceAttrSet("nexaa_registry.registry", "status"),
 				),
 			},
 
