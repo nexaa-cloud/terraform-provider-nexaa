@@ -233,7 +233,7 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 	r.nexaaClient.Lock("message-queue:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("message-queue:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	if existing, checkErr := client.MessageQueueGet(api.MessageQueueResourceInput{
 		Name:      plan.Name.ValueString(),
 		Namespace: plan.Namespace.ValueString(),
@@ -257,7 +257,7 @@ func (r *messageQueueResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	err = waitForUnlocked(ctx, messageQueueLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err = waitForUnlocked(ctx, messageQueueLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating message queue",
@@ -301,7 +301,7 @@ func (r *messageQueueResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	input := api.MessageQueueResourceInput{
 		Name:      state.Name.ValueString(),
@@ -360,7 +360,7 @@ func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRe
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	allowList := buildAllowlistInput(ctx, &state.Allowlist, plan.Allowlist)
 
@@ -381,7 +381,7 @@ func (r *messageQueueResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	err = waitForUnlocked(ctx, messageQueueLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err = waitForUnlocked(ctx, messageQueueLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for message queue to unlock",
@@ -436,8 +436,8 @@ func (r *messageQueueResource) Delete(ctx context.Context, req resource.DeleteRe
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, messageQueueLocked(), *client, state.Namespace.ValueString(), state.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, messageQueueLocked(), client, state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for message queue to unlock",
@@ -476,7 +476,7 @@ func (r *messageQueueResource) ImportState(ctx context.Context, req resource.Imp
 	ns := parts[0]
 	queueName := parts[1]
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	input := api.MessageQueueResourceInput{
 		Name:      queueName,
 		Namespace: ns,

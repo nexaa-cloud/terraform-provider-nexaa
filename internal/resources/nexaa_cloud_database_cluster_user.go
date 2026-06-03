@@ -19,18 +19,34 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
 var (
 	_ resource.Resource                = &cloudDatabaseClusterUserResource{}
 	_ resource.ResourceWithImportState = &cloudDatabaseClusterUserResource{}
+	_ resource.ResourceWithConfigure   = &cloudDatabaseClusterUserResource{}
 )
 
 func NewDatabaseUserResource() resource.Resource {
 	return &cloudDatabaseClusterUserResource{}
 }
 
+func (r *cloudDatabaseClusterUserResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	r.nexaaClient = c
+}
+
 type cloudDatabaseClusterUserResource struct {
+	nexaaClient *nexaaclient.NexaaClient
 	ID          types.String   `tfsdk:"id"`
 	Cluster     ClusterRef     `tfsdk:"cluster"`
 	Name        types.String   `tfsdk:"name"`
@@ -129,8 +145,8 @@ func (r *cloudDatabaseClusterUserResource) Create(ctx context.Context, req resou
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating user", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -192,7 +208,7 @@ func (r *cloudDatabaseClusterUserResource) Read(ctx context.Context, req resourc
 		name = id.Cluster
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	clusterInput := api.CloudDatabaseClusterResourceInput{
 		Name:      name,
 		Namespace: namespace,
@@ -238,8 +254,8 @@ func (r *cloudDatabaseClusterUserResource) Update(ctx context.Context, req resou
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating user", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -298,8 +314,8 @@ func (r *cloudDatabaseClusterUserResource) Delete(ctx context.Context, req resou
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), *client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, cloudDatabaseClusterLocked(), client, plan.Cluster.Namespace.ValueString(), plan.Cluster.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting user", "Could not reach a unlocked state: "+err.Error())
 		return
@@ -340,7 +356,7 @@ func (r *cloudDatabaseClusterUserResource) ImportState(ctx context.Context, req 
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	clusterResourceInput := api.CloudDatabaseClusterResourceInput{
 		Namespace: id.Namespace,
 		Name:      id.Cluster,

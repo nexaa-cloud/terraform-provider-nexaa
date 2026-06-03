@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -29,6 +30,7 @@ func NewCloudDatabaseClusterPlans() datasource.DataSource {
 }
 
 type cloudDatabasePlansDataSource struct {
+	nexaaAPI nexaaclient.NexaaAPI
 }
 
 // cloudDatabasePlansDataSource is the data source implementation.
@@ -124,6 +126,13 @@ func (d *cloudDatabasePlansDataSource) Configure(ctx context.Context, req dataso
 	if req.ProviderData == nil {
 		return
 	}
+	c, ok := req.ProviderData.(*nexaaclient.NexaaClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Provider Data Type",
+			"Expected *nexaaclient.NexaaClient. Report this issue to the provider developers.")
+		return
+	}
+	d.nexaaAPI = c.API
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -136,13 +145,12 @@ func (d *cloudDatabasePlansDataSource) Read(ctx context.Context, req datasource.
 		return
 	}
 
-	client := api.NewClient()
-	if client == nil {
-		resp.Diagnostics.AddError("Error creating API client", "Failed to create API client")
+	if d.nexaaAPI == nil {
+		resp.Diagnostics.AddError("Provider not configured", "The provider has not been configured. Please ensure the provider block is set up correctly.")
 		return
 	}
 
-	plans, err := client.CloudDatabaseClusterListPlans()
+	plans, err := d.nexaaAPI.CloudDatabaseClusterListPlans()
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading plans", err.Error())
 		return

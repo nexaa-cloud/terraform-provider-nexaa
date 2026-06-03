@@ -9,12 +9,13 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/nexaa-cloud/nexaa-cli/api"
+	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
 )
 
-type fetchResourceLocked func(client api.Client, namespace string, resourceName string) (bool, error)
+type fetchResourceLocked func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error)
 
 func containerLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.ListContainerByName(
 			namespace,
 			resourceName,
@@ -29,7 +30,7 @@ func containerLocked() fetchResourceLocked {
 }
 
 func containerJobLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.ContainerJobByName(
 			namespace,
 			resourceName,
@@ -44,7 +45,7 @@ func containerJobLocked() fetchResourceLocked {
 }
 
 func volumeLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.ListVolumeByName(
 			namespace,
 			resourceName,
@@ -65,7 +66,7 @@ func volumeLocked() fetchResourceLocked {
 }
 
 func cloudDatabaseClusterLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.CloudDatabaseClusterGet(
 			api.CloudDatabaseClusterResourceInput{
 				Namespace: namespace,
@@ -82,7 +83,7 @@ func cloudDatabaseClusterLocked() fetchResourceLocked {
 }
 
 func messageQueueLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.MessageQueueGet(
 			api.MessageQueueResourceInput{
 				Namespace: namespace,
@@ -99,7 +100,7 @@ func messageQueueLocked() fetchResourceLocked {
 }
 
 func registryLocked() fetchResourceLocked {
-	return func(client api.Client, namespace string, resourceName string) (bool, error) {
+	return func(client nexaaclient.NexaaAPI, namespace string, resourceName string) (bool, error) {
 		resource, err := client.ListRegistryByName(
 			namespace,
 			resourceName,
@@ -113,7 +114,7 @@ func registryLocked() fetchResourceLocked {
 	}
 }
 
-func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client api.Client, namespace string, resourceName string) error {
+func waitForUnlocked(ctx context.Context, fetchResourceLocked fetchResourceLocked, client nexaaclient.NexaaAPI, namespace string, resourceName string) error {
 	const (
 		initialDelay = 2 * time.Second
 		maxDelay     = 15 * time.Second

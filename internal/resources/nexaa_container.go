@@ -594,7 +594,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 	r.nexaaClient.Lock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("container:" + plan.Namespace.ValueString() + "/" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	if _, checkErr := client.ListContainerByName(plan.Namespace.ValueString(), plan.Name.ValueString()); checkErr == nil {
 		resp.Diagnostics.AddError("Container already exists",
 			"A container named "+plan.Name.ValueString()+" already exists in namespace "+plan.Namespace.ValueString()+". "+
@@ -801,7 +801,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	// Fetch the created container
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	container, err := client.ListContainerByName(state.Namespace.ValueString(), state.Name.ValueString())
 	if err != nil {
 		if isNotFoundErr(err) {
@@ -1167,8 +1167,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
-	client := api.NewClient()
-	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	client := r.nexaaClient.API
+	err := waitForUnlocked(ctx, containerLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating container", "Cannot modify container in current state "+err.Error())
@@ -1376,7 +1376,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	deleteTimeout, diags := plan.Timeouts.Delete(ctx, 2*time.Minute)
 
 	resp.Diagnostics.Append(diags...)
@@ -1388,7 +1388,7 @@ func (r *containerResource) Delete(ctx context.Context, req resource.DeleteReque
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	err := waitForUnlocked(ctx, containerLocked(), *client, plan.Namespace.ValueString(), plan.Name.ValueString())
+	err := waitForUnlocked(ctx, containerLocked(), client, plan.Namespace.ValueString(), plan.Name.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting container", "Could not reach a running state: "+err.Error())
@@ -1413,7 +1413,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 	}
 
 	// Fetch the container from your API
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	container, err := client.ListContainerByName(namespace, name)
 	if err != nil {
 		resp.Diagnostics.AddError(

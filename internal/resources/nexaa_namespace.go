@@ -102,7 +102,7 @@ func (r *namespaceResource) Create(ctx context.Context, req resource.CreateReque
 	r.nexaaClient.Lock("namespace:" + plan.Name.ValueString())
 	defer r.nexaaClient.Unlock("namespace:" + plan.Name.ValueString())
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	existing, checkErr := client.NamespaceListByName(plan.Name.ValueString())
 	if checkErr != nil && !isNotFoundErr(checkErr) {
 		resp.Diagnostics.AddError("Error checking for existing namespace",
@@ -146,7 +146,7 @@ func (r *namespaceResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	namespace, err := client.NamespaceListByName(state.Name.ValueString())
 	if err != nil {
 		if isNotFoundErr(err) {
@@ -207,15 +207,15 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
 	defer cancel()
 
-	client := api.NewClient()
+	client := r.nexaaClient.API
 	namespaceName := state.Name.ValueString()
-	err := waitForAllChildrenToBeRemoved(ctx, *client, namespaceName)
+	err := waitForAllChildrenToBeRemoved(ctx, client, namespaceName)
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting namespace", err.Error())
 		return
 	}
 
-	err = deleteNamespaceWithRetry(ctx, *client, state.ID.ValueString())
+	err = deleteNamespaceWithRetry(ctx, client, state.ID.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -225,7 +225,7 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	err = waitForNamespaceToBeRemoved(ctx, *client, state.Name.ValueString())
+	err = waitForNamespaceToBeRemoved(ctx, client, state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting namespace", err.Error())
 	}
@@ -233,7 +233,7 @@ func (r *namespaceResource) Delete(ctx context.Context, req resource.DeleteReque
 
 func (r *namespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-	client := api.NewClient()
+	client := r.nexaaClient.API
 
 	id := req.ID
 	item, err := client.NamespaceListByName(id)
