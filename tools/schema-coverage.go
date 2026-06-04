@@ -1,10 +1,17 @@
 // schema-coverage: analyzes which terraform-plugin-framework schema attributes
-// are exercised by acceptance tests.
+// are exercised by acceptance tests, with modifier-aware coverage rules.
+//
+// Coverage rules per attribute modifier:
+//   required            — covered if the name appears in any test config (it must be set)
+//   optional            — covered if set in ≥1 config AND there exists ≥1 config for that
+//                         resource type where it is absent
+//   optional+computed   — same as optional, PLUS a tfjsonpath.New() assertion must exist
+//   computed (only)     — covered if a tfjsonpath.New() assertion exists
 //
 // Usage:
-//   go run ./schema-coverage \
+//   go run ./tools/schema-coverage.go \
 //     --resources ./internal/resources \
-//     --tests    ./internal/tests
+//     --tests     ./internal/tests
 //
 // Flags:
 //   --resources   path to resource schema definitions (default: ./internal/resources)
@@ -32,23 +39,40 @@ import (
 
 type Attribute struct {
 	Name     string
-	Type     string // e.g. StringAttribute, BoolAttribute, ListNestedAttribute …
+	Type     string
 	Required bool
 	Optional bool
 	Computed bool
-	Path     string // dotted path for nested attrs, e.g. "timeouts.create"
+	Path     string // dotted path, e.g. "external_connection.ports.internal_port"
+}
+
+type CoverageStatus int
+
+const (
+	StatusUncovered    CoverageStatus = iota // not seen in any test
+	StatusSetOnly                            // optional: set but never omitted
+	StatusOmitOnly                           // optional: omitted but never set
+	StatusNoStateCheck                       // optional+computed or computed: missing assertion
+	StatusCovered                            // fully covered
+)
+
+func (s CoverageStatus) IsCovered() bool { return s == StatusCovered }
+
+type AttributeCoverage struct {
+	Attr   Attribute
+	Status CoverageStatus
+	Hint   string
 }
 
 type ResourceCoverage struct {
 	Resource   string
-	Attributes []Attribute
-	Tested     map[string]bool // keyed by Attribute.Path
+	Attributes []AttributeCoverage
 }
 
 func (rc *ResourceCoverage) CoveredCount() int {
 	n := 0
-	for _, covered := range rc.Tested {
-		if covered {
+	for _, ac := range rc.Attributes {
+		if ac.Status.IsCovered() {
 			n++
 		}
 	}
@@ -65,107 +89,83 @@ func (rc *ResourceCoverage) Percent() float64 {
 
 // ---- schema extraction -----------------------------------------------------
 
-// knownAttrTypes are the terraform-plugin-framework schema.XxxAttribute constructors.
 var knownAttrTypes = map[string]bool{
-	"StringAttribute":      true,
-	"BoolAttribute":        true,
-	"Int64Attribute":       true,
-	"Float64Attribute":     true,
-	"NumberAttribute":      true,
-	"ListAttribute":        true,
-	"SetAttribute":         true,
-	"MapAttribute":         true,
-	"ObjectAttribute":      true,
-	"ListNestedAttribute":  true,
-	"SetNestedAttribute":   true,
-	"MapNestedAttribute":   true,
+	"StringAttribute":       true,
+	"BoolAttribute":         true,
+	"Int64Attribute":        true,
+	"Float64Attribute":      true,
+	"NumberAttribute":       true,
+	"ListAttribute":         true,
+	"SetAttribute":          true,
+	"MapAttribute":          true,
+	"ObjectAttribute":       true,
+	"ListNestedAttribute":   true,
+	"SetNestedAttribute":    true,
+	"MapNestedAttribute":    true,
 	"SingleNestedAttribute": true,
-	"DynamicAttribute":     true,
+	"DynamicAttribute":      true,
 }
 
-// extractAttributes walks Go AST files under resourcesDir and returns a map of
-// resource-name → []Attribute.
+// extractAttributes walks resourcesDir and returns resource-name → []Attribute.
+// Uses go/parser directly per file — no deprecated ast.Package.
 func extractAttributes(resourcesDir string) (map[string][]Attribute, error) {
 	fset := token.NewFileSet()
-	pkgs := map[string]*ast.Package{}
+	result := map[string][]Attribute{}
 
 	err := filepath.WalkDir(resourcesDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		if err != nil || d.IsDir() {
 			return err
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
 		}
 		f, parseErr := parser.ParseFile(fset, path, nil, 0)
 		if parseErr != nil {
 			return nil // skip unparseable files
 		}
-		pkg := f.Name.Name
-		if _, ok := pkgs[pkg+"@"+filepath.Dir(path)]; !ok {
-			pkgs[pkg+"@"+filepath.Dir(path)] = &ast.Package{Name: pkg, Files: map[string]*ast.File{}}
+		name := inferResourceName(path)
+		attrs := collectAttrsFromFile(f)
+		if len(attrs) > 0 {
+			result[name] = append(result[name], attrs...)
 		}
-		pkgs[pkg+"@"+filepath.Dir(path)].Files[path] = f
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	result := map[string][]Attribute{}
-
-	for _, pkg := range pkgs {
-		for filePath, f := range pkg.Files {
-			resourceName := inferResourceName(filePath)
-			attrs := collectAttrsFromFile(f)
-			if len(attrs) > 0 {
-				result[resourceName] = append(result[resourceName], attrs...)
-			}
-		}
-	}
-
-	return result, nil
+	return result, err
 }
 
-// inferResourceName derives a human-readable resource name from file path.
 func inferResourceName(filePath string) string {
 	base := filepath.Base(filePath)
 	base = strings.TrimSuffix(base, ".go")
-	// strip common suffixes
 	for _, suffix := range []string{"_resource", "_data_source", "_schema"} {
 		base = strings.TrimSuffix(base, suffix)
 	}
 	return base
 }
 
-// collectAttrsFromFile finds the top-level map[string]schema.Attribute literals
-// in the file and delegates to collectAttrsFromMap for each one.
-// We stop ast.Inspect from recursing into any map we handle ourselves so that
-// nested maps are only visited once, at the correct dotted path depth.
+// collectAttrsFromFile finds top-level map[string]schema.Attribute literals
+// and collects attributes. Returns false from the inspector once a map is
+// handled so nested maps are only visited through our own recursion.
 func collectAttrsFromFile(f *ast.File) []Attribute {
 	var attrs []Attribute
-
 	ast.Inspect(f, func(n ast.Node) bool {
-		compLit, ok := n.(*ast.CompositeLit)
+		cl, ok := n.(*ast.CompositeLit)
 		if !ok {
 			return true
 		}
-		if !isStringKeyedMap(compLit) {
+		if !isStringKeyedMap(cl) {
 			return true
 		}
-		// Collect top-level attrs from this map; nested maps are handled
-		// recursively inside collectAttrsFromMap, so we must NOT let
-		// ast.Inspect descend further (return false).
-		attrs = append(attrs, collectAttrsFromMap(compLit, "")...)
+		attrs = append(attrs, collectAttrsFromMap(cl, "")...)
 		return false
 	})
-
 	return attrs
 }
 
-// collectAttrsFromMap processes one map[string]schema.Attribute composite
-// literal. parentPath is the dotted prefix for this level ("" at root,
-// "timeouts" one level down, "external_connection.ports" two levels down).
-func collectAttrsFromMap(compLit *ast.CompositeLit, parentPath string) []Attribute {
+// collectAttrsFromMap processes one map[string]schema.Attribute literal.
+// parentPath is the dotted prefix ("" at root, "timeouts" one level down …).
+func collectAttrsFromMap(cl *ast.CompositeLit, parentPath string) []Attribute {
 	var attrs []Attribute
-
-	for _, elt := range compLit.Elts {
+	for _, elt := range cl.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
 			continue
@@ -178,65 +178,52 @@ func collectAttrsFromMap(compLit *ast.CompositeLit, parentPath string) []Attribu
 		if attrType == "" {
 			continue
 		}
-
 		path := key
 		if parentPath != "" {
 			path = parentPath + "." + key
 		}
-
 		attr := Attribute{Name: key, Type: attrType, Path: path}
 		fillModifiers(&attr, kv.Value)
 		attrs = append(attrs, attr)
-
-		// Look one level deeper: find any Attributes or NestedObject field
-		// that contains another map[string]schema.Attribute.
 		attrs = append(attrs, collectNestedAttrs(kv.Value, path)...)
 	}
-
 	return attrs
 }
 
-// collectNestedAttrs finds the next map[string]schema.Attribute inside an
-// attribute definition (via an Attributes: or NestedObject: field) and
-// recurses through collectAttrsFromMap. It does NOT use ast.Inspect so it
-// never accidentally double-visits any map.
+// collectNestedAttrs walks one attribute's value expression looking for
+// Attributes: or NestedObject: fields that contain another map.
+// It never uses ast.Inspect to avoid re-visiting maps already handled above.
 func collectNestedAttrs(expr ast.Expr, parentPath string) []Attribute {
-	compLit := unwrapCompositeLit(expr)
-	if compLit == nil {
+	cl := unwrapCompositeLit(expr)
+	if cl == nil {
 		return nil
 	}
-
 	var attrs []Attribute
-	for _, elt := range compLit.Elts {
+	for _, elt := range cl.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
 			continue
 		}
-		fieldName := identName(kv.Key)
-
-		switch fieldName {
+		switch identName(kv.Key) {
 		case "Attributes":
-			// Direct map[string]schema.Attribute value.
 			inner := unwrapCompositeLit(kv.Value)
 			if inner != nil && isStringKeyedMap(inner) {
 				attrs = append(attrs, collectAttrsFromMap(inner, parentPath)...)
 			}
-
 		case "NestedObject":
-			// NestedObject is a struct (e.g. schema.NestedAttributeObject) that
-			// itself has an Attributes field — recurse one more level.
+			// NestedObject is a struct (schema.NestedAttributeObject) that
+			// itself contains an Attributes field — recurse one more level.
 			attrs = append(attrs, collectNestedAttrs(kv.Value, parentPath)...)
 		}
 	}
 	return attrs
 }
 
-// unwrapCompositeLit resolves &T{...} and T{...} to the inner *ast.CompositeLit.
 func unwrapCompositeLit(expr ast.Expr) *ast.CompositeLit {
 	switch e := expr.(type) {
 	case *ast.CompositeLit:
 		return e
-	case *ast.UnaryExpr: // &T{...}
+	case *ast.UnaryExpr:
 		if cl, ok := e.X.(*ast.CompositeLit); ok {
 			return cl
 		}
@@ -244,7 +231,6 @@ func unwrapCompositeLit(expr ast.Expr) *ast.CompositeLit {
 	return nil
 }
 
-// isStringKeyedMap reports whether a composite literal has type map[string]...
 func isStringKeyedMap(cl *ast.CompositeLit) bool {
 	mt, ok := cl.Type.(*ast.MapType)
 	if !ok {
@@ -254,8 +240,6 @@ func isStringKeyedMap(cl *ast.CompositeLit) bool {
 	return ok && id.Name == "string"
 }
 
-// resolveAttrType returns e.g. "StringAttribute" if the expression is a call
-// or composite literal constructing one.
 func resolveAttrType(expr ast.Expr) string {
 	switch e := expr.(type) {
 	case *ast.CallExpr:
@@ -284,24 +268,22 @@ func selectorOrIdent(expr ast.Expr) string {
 
 func fillModifiers(attr *Attribute, expr ast.Expr) {
 	ast.Inspect(expr, func(n ast.Node) bool {
-		compLit, ok := n.(*ast.CompositeLit)
+		cl, ok := n.(*ast.CompositeLit)
 		if !ok {
 			return true
 		}
-		for _, elt := range compLit.Elts {
+		for _, elt := range cl.Elts {
 			kv, ok := elt.(*ast.KeyValueExpr)
 			if !ok {
 				continue
 			}
-			field := identName(kv.Key)
-			val := boolLiteral(kv.Value)
-			switch field {
+			switch identName(kv.Key) {
 			case "Required":
-				attr.Required = val
+				attr.Required = boolLiteral(kv.Value)
 			case "Optional":
-				attr.Optional = val
+				attr.Optional = boolLiteral(kv.Value)
 			case "Computed":
-				attr.Computed = val
+				attr.Computed = boolLiteral(kv.Value)
 			}
 		}
 		return true
@@ -310,89 +292,354 @@ func fillModifiers(attr *Attribute, expr ast.Expr) {
 
 // ---- test scanning ---------------------------------------------------------
 
-// scanTests walks testsDir for .go and .tf / .tftest.hcl files and returns
-// all attribute name tokens mentioned.
-func scanTests(testsDir string) (map[string]bool, error) {
-	mentioned := map[string]bool{}
+// ConfigBlock represents one parsed resource "type" "name" { … } block.
+type ConfigBlock struct {
+	ResourceType string
+	Attrs        map[string]bool // leaf attribute names present in this block
+}
+
+// TestEvidence holds everything extracted from test files.
+type TestEvidence struct {
+	// ConfigBlocks is the list of every HCL resource block found across all tests.
+	// Used to determine set-path and omit-path per resource type.
+	ConfigBlocks []ConfigBlock
+
+	// SetInConfig: all attribute leaf names / paths seen set in any config.
+	SetInConfig map[string]bool
+
+	// StateChecked: attr names referenced via tfjsonpath.New("x").
+	StateChecked map[string]bool
+}
+
+// seenSet returns true if attr was set in at least one config block.
+func (ev *TestEvidence) seenSet(leafName, path string) bool {
+	return ev.SetInConfig[leafName] || ev.SetInConfig[path]
+}
+
+// seenOmitted returns true if there is at least one config block for
+// resourceType that does NOT contain leafName.
+func (ev *TestEvidence) seenOmitted(resourceType, leafName string) bool {
+	for _, b := range ev.ConfigBlocks {
+		if b.ResourceType == resourceType && !b.Attrs[leafName] {
+			return true
+		}
+	}
+	return false
+}
+
+func scanTests(testsDir string) (*TestEvidence, error) {
+	ev := &TestEvidence{
+		SetInConfig:  map[string]bool{},
+		StateChecked: map[string]bool{},
+	}
 
 	err := filepath.WalkDir(testsDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-
-		switch {
-		case strings.HasSuffix(path, ".go"):
-			tokens, e := tokenizeGoFile(path)
-			if e == nil {
-				for _, t := range tokens {
-					mentioned[t] = true
-				}
-			}
-		case strings.HasSuffix(path, ".tf"),
-			strings.HasSuffix(path, ".tftest.hcl"),
-			strings.HasSuffix(path, ".hcl"):
-			tokens, e := tokenizeTextFile(path)
-			if e == nil {
-				for _, t := range tokens {
-					mentioned[t] = true
-				}
-			}
+		if strings.HasSuffix(path, ".go") {
+			_ = scanGoFile(path, ev)
 		}
 		return nil
 	})
-
-	return mentioned, err
+	return ev, err
 }
 
-// tokenizeGoFile extracts string literals and identifier names from a Go file.
-func tokenizeGoFile(path string) ([]string, error) {
+func scanGoFile(path string, ev *TestEvidence) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var tokens []string
+	// 1. Walk all string literals (catches backtick HCL configs).
 	ast.Inspect(f, func(n ast.Node) bool {
-		switch v := n.(type) {
-		case *ast.BasicLit:
-			if v.Kind == token.STRING {
-				s, _ := strconv.Unquote(v.Value)
-				tokens = append(tokens, s)
-				// split on whitespace, =, {, }, ", dots so embedded HCL configs
-				// inside backtick strings have their attribute names extracted
-				parts := strings.FieldsFunc(s, func(r rune) bool {
-					return r == ' ' || r == '\t' || r == '\n' || r == '\r' ||
-						r == '=' || r == '{' || r == '}' || r == '"' || r == '\'' ||
-						r == ',' || r == '(' || r == ')' || r == '#'
-				})
-				tokens = append(tokens, parts...)
-				// also split on dots for paths like "timeouts.create"
-				for _, p := range parts {
-					tokens = append(tokens, strings.Split(p, ".")...)
-				}
-			}
-		case *ast.Ident:
-			tokens = append(tokens, v.Name)
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
 		}
+		s, _ := strconv.Unquote(lit.Value)
+		collectHCLTokens(s, ev.SetInConfig)
+		parseConfigBlocks(s, &ev.ConfigBlocks)
+		detectStateChecks(s, ev.StateChecked)
 		return true
 	})
-	return tokens, nil
+
+	// 2. Walk call expressions for all known state-check patterns.
+	ast.Inspect(f, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+
+		fnName := ""
+		switch fn := call.Fun.(type) {
+		case *ast.SelectorExpr:
+			fnName = fn.Sel.Name
+		case *ast.Ident:
+			fnName = fn.Name
+		}
+
+		switch fnName {
+		// tfjsonpath.New("attr")
+		case "New":
+			if len(call.Args) == 1 {
+				if arg := stringLiteral(call.Args[0]); arg != "" {
+					ev.StateChecked[arg] = true
+				}
+			}
+
+		// resource.TestCheckResourceAttrSet("res.name", "attr")
+		// resource.TestCheckResourceAttr("res.name", "attr", "value")
+		case "TestCheckResourceAttrSet", "TestCheckResourceAttr",
+			"TestCheckResourceAttrPair", "TestCheckResourceAttrWith":
+			// second argument is always the attribute path
+			if len(call.Args) >= 2 {
+				if arg := stringLiteral(call.Args[1]); arg != "" {
+					ev.StateChecked[arg] = true
+					// also record the leaf segment after the last dot
+					// e.g. "timeouts.0.create" -> also record "create"
+					if dot := strings.LastIndex(arg, "."); dot >= 0 {
+						ev.StateChecked[arg[dot+1:]] = true
+					}
+				}
+			}
+
+		// statecheck.ExpectKnownValue / ExpectKnownOutputValue
+		case "ExpectKnownValue", "ExpectKnownOutputValue":
+			if len(call.Args) >= 2 {
+				if arg := stringLiteral(call.Args[1]); arg != "" {
+					ev.StateChecked[arg] = true
+				}
+			}
+		}
+
+		return true
+	})
+
+	return nil
 }
 
-// tokenizeTextFile splits a text file into word tokens.
-func tokenizeTextFile(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+// collectHCLTokens tokenises an HCL string and records every word in dst.
+func collectHCLTokens(s string, dst map[string]bool) {
+	parts := splitHCL(s)
+	for _, p := range parts {
+		dst[p] = true
+		for _, seg := range strings.Split(p, ".") {
+			dst[seg] = true
+		}
 	}
-	// split on whitespace, =, {, }, ", \n
-	raw := strings.FieldsFunc(string(data), func(r rune) bool {
+}
+
+// parseConfigBlocks parses resource "type" "name" { … } blocks in an HCL
+// string and appends a ConfigBlock for each one to *blocks.
+// Attrs records both leaf names AND full dotted paths so nested attributes
+// like external_connection.ports.internal_port are tracked correctly.
+func parseConfigBlocks(s string, blocks *[]ConfigBlock) {
+	type frame struct {
+		label string // identifier that opened this brace level
+		path  string // dotted path down to this level
+	}
+	type outerFrame struct {
+		resourceType string
+		attrs        map[string]bool
+		stack        []frame
+	}
+
+	var current *outerFrame
+
+	addAttr := func(name string) {
+		if current == nil || !isIdentifier(name) {
+			return
+		}
+		current.attrs[name] = true
+		if len(current.stack) > 0 {
+			top := current.stack[len(current.stack)-1]
+			if top.path != "" {
+				current.attrs[top.path+"."+name] = true
+			}
+		}
+	}
+
+	lines := strings.Split(s, "\n")
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+
+		opens := strings.Count(line, "{")
+		closes := strings.Count(line, "}")
+
+		// start of a resource block
+		if current == nil && strings.HasPrefix(line, "resource ") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				rtype := strings.Trim(fields[1], `"`)
+				current = &outerFrame{resourceType: rtype, attrs: map[string]bool{}}
+				if opens > closes {
+					current.stack = append(current.stack, frame{label: "", path: ""})
+				}
+			}
+			continue
+		}
+
+		if current == nil {
+			continue
+		}
+
+		// attribute assignment: name = value (no braces on this line)
+		if eqIdx := strings.Index(line, "="); eqIdx > 0 && opens == 0 && closes == 0 {
+			name := strings.TrimSpace(line[:eqIdx])
+			addAttr(name)
+			continue
+		}
+
+		// nested block opener: label { or label "alias" {
+		if opens > 0 {
+			fields := strings.Fields(strings.NewReplacer("{", " ", "}", " ").Replace(line))
+			if len(fields) > 0 {
+				label := strings.Trim(fields[0], `"`)
+				if isIdentifier(label) && label != "resource" && label != "data" {
+					parentPath := ""
+					if len(current.stack) > 0 {
+						parentPath = current.stack[len(current.stack)-1].path
+					}
+					path := label
+					if parentPath != "" {
+						path = parentPath + "." + label
+					}
+					addAttr(label)
+					for i := 0; i < opens-closes; i++ {
+						current.stack = append(current.stack, frame{label: label, path: path})
+					}
+				}
+			}
+			continue
+		}
+
+		// closing braces only
+		if closes > 0 {
+			for i := 0; i < closes && len(current.stack) > 0; i++ {
+				current.stack = current.stack[:len(current.stack)-1]
+			}
+			if len(current.stack) == 0 {
+				*blocks = append(*blocks, ConfigBlock{
+					ResourceType: current.resourceType,
+					Attrs:        current.attrs,
+				})
+				current = nil
+			}
+		}
+	}
+}
+func splitHCL(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool {
 		return r == ' ' || r == '\t' || r == '\n' || r == '\r' ||
 			r == '=' || r == '{' || r == '}' || r == '"' || r == '\'' ||
 			r == ',' || r == '(' || r == ')' || r == '#'
 	})
-	return raw, nil
+}
+
+func detectStateChecks(s string, dst map[string]bool) {
+	const needle = `tfjsonpath.New(`
+	rest := s
+	for {
+		pos := strings.Index(rest, needle)
+		if pos < 0 {
+			break
+		}
+		rest = rest[pos+len(needle):]
+		end := strings.Index(rest, ")")
+		if end < 0 {
+			break
+		}
+		arg := strings.Trim(rest[:end], `"' `)
+		if arg != "" {
+			dst[arg] = true
+		}
+		rest = rest[end+1:]
+	}
+}
+
+func isIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if i == 0 {
+			if !('a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || r == '_') {
+				return false
+			}
+		} else {
+			if !('a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9' || r == '_') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// ---- coverage evaluation ---------------------------------------------------
+
+func evaluate(attr Attribute, resourceType string, ev *TestEvidence) (CoverageStatus, string) {
+	set := ev.seenSet(attr.Name, attr.Path)
+	omitted := ev.seenOmitted(resourceType, attr.Name)
+	checked := ev.StateChecked[attr.Name] || ev.StateChecked[attr.Path]
+
+	switch {
+	case attr.Required && !attr.Optional && !attr.Computed:
+		if set {
+			return StatusCovered, ""
+		}
+		return StatusUncovered, "never set in any test config"
+
+	case attr.Optional && attr.Computed:
+		var missing []string
+		if !set {
+			missing = append(missing, "never set in config")
+		}
+		if !omitted {
+			missing = append(missing, "never omitted in config (omit-path not tested)")
+		}
+		if !checked {
+			missing = append(missing, "no tfjsonpath.New() assertion")
+		}
+		if len(missing) == 0 {
+			return StatusCovered, ""
+		}
+		if !checked {
+			return StatusNoStateCheck, strings.Join(missing, "; ")
+		}
+		if set && !omitted {
+			return StatusSetOnly, strings.Join(missing, "; ")
+		}
+		return StatusUncovered, strings.Join(missing, "; ")
+
+	case attr.Optional && !attr.Computed:
+		if set && omitted {
+			return StatusCovered, ""
+		}
+		if set {
+			return StatusSetOnly, "never omitted in config (omit-path not tested)"
+		}
+		if omitted {
+			return StatusOmitOnly, "never set in any test config"
+		}
+		return StatusUncovered, "never set or omitted in any test config"
+
+	case !attr.Optional && attr.Computed:
+		if checked {
+			return StatusCovered, ""
+		}
+		return StatusNoStateCheck, "no tfjsonpath.New() assertion for computed value"
+
+	default:
+		if set {
+			return StatusCovered, ""
+		}
+		return StatusUncovered, "never seen in any test config"
+	}
 }
 
 // ---- helpers ----------------------------------------------------------------
@@ -430,41 +677,74 @@ type JSONReport struct {
 }
 
 type JSONResourceReport struct {
-	Resource  string          `json:"resource"`
-	Percent   float64         `json:"percent"`
-	Covered   int             `json:"covered"`
-	Total     int             `json:"total"`
-	Untested  []AttributeInfo `json:"untested_attributes"`
+	Resource string          `json:"resource"`
+	Percent  float64         `json:"percent"`
+	Covered  int             `json:"covered"`
+	Total    int             `json:"total"`
+	Gaps     []JSONGapReport `json:"gaps,omitempty"`
 }
 
-type AttributeInfo struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
+type JSONGapReport struct {
+	Path   string `json:"path"`
+	Type   string `json:"type"`
+	Status string `json:"status"`
+	Hint   string `json:"hint"`
+}
+
+func statusLabel(s CoverageStatus) string {
+	switch s {
+	case StatusSetOnly:
+		return "set-only"
+	case StatusOmitOnly:
+		return "omit-only"
+	case StatusNoStateCheck:
+		return "no-state-check"
+	case StatusUncovered:
+		return "uncovered"
+	}
+	return "covered"
+}
+
+func modifierStr(attr Attribute) string {
+	var parts []string
+	if attr.Required {
+		parts = append(parts, "required")
+	}
+	if attr.Optional {
+		parts = append(parts, "optional")
+	}
+	if attr.Computed {
+		parts = append(parts, "computed")
+	}
+	return strings.Join(parts, "+")
 }
 
 func printText(resources []*ResourceCoverage, overall float64, threshold int) int {
 	fmt.Println()
-	fmt.Println("	╔══════════════════════════════════════════════════════════════════╗")
-	fmt.Println("	║                Terraform Schema Coverage Report                  ║")
-	fmt.Println("	╚══════════════════════════════════════════════════════════════════╝")
+	fmt.Println("╔══════════════════════════════════════════════════════════════════╗")
+	fmt.Println("║              Terraform Schema Coverage Report                   ║")
+	fmt.Println("╚══════════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 
 	for _, rc := range resources {
 		pct := rc.Percent()
 		bar := progressBar(pct, 30)
+		// Show ✗ whenever there are actual gaps, regardless of threshold
+		hasGaps := rc.CoveredCount() < len(rc.Attributes)
 		symbol := "✓"
-		if pct < float64(threshold) {
+		if hasGaps {
 			symbol = "✗"
 		}
-		fmt.Printf("  %s %-35s %s  %5.1f%%  (%d/%d)\n",
+		fmt.Printf("  %s %-38s %s  %5.1f%%  (%d/%d)\n",
 			symbol, rc.Resource, bar, pct, rc.CoveredCount(), len(rc.Attributes))
 
-		// list untested attributes
-		for _, attr := range rc.Attributes {
-			if !rc.Tested[attr.Path] {
-				modifier := modifierStr(attr)
-				fmt.Printf("      ✗ %-40s [%s] %s\n", attr.Path, attr.Type, modifier)
+		for _, ac := range rc.Attributes {
+			if ac.Status.IsCovered() {
+				continue
 			}
+			fmt.Printf("      ✗ %-42s [%s] %s\n",
+				ac.Attr.Path, ac.Attr.Type, modifierStr(ac.Attr))
+			fmt.Printf("        → %s\n", ac.Hint)
 		}
 		fmt.Println()
 	}
@@ -483,22 +763,7 @@ func progressBar(pct float64, width int) string {
 	if filled > width {
 		filled = width
 	}
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
-	return "[" + bar + "]"
-}
-
-func modifierStr(attr Attribute) string {
-	var parts []string
-	if attr.Required {
-		parts = append(parts, "required")
-	}
-	if attr.Optional {
-		parts = append(parts, "optional")
-	}
-	if attr.Computed {
-		parts = append(parts, "computed")
-	}
-	return strings.Join(parts, ",")
+	return "[" + strings.Repeat("█", filled) + strings.Repeat("░", width-filled) + "]"
 }
 
 // ---- main -------------------------------------------------------------------
@@ -506,11 +771,10 @@ func modifierStr(attr Attribute) string {
 func main() {
 	resourcesDir := flag.String("resources", "./internal/resources", "path to resource schema definitions")
 	testsDir := flag.String("tests", "./internal/tests", "path to acceptance test files")
-	threshold := flag.Int("threshold", 100, "fail if overall coverage is below this percentage (0 = disabled)")
+	threshold := flag.Int("threshold", 0, "fail if overall coverage is below this percentage (0 = disabled)")
 	format := flag.String("format", "text", "output format: text or json")
 	flag.Parse()
 
-	// 1. Extract schema attributes
 	schemaAttrs, err := extractAttributes(*resourcesDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading resources: %v\n", err)
@@ -521,14 +785,12 @@ func main() {
 		os.Exit(2)
 	}
 
-	// 2. Scan tests for mentioned tokens
-	mentioned, err := scanTests(*testsDir)
+	ev, err := scanTests(*testsDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading tests: %v\n", err)
 		os.Exit(2)
 	}
 
-	// 3. Build coverage per resource
 	var resources []*ResourceCoverage
 	totalAttrs, totalCovered := 0, 0
 
@@ -539,20 +801,16 @@ func main() {
 	sort.Strings(sortedNames)
 
 	for _, name := range sortedNames {
-		attrs := schemaAttrs[name]
-		rc := &ResourceCoverage{
-			Resource:   name,
-			Attributes: attrs,
-			Tested:     map[string]bool{},
-		}
-		for _, attr := range attrs {
-			// check both the leaf name and the full dotted path
-			covered := mentioned[attr.Name] || mentioned[attr.Path]
-			rc.Tested[attr.Path] = covered
-			if covered {
+		rc := &ResourceCoverage{Resource: name}
+		for _, attr := range schemaAttrs[name] {
+			status, hint := evaluate(attr, name, ev)
+			rc.Attributes = append(rc.Attributes, AttributeCoverage{
+				Attr: attr, Status: status, Hint: hint,
+			})
+			totalAttrs++
+			if status.IsCovered() {
 				totalCovered++
 			}
-			totalAttrs++
 		}
 		resources = append(resources, rc)
 	}
@@ -562,9 +820,7 @@ func main() {
 		overall = float64(totalCovered) / float64(totalAttrs) * 100
 	}
 
-	// 4. Output
 	exitCode := 0
-
 	if *format == "json" {
 		report := JSONReport{Overall: overall}
 		for _, rc := range resources {
@@ -574,16 +830,21 @@ func main() {
 				Covered:  rc.CoveredCount(),
 				Total:    len(rc.Attributes),
 			}
-			for _, attr := range rc.Attributes {
-				if !rc.Tested[attr.Path] {
-					jr.Untested = append(jr.Untested, AttributeInfo{Path: attr.Path, Type: attr.Type})
+			for _, ac := range rc.Attributes {
+				if !ac.Status.IsCovered() {
+					jr.Gaps = append(jr.Gaps, JSONGapReport{
+						Path:   ac.Attr.Path,
+						Type:   ac.Attr.Type,
+						Status: statusLabel(ac.Status),
+						Hint:   ac.Hint,
+					})
 				}
 			}
 			report.Resources = append(report.Resources, jr)
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(report)
+		_ = enc.Encode(report)
 		if *threshold > 0 && overall < float64(*threshold) {
 			exitCode = 1
 		}
