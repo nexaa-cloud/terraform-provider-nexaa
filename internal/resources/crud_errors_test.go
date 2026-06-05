@@ -358,6 +358,7 @@ func buildMessageQueuePlan(t *testing.T, namespace, name string) tfsdk.Plan {
 		State:              types.StringNull(),
 		Locked:             types.BoolNull(),
 		Allowlist:          types.ListNull(types.StringType),
+		AdminUser:          types.ObjectNull(MessageQueueAdminUserObjectAttributeTypes()),
 		Timeouts:           messageQueueTimeouts(),
 	})
 	require.False(t, diags.HasError(), fmt.Sprintf("buildMessageQueuePlan: %v", diags))
@@ -392,6 +393,7 @@ func buildMessageQueueState(t *testing.T, namespace, name string) tfsdk.State {
 		State:              types.StringValue("active"),
 		Locked:             types.BoolValue(false),
 		Allowlist:          types.ListValueMust(types.StringType, []attr.Value{types.StringValue("0.0.0.0/0"), types.StringValue("::/0")}),
+		AdminUser:          types.ObjectNull(MessageQueueAdminUserObjectAttributeTypes()),
 		Timeouts:           messageQueueTimeouts(),
 	})
 	require.False(t, diags.HasError(), fmt.Sprintf("buildMessageQueueState: %v", diags))

@@ -62,7 +62,7 @@ func makePermissionSet(permissions []map[string]string) types.Set {
 
 func makeUserPlan(name string, permissions []map[string]string) cloudDatabaseClusterUserResource {
 	return cloudDatabaseClusterUserResource{
-		Name:    types.StringValue(name),
+		Name:     types.StringValue(name),
 		Password: types.StringValue("secret"),
 		Cluster: ClusterRef{
 			Namespace: types.StringValue("test-ns"),

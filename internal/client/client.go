@@ -48,6 +48,7 @@ type NexaaAPI interface {
 	MessageQueueGet(input api.MessageQueueResourceInput) (api.MessageQueueResult, error)
 	MessageQueueList() ([]api.MessageQueueResult, error)
 	MessageQueuePlans() ([]api.MessageQueuePlanResult, error)
+	MessageQueueAdminCredentials(input api.MessageQueueResourceInput, username string) (api.MessageQueueUserCredentialsResult, error)
 
 	// Cloud Database Cluster
 	CloudDatabaseClusterCreate(input api.CloudDatabaseClusterCreateInput) (api.CloudDatabaseClusterResult, error)

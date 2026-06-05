@@ -48,6 +48,11 @@ func TestAcc_MessageQueueResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ipv6"),
 					resource.TestCheckResourceAttr("nexaa_message_queue.queue", "external_connection.ports.allowlist.#", "2"),
 					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "external_connection.ports.external_port"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "admin_user.name"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "admin_user.role"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "admin_user.status"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "admin_user.password"),
+					resource.TestCheckResourceAttrSet("nexaa_message_queue.queue", "admin_user.dsn"),
 				),
 			},
 

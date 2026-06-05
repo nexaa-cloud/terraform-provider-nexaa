@@ -145,6 +145,11 @@ func (m *MockNexaaAPI) MessageQueuePlans() ([]api.MessageQueuePlanResult, error)
 	return args.Get(0).([]api.MessageQueuePlanResult), args.Error(1)
 }
 
+func (m *MockNexaaAPI) MessageQueueAdminCredentials(input api.MessageQueueResourceInput, username string) (api.MessageQueueUserCredentialsResult, error) {
+	args := m.Called(input, username)
+	return args.Get(0).(api.MessageQueueUserCredentialsResult), args.Error(1)
+}
+
 func (m *MockNexaaAPI) CloudDatabaseClusterCreate(input api.CloudDatabaseClusterCreateInput) (api.CloudDatabaseClusterResult, error) {
 	args := m.Called(input)
 	return args.Get(0).(api.CloudDatabaseClusterResult), args.Error(1)
