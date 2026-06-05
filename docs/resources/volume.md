@@ -17,7 +17,7 @@ To use this provider we need to add a bit of configuration to authenticate.
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }

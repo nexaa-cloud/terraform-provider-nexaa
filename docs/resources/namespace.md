@@ -15,7 +15,7 @@ We need to configure the provider
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }

@@ -17,7 +17,7 @@ To use this provider we need to add a bit of configuration to authenticate.
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }
@@ -47,7 +47,7 @@ resource "nexaa_starter_container" "starter-container" {
   ## Define your name, namespace, image and (if required) add registry credentials
   name      = "tf-starter-container"
   namespace = "terraform-test"
-  image     = "nginx:latest"
+  image     = "nginx"
   registry  = null
 
   ## With command and entrypoint you can override the startup behaviour of your container

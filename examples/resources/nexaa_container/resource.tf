@@ -12,7 +12,7 @@ resource "nexaa_container" "container" {
   ## Define your name, namespace, image and (if required) add registry credentials
   name      = "tf-container"
   namespace = "terraform-test"
-  image     = "nginx:latest"
+  image     = "nginx"
   registry  = null
 
   ## With command and entrypoint you can override the startup behaviour of your container

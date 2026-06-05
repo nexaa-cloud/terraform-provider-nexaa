@@ -4,7 +4,7 @@
 terraform {
   required_providers {
     nexaa = {
-      source = "nexaa-cloud/nexaa/nexaa"
+      source = "nexaa-cloud/nexaa"
     }
   }
 }
@@ -42,7 +42,7 @@ resource "nexaa_container" "container" {
   depends_on = [nexaa_volume.volume]
   name       = "tf-container"
   namespace  = nexaa_namespace.namespace.name
-  image      = "nginx:latest"
+  image      = "nginx"
   registry   = null
 
   resources = data.nexaa_container_resources.container_resource.id
@@ -93,7 +93,7 @@ resource "nexaa_starter_container" "starter-container" {
   depends_on = [nexaa_volume.volume]
   name       = "tf-starter-container"
   namespace  = nexaa_namespace.namespace.name
-  image      = "nginx:latest"
+  image      = "nginx"
   registry   = null
 
   ports = ["8000:8000", "80:80", "8008:8008"]
@@ -137,7 +137,7 @@ resource "nexaa_container_job" "container-job" {
   depends_on = [nexaa_volume.volume]
   namespace  = nexaa_namespace.namespace.name
   name       = "my-container-job"
-  image      = "ubuntu:latest"
+  image      = "ubuntu"
   resources  = data.nexaa_container_resources.container_resource.id
   schedule   = "0 4 * * *"
 
