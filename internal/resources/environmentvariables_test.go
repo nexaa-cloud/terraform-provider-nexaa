@@ -148,6 +148,107 @@ func Test_BuildEnvSetFromAPI_secretPreservePrev_unknown_secret_masked(t *testing
 	assert.Equal(t, "***", envs[0].Value.ValueString())
 }
 
+// --- buildEnvUpdateInputs ---
+
+func Test_BuildEnvUpdateInputs_null_prev_and_plan(t *testing.T) {
+	inputs, diags := buildEnvUpdateInputs(context.Background(), types.SetNull(envVarObjectType()), types.SetNull(envVarObjectType()))
+	assert.False(t, diags.HasError())
+	assert.Empty(t, inputs)
+}
+
+func Test_BuildEnvUpdateInputs_no_removals(t *testing.T) {
+	set := makeEnvSet([]attr.Value{
+		makeEnvObj("FOO", "bar", false),
+		makeEnvObj("BAZ", "qux", false),
+	})
+	inputs, diags := buildEnvUpdateInputs(context.Background(), set, set)
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 2)
+	for _, inp := range inputs {
+		assert.Equal(t, api.StatePresent, inp.State)
+	}
+}
+
+func Test_BuildEnvUpdateInputs_one_var_removed(t *testing.T) {
+	prev := makeEnvSet([]attr.Value{
+		makeEnvObj("KEEP", "val", false),
+		makeEnvObj("REMOVE", "old", false),
+	})
+	plan := makeEnvSet([]attr.Value{
+		makeEnvObj("KEEP", "val", false),
+	})
+
+	inputs, diags := buildEnvUpdateInputs(context.Background(), plan, prev)
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 2)
+
+	byName := map[string]api.EnvironmentVariableInput{}
+	for _, inp := range inputs {
+		byName[inp.Name] = inp
+	}
+	assert.Equal(t, api.StatePresent, byName["KEEP"].State)
+	assert.Equal(t, api.StateAbsent, byName["REMOVE"].State)
+}
+
+func Test_BuildEnvUpdateInputs_all_vars_removed(t *testing.T) {
+	prev := makeEnvSet([]attr.Value{
+		makeEnvObj("A", "1", false),
+		makeEnvObj("B", "2", false),
+	})
+
+	inputs, diags := buildEnvUpdateInputs(context.Background(), types.SetNull(envVarObjectType()), prev)
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 2)
+	for _, inp := range inputs {
+		assert.Equal(t, api.StateAbsent, inp.State)
+	}
+}
+
+func Test_BuildEnvUpdateInputs_secret_var_removed(t *testing.T) {
+	prev := makeEnvSet([]attr.Value{
+		makeEnvObj("PLAIN", "visible", false),
+		makeEnvObj("SECRET", "hidden", true),
+	})
+	plan := makeEnvSet([]attr.Value{
+		makeEnvObj("PLAIN", "visible", false),
+	})
+
+	inputs, diags := buildEnvUpdateInputs(context.Background(), plan, prev)
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 2)
+
+	byName := map[string]api.EnvironmentVariableInput{}
+	for _, inp := range inputs {
+		byName[inp.Name] = inp
+	}
+	assert.Equal(t, api.StatePresent, byName["PLAIN"].State)
+	assert.Equal(t, api.StateAbsent, byName["SECRET"].State)
+}
+
+func Test_BuildEnvUpdateInputs_var_added(t *testing.T) {
+	prev := makeEnvSet([]attr.Value{makeEnvObj("OLD", "v", false)})
+	plan := makeEnvSet([]attr.Value{
+		makeEnvObj("OLD", "v", false),
+		makeEnvObj("NEW", "w", false),
+	})
+
+	inputs, diags := buildEnvUpdateInputs(context.Background(), plan, prev)
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 2)
+	for _, inp := range inputs {
+		assert.Equal(t, api.StatePresent, inp.State)
+	}
+}
+
+func Test_BuildEnvUpdateInputs_null_prev_behaves_like_extract(t *testing.T) {
+	plan := makeEnvSet([]attr.Value{makeEnvObj("FOO", "bar", false)})
+	inputs, diags := buildEnvUpdateInputs(context.Background(), plan, types.SetNull(envVarObjectType()))
+	assert.False(t, diags.HasError())
+	assert.Len(t, inputs, 1)
+	assert.Equal(t, api.StatePresent, inputs[0].State)
+	assert.Equal(t, "FOO", inputs[0].Name)
+}
+
 func Test_BuildEnvSetFromAPI_secretMaskOnly(t *testing.T) {
 	apiVars := []api.EnvironmentVariableResult{
 		makeAPIVar("SECRET", strVal("should_be_masked"), true),

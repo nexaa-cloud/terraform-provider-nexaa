@@ -72,6 +72,38 @@ func buildPrevSecretMap(ctx context.Context, prevSet types.Set) map[string]strin
 	return m
 }
 
+// buildEnvUpdateInputs returns the full env var input list for an update: StatePresent for vars in
+// the new plan, and StateAbsent for any var that existed in the previous state but was removed.
+func buildEnvUpdateInputs(ctx context.Context, planSet, prevSet types.Set) ([]api.EnvironmentVariableInput, diag.Diagnostics) {
+	present, diags := extractEnvInputsFromSet(ctx, planSet)
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	planNames := map[string]bool{}
+	for _, p := range present {
+		planNames[p.Name] = true
+	}
+
+	if !prevSet.IsNull() && !prevSet.IsUnknown() {
+		var prevEnvs []environmentVariableResource
+		if d := prevSet.ElementsAs(ctx, &prevEnvs, false); d.HasError() {
+			diags.Append(d...)
+			return nil, diags
+		}
+		for _, ev := range prevEnvs {
+			if !planNames[ev.Name.ValueString()] {
+				present = append(present, api.EnvironmentVariableInput{
+					Name:  ev.Name.ValueString(),
+					State: api.StateAbsent,
+				})
+			}
+		}
+	}
+
+	return present, diags
+}
+
 // buildEnvSetFromAPI converts API env vars to a Terraform Set with appropriate secret handling based on mode.
 func buildEnvSetFromAPI(ctx context.Context, apiVars []api.EnvironmentVariableResult, provided []api.EnvironmentVariableInput, prevSet types.Set, mode secretMode) (types.Set, diag.Diagnostics) {
 	var diags diag.Diagnostics

@@ -1079,8 +1079,8 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 	input.ExternalConnection = externalConn
 
-	// Environment variables (build API input from plan)
-	inputsUpd, dEnvU := extractEnvInputsFromSet(ctx, plan.EnvironmentVariables)
+	// Environment variables
+	inputsUpd, dEnvU := buildEnvUpdateInputs(ctx, plan.EnvironmentVariables, prev.EnvironmentVariables)
 	resp.Diagnostics.Append(dEnvU...)
 	if resp.Diagnostics.HasError() {
 		return
