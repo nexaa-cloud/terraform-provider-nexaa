@@ -755,7 +755,7 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 				"auto_input":   autoInput,
 			},
 		)
-	} else if containerResult.NumberOfReplicas > 0 {
+	} else if containerResult.NumberOfReplicas >= 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
@@ -955,7 +955,7 @@ func (r *containerResource) Read(ctx context.Context, req resource.ReadRequest, 
 				"auto_input":   autoInput,
 			},
 		)
-	} else if container.NumberOfReplicas > 0 {
+	} else if container.NumberOfReplicas >= 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
@@ -1330,7 +1330,7 @@ func (r *containerResource) Update(ctx context.Context, req resource.UpdateReque
 				"auto_input":   autoInput,
 			},
 		)
-	} else if containerResult.NumberOfReplicas > 0 {
+	} else if containerResult.NumberOfReplicas >= 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
@@ -1501,7 +1501,7 @@ func (r *containerResource) ImportState(ctx context.Context, req resource.Import
 				"auto_input":   autoInput,
 			},
 		)
-	} else if container.NumberOfReplicas > 0 {
+	} else if container.NumberOfReplicas >= 0 {
 		scalingObj = types.ObjectValueMust(
 			scalingType.AttrTypes,
 			map[string]attr.Value{
