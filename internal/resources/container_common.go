@@ -6,8 +6,9 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/nexaa-cloud/nexaa-cli/api"
 	"strings"
+
+	"github.com/nexaa-cloud/nexaa-cli/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -318,24 +319,34 @@ func buildMountsUpdateInput(ctx context.Context, currentMounts, previousMounts t
 	return mountInputs, diags
 }
 
-func buildIngressesUpdateInput(ctx context.Context, currentIngresses, previousIngresses types.List) ([]api.IngressInput, diag.Diagnostics) {
+func buildIngressesUpdateInput(ctx context.Context, planIngresses, previousIngresses types.List) ([]api.IngressInput, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	var ingressInputs []api.IngressInput
-
-	if currentIngresses.IsNull() || currentIngresses.IsUnknown() {
-		return ingressInputs, diags
-	}
-
-	var ingresses []ingresResource
-	diags = currentIngresses.ElementsAs(ctx, &ingresses, false)
-	if diags.HasError() {
-		return nil, diags
-	}
 
 	// Get previous ingresses
 	var prevIngresses []ingresResource
 	if !previousIngresses.IsNull() && !previousIngresses.IsUnknown() {
 		_ = previousIngresses.ElementsAs(ctx, &prevIngresses, false)
+	}
+
+	// If the user want 0 ingresses, set all existing/previous ingresses to absent
+	if planIngresses.IsNull() || planIngresses.IsUnknown() {
+		for _, ing := range prevIngresses {
+			ingressInputs = append(ingressInputs, api.IngressInput{
+				DomainName: ing.DomainName.ValueStringPointer(),
+				Port:       int(ing.Port.ValueInt64()),
+				EnableTLS:  ing.TLS.ValueBool(),
+				State:      api.StateAbsent,
+			})
+		}
+
+		return ingressInputs, diags
+	}
+
+	var ingresses []ingresResource
+	diags = planIngresses.ElementsAs(ctx, &ingresses, false)
+	if diags.HasError() {
+		return nil, diags
 	}
 
 	plannedIngresses := map[string]struct{}{}
