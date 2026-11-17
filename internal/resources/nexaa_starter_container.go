@@ -342,14 +342,16 @@ func (r *starterContainerResource) Create(ctx context.Context, req resource.Crea
 		plan.Registry = types.StringNull()
 	}
 
+	containerResources := api.ContainerResourcesCpu250Ram500
+
 	// Build input struct for starter container (default resources and no scaling)
 	input := api.ContainerCreateInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
-		Image:     plan.Image.ValueString(),
+		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
 		Type:      api.ContainerTypeStarter,
-		Resources: api.ContainerResourcesCpu250Ram500,
+		Resources: &containerResources,
 	}
 
 	// Command

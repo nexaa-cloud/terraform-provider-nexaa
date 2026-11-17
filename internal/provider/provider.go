@@ -5,19 +5,13 @@ package provider
 
 import (
 	"context"
-	"os"
-
-	nexaaclient "github.com/nexaa-cloud/terraform-provider-nexaa/internal/client"
+	
 	data_sources "github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
-
-	"github.com/nexaa-cloud/nexaa-cli/api"
-	"github.com/nexaa-cloud/nexaa-cli/config"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -38,6 +32,7 @@ type NexaaProvider struct {
 type NexaaProviderModel struct {
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
+	ApiKey 	 types.String `tfsdk:"apikey"`
 }
 
 func (p *NexaaProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -54,13 +49,18 @@ on delivering and not on managing your infrastructure. That is why we made it ea
 `,
 		Attributes: map[string]schema.Attribute{
 			"username": schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
 				Description: "The username used to log in the API account",
 			},
 			"password": schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				Description: "The password used to log in the API account",
+			},
+			"apikey": schema.StringAttribute{
+				Optional: true,
+				Sensitive: true,
+				Description: "The API Key used to execute API requests",
 			},
 		},
 	}
@@ -74,83 +74,20 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	if conf.Username.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("username"),
-			"Unknown username",
-			"Missing username for authentication",
-		)
-	}
+	if conf.ApiKey.IsNull() || conf.ApiKey.IsUnknown() {
+		if ((conf.Password.IsUnknown() || conf.Password.IsNull()) && 
+			(conf.Username.IsNull() || conf.Username.IsUnknown())) {
+				resp.Diagnostics.AddError(
+					"Missing Credentials",
+					"Error: Missing Username and/or Password. Or missing API key",
+				)
+		}
 
-	if conf.Password.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("password"),
-			"Unknown password",
-			"Missing password for authentication",
-		)
-	}
-
-	if resp.Diagnostics.HasError() {
+		p.CredentialLogin(ctx, req, resp)
 		return
 	}
 
-	username := os.Getenv("NEXAA_USERNAME")
-	password := os.Getenv("NEXAA_PASSWORD")
-
-	if !conf.Username.IsNull() {
-		username = conf.Username.ValueString()
-	}
-
-	if !conf.Password.IsNull() {
-		password = conf.Password.ValueString()
-	}
-
-	if username == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("username"),
-			"Unknown username",
-			"Missing username for authentication",
-		)
-	}
-
-	if password == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("password"),
-			"Unknown password",
-			"Missing password for authentication",
-		)
-	}
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	config.Initialize()
-
-	if err := config.LoadConfig(); err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to load Nexaa configuration",
-			"Error: "+err.Error(),
-		)
-		return
-	}
-
-	err := api.Login(username, password)
-
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to log in",
-			"Error: "+err.Error(),
-		)
-		return
-	}
-
-	// Create API client and make it available to resources.
-	// NexaaClient wraps the client with a shared MutexKV that serializes
-	// concurrent Create calls for the same resource name.
-	client := nexaaclient.New(api.NewClient())
-	resp.ResourceData = client
-	resp.DataSourceData = client
+	p.ApiKeyLogin(ctx, req, resp)
 }
 
 func (p *NexaaProvider) Resources(ctx context.Context) []func() resource.Resource {

@@ -457,13 +457,15 @@ func (r *containerResource) Create(ctx context.Context, req resource.CreateReque
 		plan.Registry = types.StringNull()
 	}
 
+	containerResources := api.ContainerResources(plan.Resources.ValueString())
+
 	// Build input struct
 	input := api.ContainerCreateInput{
 		Namespace: plan.Namespace.ValueString(),
 		Name:      plan.Name.ValueString(),
-		Image:     plan.Image.ValueString(),
+		Image:     plan.Image.ValueStringPointer(),
 		Registry:  plan.Registry.ValueStringPointer(),
-		Resources: api.ContainerResources(plan.Resources.ValueString()),
+		Resources: &containerResources,
 		Type:      api.ContainerTypeDefault,
 	}
 
