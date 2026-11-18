@@ -5,7 +5,7 @@ package provider
 
 import (
 	"context"
-	
+
 	data_sources "github.com/nexaa-cloud/terraform-provider-nexaa/internal/data-sources"
 	"github.com/nexaa-cloud/terraform-provider-nexaa/internal/resources"
 
@@ -32,7 +32,7 @@ type NexaaProvider struct {
 type NexaaProviderModel struct {
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
-	ApiKey 	 types.String `tfsdk:"apikey"`
+	ApiKey   types.String `tfsdk:"apikey"`
 }
 
 func (p *NexaaProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -58,8 +58,8 @@ on delivering and not on managing your infrastructure. That is why we made it ea
 				Description: "The password used to log in the API account",
 			},
 			"apikey": schema.StringAttribute{
-				Optional: true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
 				Description: "The API Key used to execute API requests",
 			},
 		},
@@ -75,13 +75,18 @@ func (p *NexaaProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	if conf.ApiKey.IsNull() || conf.ApiKey.IsUnknown() {
-		if ((conf.Password.IsUnknown() || conf.Password.IsNull()) && 
-			(conf.Username.IsNull() || conf.Username.IsUnknown())) {
-				resp.Diagnostics.AddError(
-					"Missing Credentials",
-					"Error: Missing Username and/or Password. Or missing API key",
-				)
+		if (conf.Password.IsUnknown() || conf.Password.IsNull()) &&
+			(conf.Username.IsNull() || conf.Username.IsUnknown()) {
+			resp.Diagnostics.AddError(
+				"Missing Credentials",
+				"Error: Missing Username and/or Password. Or missing API key",
+			)
 		}
+
+		resp.Diagnostics.AddWarning(
+			"Deprecated Login",
+			"The username password login is deprecated and will be removed in the future. \nAt the moment it can still be used, we recommend switching to an API key instead.",
+		)
 
 		p.CredentialLogin(ctx, req, resp)
 		return
